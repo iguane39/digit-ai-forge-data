@@ -1,0 +1,12 @@
+{
+  "format": "forge-data/assertions@1",
+  "dataset": "ventes_synthetiques",
+  "assertions": [
+    { "objet": "ventes.id_commande", "type": "unique" },
+    { "objet": "ventes.montant", "type": "bornes", "min": 0, "max": 100000 },
+    { "objet": "ventes.pays", "type": "ensemble", "valeurs": ["FR", "BE", "LU"] },
+    { "objet": "ventes.email_client", "type": "motif", "regex": "^[^@\\s]+@[^@\\s]+$" },
+    { "objet": "ventes.date_maj", "type": "fraicheur", "max_age_jours": 7 },
+    { "objet": "ventes.id_produit", "type": "non_nul" }
+  ]
+}

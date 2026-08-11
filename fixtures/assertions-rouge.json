@@ -1,0 +1,10 @@
+{
+  "format": "forge-data/assertions@1",
+  "dataset": "ventes_synthetiques",
+  "assertions": [
+    { "objet": "ventes.montant", "type": "bornes", "min": 0 },
+    { "type": "non_nul" },
+    { "objet": "ventes", "type": "audit_visuel" },
+    { "objet": "ventes.statut", "type": "non_nul", "description": "les données doivent être propres et cohérentes" }
+  ]
+}
