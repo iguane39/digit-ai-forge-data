@@ -10,7 +10,7 @@ réécrit.
 ## Catalogue de services
 
 > Section proposée par la campagne « catalogues » du pilot (2026-08-12) — générée depuis
-> la source unique `catalogues/catalogue.jsonl` du pilot (v1.0.0, challengée état de
+> la source unique `catalogues/catalogue.jsonl` du pilot (v1.1.0, challengée état de
 > l'art le 12/08/2026). **prouvé** = preuve exécutée ; *déclaré* = méthode documentée seulement.
 
 | Service | Intention (« je veux… ») | Point d'entrée | Statut |
@@ -18,8 +18,8 @@ réécrit.
 | **Profiler (qualité en assertions)** | exprimer et vérifier la qualité de mes données en assertions exécutables | `node oracles\oracle-profiler.mjs <assertions.json>` | prouvé (experimental) |
 | **Tracer (lineage exigible)** | déclarer et vérifier le lineage complet de mes données | `node oracles\oracle-tracer.mjs <lineage.json>` | prouvé (experimental) |
 | **Restituer (chiffres sourcés)** | garantir que tout chiffre restitué est ancré à sa source | `node oracles\oracle-restituer.mjs <rapport.md>` | prouvé (experimental) |
-| **Contractualiser (data contract inspectable)** | figer un accord producteur↔consommateur en schéma + SLA + propriétaire + version, niveau ODCS | `node oracles\oracle-contractualiser.mjs <contrat.json>` | prouvé (experimental) — ajouté 12/08, table à régénérer par la prochaine campagne catalogues |
 | **Fonds de savoir data** | réutiliser les patterns éprouvés de rétro-ingénierie et de lineage | `references\ du dépôt data (lecture)` | déclaré (experimental) |
+| **Contractualiser (data contract)** | sceller l'accord producteur↔consommateur en contrat vérifiable machine | `node oracles\oracle-contractualiser.mjs <contrat.json>` | prouvé (experimental) |
 
 Le catalogue consolidé des dix forges vit chez le pilot :
 [digit-ai-forge-pilot/catalogues/CATALOGUES.md](https://github.com/iguane39/digit-ai-forge-pilot/blob/main/catalogues/CATALOGUES.md).
