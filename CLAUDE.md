@@ -59,6 +59,15 @@ doit PASSER `oracle-profiler`/`oracle-contractualiser` sans retouche (vérifié 
 node scripts/importer.mjs fixtures/schema-postgres-verte.sql --sortie-dir <dossier>
 ```
 
+## Profils-moteur (TF-0140, `references\profils-moteur\`)
+
+Référentiels versionnés (loi n° 4, jamais du code) : dialecte de contraintes, mapping de
+types, vues catalogue, commande d'export — un par moteur, alimentant le verbe `importer`.
+Quatre à ce jour : `postgres.md` (consommé par `importer` v0), `oracle.md`, `azure-sql.md`,
+`databricks.md` (à part — lakehouse, pas un RDBMS ; son lineage colonne natif Unity Catalog
+va au verbe `traduire-unity-catalog.mjs`, pas à `importer`). Doctrine complète et inventaire
+à jour : `references\profils-moteur\LISEZMOI.md`.
+
 ## Doctrine issue du REX (l'essentiel — détail : references\REX-DATA.md)
 
 1. **Agnosticisme** : décrire par capacités/rôles ; les produits n'apparaissent qu'en

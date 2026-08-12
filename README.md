@@ -43,6 +43,9 @@ node oracles/self-test.mjs   # double sens : vertes PASS, rouges FAIL localisant
 - `references/REX-DATA.md` — patterns de rétro-ingénierie et de lineage issus d'un
   chantier réel, anonymisés, avec portée (générique / contingente).
 - `references/STANDARDS-DATA.md` — standards retenus/écartés, sources primaires, confiance.
+- `references/profils-moteur/` — référentiels versionnés par moteur de base de données
+  (Postgres, Oracle, Azure SQL, Databricks) : dialecte de contraintes, mapping de types,
+  vues catalogue, commande d'export — alimentent le verbe `importer` (voir `LISEZMOI.md`).
 - Barres de niveau (registre la-barre) : OpenLineage · Great Expectations · dbt-core · ODCS v3.1.0.
 
 ## Prérequis
