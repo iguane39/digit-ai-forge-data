@@ -1,0 +1,8 @@
+{
+  "format": "forge-data/assertions@1",
+  "dataset": "servi.ventes_mensuelles",
+  "lineage_ref": "lineage-verte.json",
+  "assertions": [
+    { "objet": "servi.dataset_fantome.montant", "type": "non_nul" }
+  ]
+}
