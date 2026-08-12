@@ -23,6 +23,7 @@ un schéma exporté (DDL Postgres en v0).
 | **Fonds de savoir data** | réutiliser les patterns éprouvés de rétro-ingénierie et de lineage | `references\ du dépôt data (lecture)` | déclaré (experimental) |
 | **Contractualiser (data contract)** | sceller l'accord producteur↔consommateur en contrat vérifiable machine | `node oracles\oracle-contractualiser.mjs <contrat.json>` | prouvé (experimental) |
 | **Importer (brouillon depuis un schéma exporté)** | dériver un brouillon d'assertions/contrat depuis un DDL déjà exporté (jamais de connexion) | `node scripts\importer.mjs <schema.sql>` | prouvé (experimental, dialecte Postgres v0) |
+| **Traduire Unity Catalog (lineage colonne)** | convertir un export des system tables Unity Catalog en lineage@1 grain colonne | `node scripts\traduire-unity-catalog.mjs <export-uc.json>` | prouvé sur fixture **synthétique uniquement** (experimental — aucun export réel disponible sans workspace payant) |
 
 Le catalogue consolidé des dix forges vit chez le pilot :
 [digit-ai-forge-pilot/catalogues/CATALOGUES.md](https://github.com/iguane39/digit-ai-forge-pilot/blob/main/catalogues/CATALOGUES.md).
@@ -35,7 +36,8 @@ node oracles/oracle-tracer.mjs fixtures/lineage-verte.json
 node oracles/oracle-restituer.mjs fixtures/rapport-verte.md
 node oracles/oracle-contractualiser.mjs fixtures/contrat-verte.json
 node scripts/importer.mjs fixtures/schema-postgres-verte.sql --sortie-dir <dossier>
-node oracles/self-test.mjs   # double sens : vertes PASS, rouges FAIL localisants + round-trip importer
+node scripts/traduire-unity-catalog.mjs fixtures/unity-catalog-verte.json --sortie <fichier.json>
+node oracles/self-test.mjs   # double sens : vertes PASS, rouges FAIL localisants + round-trips importer/traducteur
 ```
 
 ## Références

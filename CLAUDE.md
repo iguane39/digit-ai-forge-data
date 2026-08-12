@@ -59,6 +59,24 @@ doit PASSER `oracle-profiler`/`oracle-contractualiser` sans retouche (vérifié 
 node scripts/importer.mjs fixtures/schema-postgres-verte.sql --sortie-dir <dossier>
 ```
 
+## Le verbe traduire-unity-catalog (TF-0141) — un générateur, pas un oracle
+
+`scripts/traduire-unity-catalog.mjs <export-uc.json>` traduit un **export synthétique** des
+system tables Unity Catalog Databricks (`system.access.column_lineage` : colonnes
+`source_table_full_name`, `source_column_name`, `target_table_full_name`,
+`target_column_name`, `entity_type`, `entity_id`, `event_time`) en `forge-data/lineage@1`
+grain colonne (T6). **Validé sur fixture synthétique uniquement** — aucun export réel
+disponible sans workspace Unity Catalog Premium/Enterprise payant (jamais de connexion,
+loi n° 4). Le lineage colonne d'Unity Catalog est par nature une capture runtime : type de
+transformation toujours `"runtime"`, `confiance.niveau` toujours 3. Export incohérent
+(colonne de sortie sans dataset déclaré, ou l'inverse) : refus propre (exit 2), jamais un
+lineage inventé. Preuve en boucle : la sortie doit PASSER `oracle-tracer` (vérifié par
+`oracles/self-test.mjs` sur `fixtures/unity-catalog-{verte,rouge}.json`).
+
+```bash
+node scripts/traduire-unity-catalog.mjs fixtures/unity-catalog-verte.json --sortie <fichier.json>
+```
+
 ## Profils-moteur (TF-0140, `references\profils-moteur\`)
 
 Référentiels versionnés (loi n° 4, jamais du code) : dialecte de contraintes, mapping de

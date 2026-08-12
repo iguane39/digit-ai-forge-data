@@ -69,5 +69,24 @@ try {
   fs.rmSync(tmp, { recursive: true, force: true });
 }
 
+// ---- verbe traduire-unity-catalog (TF-0141) : round-trip verte + rejet propre rouge ----
+console.log("\ntraduire-unity-catalog.mjs (verbe, TF-0141) — round-trip vers oracle-tracer\n");
+const tmp2 = fs.mkdtempSync(path.join(os.tmpdir(), "forge-data-uc-"));
+try {
+  const pLineage = path.join(tmp2, "uc.lineage.json");
+  const tv = lanceScript("traduire-unity-catalog.mjs", [fx("unity-catalog-verte.json"), "--sortie", pLineage]);
+  ok(tv.exit === 0 && tv.r.sortie === "OK", "traduire-unity-catalog · fixture verte produit un lineage@1 (exit 0)");
+  ok(fs.existsSync(pLineage), "traduire-unity-catalog · fichier lineage écrit");
+  if (fs.existsSync(pLineage)) {
+    const rt = lance("oracle-tracer.mjs", pLineage);
+    ok(rt.exit === 0 && rt.r.verdict === "PASS", "traduire-unity-catalog → oracle-tracer.mjs sur le lineage produit : PASS (round-trip)");
+  }
+  const tr = lanceScript("traduire-unity-catalog.mjs", [fx("unity-catalog-rouge.json")]);
+  ok(tr.exit === 2 && tr.r.sortie === "ECHEC", "traduire-unity-catalog · export incohérent (sortie sans dataset déclaré) refusé proprement (exit 2)");
+  ok(!tr.r.fichier_produit, "traduire-unity-catalog · rouge : aucun fichier produit");
+} finally {
+  fs.rmSync(tmp2, { recursive: true, force: true });
+}
+
 console.log(`\nSelf-test forge-data : ${pass} PASS, ${echec} FAIL`);
 process.exit(echec ? 1 : 0);

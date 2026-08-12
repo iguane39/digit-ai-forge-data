@@ -1,0 +1,14 @@
+{
+  "artefact": "main.servi.ventes_mensuelles",
+  "lignes": [
+    {
+      "source_table_full_name": "main.brut.exports_pgi",
+      "source_column_name": "montant",
+      "target_table_full_name": "",
+      "target_column_name": "montant_ht",
+      "entity_type": "PIPELINE",
+      "entity_id": "pipeline_agregation_ventes",
+      "event_time": "2026-08-01T08:00:00Z"
+    }
+  ]
+}
