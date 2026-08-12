@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// self-test.mjs — double sens des trois oracles de discipline (fixtures synthétiques) :
+// self-test.mjs — double sens des quatre oracles de discipline (fixtures synthétiques) :
 // chaque verte PASSE (exit 0), chaque rouge ÉCHOUE (exit 1) en déclenchant les règles
 // attendues, avec findings localisants. À rejouer après toute modification.
 import { execFileSync } from "node:child_process";
@@ -21,9 +21,10 @@ const CAS = [
   { oracle: "oracle-tracer.mjs", verte: "lineage-verte.json", rouge: "lineage-rouge.json", regles: ["T2", "T3", "T4", "T5"] },
   { oracle: "oracle-tracer.mjs", verte: "lineage-colonne-verte.json", rouge: "lineage-colonne-rouge.json", regles: ["T6"] },
   { oracle: "oracle-restituer.mjs", verte: "rapport-verte.md", rouge: "rapport-rouge.md", regles: ["R2", "R3", "R4"] },
+  { oracle: "oracle-contractualiser.mjs", verte: "contrat-verte.json", rouge: "contrat-rouge.json", regles: ["C2", "C3", "C4", "C5"] },
 ];
 
-console.log("SELF-TEST forge-data — discipline aux niveaux des 3 barres (fixtures synthétiques)\n");
+console.log("SELF-TEST forge-data — discipline aux niveaux des 4 barres (fixtures synthétiques)\n");
 for (const cas of CAS) {
   const v = lance(cas.oracle, fx(cas.verte));
   ok(v.exit === 0 && v.r.verdict === "PASS", `${cas.oracle} · verte PASS (exit 0)`);

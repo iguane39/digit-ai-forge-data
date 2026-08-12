@@ -1,0 +1,13 @@
+{
+  "format": "forge-data/contrat@1",
+  "id": "contrat_ventes_mensuelles",
+  "schema": [
+    { "proprietes": [ { "nom": "mois", "type": "texte_libre" } ] }
+  ],
+  "sla": [
+    { "propriete": "rapidite", "valeur": "vite" }
+  ],
+  "proprietaire": { "equipe": "Data Ventes" },
+  "version": "v1",
+  "statut": "en_cours"
+}

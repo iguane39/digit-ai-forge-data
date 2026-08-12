@@ -1,0 +1,21 @@
+{
+  "format": "forge-data/contrat@1",
+  "id": "contrat_ventes_mensuelles",
+  "schema": [
+    {
+      "objet": "servi.ventes_mensuelles",
+      "proprietes": [
+        { "nom": "mois", "type": "date" },
+        { "nom": "montant_ht", "type": "decimal" },
+        { "nom": "pays", "type": "string" }
+      ]
+    }
+  ],
+  "sla": [
+    { "propriete": "fraicheur", "valeur": 24, "unite": "h" },
+    { "propriete": "disponibilite", "valeur": 99.5, "unite": "%" }
+  ],
+  "proprietaire": { "equipe": "Data Ventes", "contact": "data-ventes@example.com" },
+  "version": "1.0.0",
+  "statut": "actif"
+}

@@ -1,9 +1,11 @@
 # digit-ai-forge-data
 
-Forge **discipline de la donnée** de l'écosystème Digit-AI — trois verbes : **profiler**
-(qualité en assertions exécutables), **tracer** (lineage déclaré, niveau OpenLineage),
-**restituer** (chiffres ancrés, doctrine déclaré→généré). Elle vérifie la **forme de la
-discipline** ; le profiling lui-même est composé (`data-quality-auditor`), jamais réécrit.
+Forge **discipline de la donnée** de l'écosystème Digit-AI — quatre verbes : **profiler**
+(qualité en assertions exécutables), **tracer** (lineage déclaré, niveau OpenLineage, grain
+colonne optionnel), **restituer** (chiffres ancrés, doctrine déclaré→généré),
+**contractualiser** (data contract inspectable, niveau ODCS v3.1). Elle vérifie la **forme
+de la discipline** ; le profiling lui-même est composé (`data-quality-auditor`), jamais
+réécrit.
 
 ## Catalogue de services
 
@@ -16,6 +18,7 @@ discipline** ; le profiling lui-même est composé (`data-quality-auditor`), jam
 | **Profiler (qualité en assertions)** | exprimer et vérifier la qualité de mes données en assertions exécutables | `node oracles\oracle-profiler.mjs <assertions.json>` | prouvé (experimental) |
 | **Tracer (lineage exigible)** | déclarer et vérifier le lineage complet de mes données | `node oracles\oracle-tracer.mjs <lineage.json>` | prouvé (experimental) |
 | **Restituer (chiffres sourcés)** | garantir que tout chiffre restitué est ancré à sa source | `node oracles\oracle-restituer.mjs <rapport.md>` | prouvé (experimental) |
+| **Contractualiser (data contract inspectable)** | figer un accord producteur↔consommateur en schéma + SLA + propriétaire + version, niveau ODCS | `node oracles\oracle-contractualiser.mjs <contrat.json>` | prouvé (experimental) — ajouté 12/08, table à régénérer par la prochaine campagne catalogues |
 | **Fonds de savoir data** | réutiliser les patterns éprouvés de rétro-ingénierie et de lineage | `references\ du dépôt data (lecture)` | déclaré (experimental) |
 
 Le catalogue consolidé des dix forges vit chez le pilot :
@@ -27,6 +30,7 @@ Le catalogue consolidé des dix forges vit chez le pilot :
 node oracles/oracle-profiler.mjs fixtures/assertions-verte.json
 node oracles/oracle-tracer.mjs fixtures/lineage-verte.json
 node oracles/oracle-restituer.mjs fixtures/rapport-verte.md
+node oracles/oracle-contractualiser.mjs fixtures/contrat-verte.json
 node oracles/self-test.mjs   # double sens : vertes PASS, rouges FAIL localisants
 ```
 
@@ -35,7 +39,7 @@ node oracles/self-test.mjs   # double sens : vertes PASS, rouges FAIL localisant
 - `references/REX-DATA.md` — patterns de rétro-ingénierie et de lineage issus d'un
   chantier réel, anonymisés, avec portée (générique / contingente).
 - `references/STANDARDS-DATA.md` — standards retenus/écartés, sources primaires, confiance.
-- Barres de niveau (registre la-barre) : OpenLineage · Great Expectations · dbt-core.
+- Barres de niveau (registre la-barre) : OpenLineage · Great Expectations · dbt-core · ODCS v3.1.0.
 
 ## Prérequis
 

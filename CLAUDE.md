@@ -1,4 +1,4 @@
-# digit-ai-forge-data — discipline de la donnée (profiler · tracer · restituer)
+# digit-ai-forge-data — discipline de la donnée (profiler · tracer · restituer · contractualiser)
 
 Forge **transverse** née de TF-0083 (révision tracée de l'écartement du 08/08, sur preuve
 REX réelle). Elle outille la **discipline data des runs** : la qualité s'exprime en
@@ -16,26 +16,28 @@ porte sa source et sa fraîcheur.
   (`references\REX-DATA.md`) est anonymisé et généralisé — zéro nom d'engagement.
 - Invocation par le pilot dans les runs ; retours par lots vers `input\` du pilot.
 
-## Les trois verbes et leurs barres (validées, registre la-barre 11/08)
+## Les quatre verbes et leurs barres (registre la-barre 11/08, contractualiser 12/08)
 
 | Verbe | Discipline exigée | Barre de niveau |
 |---|---|---|
-| **profiler** | la qualité = **assertions déclaratives unitaires** (objet + condition + paramètres typés), à verdict machine — jamais « données propres » en prose | Great Expectations |
-| **tracer** | toute donnée servie **déclare son lineage** : entrées (datasets datés) → transformations (typées statique/runtime/déclaratif) → sorties + horodatage + niveau de maturité 0-3 et méthode | OpenLineage (object model : run · job · inputs · outputs · facets) |
+| **profiler** | la qualité = **assertions déclaratives unitaires** (objet + condition + paramètres typés), à verdict machine — jamais « données propres » en prose ; pont optionnel vers un lineage@1 (P4, cf. dataQualityAssertions OpenLineage) | Great Expectations |
+| **tracer** | toute donnée servie **déclare son lineage** : entrées (datasets datés) → transformations (typées statique/runtime/déclaratif) → sorties + horodatage + niveau de maturité 0-3 et méthode ; grain colonne optionnel (T6) | OpenLineage (object model : run · job · inputs · outputs · facets) |
 | **restituer** | tout chiffre d'un rapport **référence une entrée déclarée** (id → valeur + source + date) et le rapport pointe sa déclaration de lineage — le document se génère des déclarations, jamais l'inverse | dbt-core (déclaré → généré) |
+| **contractualiser** | l'accord producteur↔consommateur est **inspectable** : schéma typé + SLA mesurable + propriétaire joignable + versionnage à statut de cycle de vie — jamais un accord oral ou en prose | ODCS v3.1.0 (Bitol / Linux Foundation) |
 
 ## Oracles (contrat JSON, exit 0/1/2, `non_juge`, fixtures rouge/verte)
 
 ```bash
-node oracles/oracle-profiler.mjs <assertions.json>   # P1-P3 : forme exécutable des assertions
-node oracles/oracle-tracer.mjs <lineage.json>        # T1-T5 : déclaration de lineage complète
-node oracles/oracle-restituer.mjs <rapport.md>       # R1-R4 : chiffres ancrés + lineage_ref
-node oracles/self-test.mjs                            # double sens — à rejouer après toute modification
+node oracles/oracle-profiler.mjs <assertions.json>        # P1-P3 (+P4 optionnel) : forme exécutable + pont lineage
+node oracles/oracle-tracer.mjs <lineage.json>             # T1-T5 (+T6 optionnel) : lineage complet + grain colonne
+node oracles/oracle-restituer.mjs <rapport.md>            # R1-R4 : chiffres ancrés + lineage_ref
+node oracles/oracle-contractualiser.mjs <contrat.json>    # C1-C5 : schéma + SLA + propriétaire + version
+node oracles/self-test.mjs                                 # double sens — à rejouer après toute modification
 ```
 
-Formats maison : `forge-data/assertions@1`, `forge-data/lineage@1` (spécifiés en tête des
-oracles ; exemples = fixtures vertes). Un rapport porte un frontmatter `chiffres:` +
-`lineage_ref:` et des marqueurs `[c:<id>]` dans le corps.
+Formats maison : `forge-data/assertions@1`, `forge-data/lineage@1`, `forge-data/contrat@1`
+(spécifiés en tête des oracles ; exemples = fixtures vertes). Un rapport porte un
+frontmatter `chiffres:` + `lineage_ref:` et des marqueurs `[c:<id>]` dans le corps.
 
 ## Doctrine issue du REX (l'essentiel — détail : references\REX-DATA.md)
 
