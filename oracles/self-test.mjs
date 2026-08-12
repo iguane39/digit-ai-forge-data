@@ -1,8 +1,12 @@
 #!/usr/bin/env node
 // self-test.mjs — double sens des quatre oracles de discipline (fixtures synthétiques) :
 // chaque verte PASSE (exit 0), chaque rouge ÉCHOUE (exit 1) en déclenchant les règles
-// attendues, avec findings localisants. À rejouer après toute modification.
+// attendues, avec findings localisants. Inclut aussi le round-trip du verbe importer
+// (TF-0139) : brouillon produit → doit PASSER oracle-profiler/oracle-contractualiser.
+// À rejouer après toute modification.
 import { execFileSync } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -12,6 +16,10 @@ let pass = 0, echec = 0;
 const ok = (b, m) => { console.log(`  [${b ? "PASS" : "FAIL"}] ${m}`); b ? pass++ : echec++; };
 const lance = (oracle, cible) => {
   try { return { exit: 0, r: JSON.parse(execFileSync(process.execPath, [path.join(ici, oracle), cible, "--json-only"], { encoding: "utf8" })) }; }
+  catch (e) { return { exit: e.status, r: JSON.parse(String(e.stdout || "{}")) }; }
+};
+const lanceScript = (script, args) => {
+  try { return { exit: 0, r: JSON.parse(execFileSync(process.execPath, [path.join(ici, "..", "scripts", script), ...args, "--json-only"], { encoding: "utf8" })) }; }
   catch (e) { return { exit: e.status, r: JSON.parse(String(e.stdout || "{}")) }; }
 };
 
@@ -36,5 +44,30 @@ for (const cas of CAS) {
   ok((r.r.findings || []).every(f => f.where && f.msg), `${cas.oracle} · findings localisants`);
   ok(Array.isArray(r.r.non_juge) && r.r.non_juge.length > 0, `${cas.oracle} · non_juge déclaré`);
 }
+
+// ---- verbe importer (TF-0139) : round-trip verte + rejet propre rouge ----
+console.log("\nimporter.mjs (verbe, TF-0139) — round-trip vers oracle-profiler / oracle-contractualiser\n");
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "forge-data-importer-"));
+try {
+  const iv = lanceScript("importer.mjs", [fx("schema-postgres-verte.sql"), "--sortie-dir", tmp]);
+  ok(iv.exit === 0 && iv.r.sortie === "OK", "importer · fixture verte produit un brouillon (exit 0)");
+  const pAssert = iv.r.fichiers_produits && iv.r.fichiers_produits.assertions;
+  const pContrat = iv.r.fichiers_produits && iv.r.fichiers_produits.contrat;
+  ok(!!pAssert && !!pContrat, "importer · assertions.json et contrat.json écrits");
+  if (pAssert) {
+    const rp = lance("oracle-profiler.mjs", pAssert);
+    ok(rp.exit === 0 && rp.r.verdict === "PASS", "importer → oracle-profiler.mjs sur le brouillon : PASS (round-trip)");
+  }
+  if (pContrat) {
+    const rc = lance("oracle-contractualiser.mjs", pContrat);
+    ok(rc.exit === 0 && rc.r.verdict === "PASS", "importer → oracle-contractualiser.mjs sur le brouillon : PASS (round-trip)");
+  }
+  const ir = lanceScript("importer.mjs", [fx("schema-postgres-rouge.sql"), "--sortie-dir", tmp]);
+  ok(ir.exit === 2 && ir.r.sortie === "ECHEC", "importer · fixture rouge (illisible) refusée proprement (exit 2, pas de brouillon inventé)");
+  ok(!ir.r.fichiers_produits, "importer · rouge : aucun fichier produit");
+} finally {
+  fs.rmSync(tmp, { recursive: true, force: true });
+}
+
 console.log(`\nSelf-test forge-data : ${pass} PASS, ${echec} FAIL`);
 process.exit(echec ? 1 : 0);

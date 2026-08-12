@@ -39,6 +39,26 @@ Formats maison : `forge-data/assertions@1`, `forge-data/lineage@1`, `forge-data/
 (spécifiés en tête des oracles ; exemples = fixtures vertes). Un rapport porte un
 frontmatter `chiffres:` + `lineage_ref:` et des marqueurs `[c:<id>]` dans le corps.
 
+## Le verbe importer (TF-0139) — un générateur, pas un oracle
+
+`scripts/importer.mjs <schema.sql>` PRODUIT (il ne juge pas) un **brouillon** de
+`assertions@1` + `contrat@1` à partir d'un schéma déjà **exporté en texte** (jamais de
+connexion — loi n° 4). Dialecte v0 : Postgres, DDL au format `pg_dump --schema-only`
+(inline ou `ALTER TABLE … ADD CONSTRAINT`) — cf. `references/profils-moteur/postgres.md`.
+Correspondances : `NOT NULL`/`PRIMARY KEY`→`non_nul` ; `CHECK` bornes (`>=`/`<=`,
+`BETWEEN`)→`bornes` ; `CHECK … IN (...)` ou sa réécriture pg_dump `= ANY (ARRAY[...])`
+→`ensemble` ; `UNIQUE`/`PRIMARY KEY` (colonne seule)→`unique` ; colonnes+types→
+`contrat@1.schema`. Clés composites, CHECK multi-colonnes, FOREIGN KEY et types non
+mappés : jamais convertis à l'aveugle, toujours signalés en `avertissements`. Le
+`contrat@1` produit pose des placeholders explicites pour sla/propriétaire/version
+(statut `"brouillon"`) — complétion humaine obligatoire. Preuve en boucle : le brouillon
+doit PASSER `oracle-profiler`/`oracle-contractualiser` sans retouche (vérifié par
+`oracles/self-test.mjs` sur `fixtures/schema-postgres-{verte,rouge}.sql`).
+
+```bash
+node scripts/importer.mjs fixtures/schema-postgres-verte.sql --sortie-dir <dossier>
+```
+
 ## Doctrine issue du REX (l'essentiel — détail : references\REX-DATA.md)
 
 1. **Agnosticisme** : décrire par capacités/rôles ; les produits n'apparaissent qu'en
