@@ -3,8 +3,15 @@
 // Niveau fixé par la barre Great Expectations (registre la-barre, 11/08/2026) : la qualité
 // s'exprime en ASSERTIONS DÉCLARATIVES UNITAIRES à verdict machine — jamais en prose.
 //   P1  format `forge-data/assertions@1`, liste non vide ;
-//   P2  chaque assertion nomme son objet (table/colonne) et son type dans le jeu fermé
-//       {non_nul, unique, bornes, ensemble, motif, fraicheur} avec les paramètres du type ;
+//   P2  chaque assertion nomme son objet (table/colonne) et son type dans le jeu fermé,
+//       avec les paramètres EXACTS de son type (RD-2, SCC_ALX 13/08 — jeu documenté ici,
+//       plus seulement dans la constante TYPES) :
+//         non_nul   → objet
+//         unique    → objet
+//         bornes    → objet, min, max
+//         ensemble  → objet, valeurs
+//         motif     → objet, regex
+//         fraicheur → objet, max_age_jours ;
 //   P3  aucun vocabulaire subjectif (« propre », « correct », « bon », « valide »,
 //       « cohérent ») en guise de condition — une assertion se mesure ou n'est pas ;
 //   P4  (optionnel, rétro-compatible) pont qualité↔lineage — champ `lineage_ref` pointant
@@ -57,8 +64,12 @@ else doc.assertions.forEach((a, i) => {
   const ou = `assertion #${i + 1}`;
   if (!a.objet) add("bloquant", "P2", "objet manquant (table/colonne visée)", ou);
   if (!TYPES[a.type]) { add("bloquant", "P2", `type « ${a.type} » hors du jeu fermé {${Object.keys(TYPES).join(", ")}}`, ou); return; }
+  // RD-2 : le message NOMME le jeu complet des paramètres du type — l'utilisateur n'a plus
+  // à lire la constante TYPES pour savoir quoi fournir (5 FAIL identiques constatés faute
+  // de cette liste dans le message, SCC_ALX 13/08).
   for (const p of TYPES[a.type]) if (a[p] === undefined || a[p] === "")
-    add("bloquant", "P2", `paramètre « ${p} » requis par le type ${a.type}`, ou);
+    add("bloquant", "P2",
+      `paramètre « ${p} » requis — le type ${a.type} attend : ${TYPES[a.type].join(", ")}`, ou);
   const libre = [a.condition, a.description].filter(Boolean).join(" ");
   if (libre && SUBJECTIF.test(libre))
     add("bloquant", "P3", `vocabulaire subjectif « ${libre.match(SUBJECTIF)[0]} » — une assertion se mesure ou n'est pas`, ou);

@@ -8,7 +8,9 @@
 //   T3  transformations non vides — chaque étape nommée, type ∈ {declaratif, statique,
 //       runtime} (bifurcation du REX X5 : l'opaque n'est accessible qu'en runtime) ;
 //   T4  sorties non vides + horodatage d'exécution (le « run » d'OpenLineage) ;
-//   T5  méta-lineage : confiance.niveau ∈ 0..3 (maturité, REX X6) + confiance.methode
+//   T5  méta-lineage : confiance.niveau ∈ 0..3 (maturité, REX X6) + confiance.methode ;
+//       champ optionnel `etat` ∈ {constate, propose} (RD-4, 13/08) — un mapping proposé
+//       (colonne cible non encore alimentée) se déclare, absent = constate
 //       (comment ce lineage a été établi — REX X8) ;
 //   T6  (optionnel, rétro-compatible) grain colonne — champ `colonnes` : chaque entrée
 //       référence une colonne de sortie déclarée (`sortie` = "<dataset>.<colonne>", le
@@ -61,6 +63,12 @@ const c = d.confiance || {};
 if (!(Number.isInteger(c.niveau) && c.niveau >= 0 && c.niveau <= 3))
   add("bloquant", "T5", "confiance.niveau absent ou hors 0..3 (maturité du lineage — REX X6)", file);
 if (!c.methode) add("bloquant", "T5", "confiance.methode absente — le méta-lineage dit COMMENT ce lineage a été établi (REX X8)", file);
+// RD-4 (SCC_ALX, 13/08) : un mapping PROPOSÉ (colonne cible pas encore alimentée) passait
+// T6 sans que rien ne le distingue d'un lineage CONSTATÉ — contourné en texte libre dans
+// confiance.methode. Champ optionnel `etat`, jeu fermé, jugé par T5 ; absent = constate
+// (rétro-compatible, tous les lineages existants sont des constats).
+if (d.etat !== undefined && !["constate", "propose"].includes(d.etat))
+  add("bloquant", "T5", `etat « ${d.etat} » hors du jeu fermé {constate, propose} — un lineage projeté se DÉCLARE (RD-4), il ne se glisse pas en texte libre`, file);
 if (d.colonnes !== undefined) {
   const dsEntrees = new Set((Array.isArray(d.entrees) ? d.entrees : []).map(e => e.dataset));
   const dsSorties = new Set((Array.isArray(d.sorties) ? d.sorties : []).map(s => s.dataset));

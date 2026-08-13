@@ -16,3 +16,13 @@ chiffres:
 
 Le total des commandes du mois s'établit à [c:total-ventes] unités, dont
 [c:taux-fr] réalisées sur le périmètre FR.
+
+## Méthode (RD-1 — la fixture verte prouve que décrire la convention ne casse rien)
+
+Chaque nombre de ce rapport porte son marqueur `[c:id]`, déclaré au frontmatter — un
+marqueur cité en span de code, comme ici, n'est pas une citation de chiffre. La forme
+échappée [[c:exemple-jamais-declare]] reste affichable sans être comptée.
+
+```
+Exemple en bloc de code : [c:autre-id-jamais-declare] — ignoré aussi.
+```

@@ -1,8 +1,20 @@
 {
   "format": "forge-data/lineage@1",
   "artefact": "rapport_ventes_mensuel",
-  "entrees": [ { "dataset": "brut.exports_pgi" } ],
-  "transformations": [ { "etape": "magie", "type": "auto" } ],
+  "entrees": [
+    {
+      "dataset": "brut.exports_pgi"
+    }
+  ],
+  "transformations": [
+    {
+      "etape": "magie",
+      "type": "auto"
+    }
+  ],
   "sorties": [],
-  "confiance": { "niveau": 9 }
+  "confiance": {
+    "niveau": 9
+  },
+  "etat": "imagine"
 }

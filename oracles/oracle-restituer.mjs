@@ -61,7 +61,17 @@ if (!entrees.length) add("bloquant", "R1", "bloc chiffres: absent ou vide — au
 for (const e of entrees) for (const ch of ["valeur", "source", "date"])
   if (!e[ch]) add("bloquant", "R2", `chiffre « ${e.id} » sans ${ch} — un chiffre sans source déclarée n'existe pas`, `chiffres:${e.id}`);
 const corps = texte.slice(fm[0].length);
-const utilises = [...corps.matchAll(/\[c:([\w-]+)\]/g)].map(m => m[1]);
+// RD-1 (SCC_ALX, 13/08) : un rapport qui EXPLIQUE sa convention écrit « [c:id] » dans un
+// span de code — c'est une mention de la méthode, pas la citation d'un chiffre. Les blocs
+// ``` … ``` et les spans `…` sont retirés avant le rapprochement, et la séquence échappée
+// [[c:id]] reste affichable sans jamais être comptée. Sans cela, aucun document
+// méthodologique ne pouvait décrire sa propre traçabilité (faux positif mesuré : R3 FAIL
+// « [c:id] utilisé au corps mais jamais déclaré »).
+const corpsJugeable = corps
+  .replace(/```[\s\S]*?```/g, "")
+  .replace(/`[^`\n]*`/g, "")
+  .replace(/\[\[c:[\w-]+\]\]/g, "");
+const utilises = [...corpsJugeable.matchAll(/\[c:([\w-]+)\]/g)].map(m => m[1]);
 const declares = new Set(entrees.map(e => e.id));
 for (const u of new Set(utilises)) if (!declares.has(u))
   add("bloquant", "R3", `[c:${u}] utilisé au corps mais jamais déclaré au frontmatter`, "corps");
