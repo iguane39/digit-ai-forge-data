@@ -26,7 +26,7 @@ un schéma exporté (DDL Postgres en v0).
 | **Traduire un lineage Unity Catalog** | convertir le lineage colonne natif de Databricks en lineage exigible par la forge | `node scripts	raduire-unity-catalog.mjs <export.json>` | prouvé (experimental) |
 
 Le catalogue consolidé des dix forges vit chez le pilot :
-[digit-ai-forge-pilot/catalogues/CATALOGUES.md](https://github.com/iguane39/digit-ai-forge-pilot/blob/main/catalogues/CATALOGUES.md).
+[digit-ai-factory/catalogues/CATALOGUES.md](https://github.com/iguane39/digit-ai-factory/blob/main/catalogues/CATALOGUES.md).
 
 ## Quick start
 
