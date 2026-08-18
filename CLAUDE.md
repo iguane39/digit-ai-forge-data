@@ -22,7 +22,7 @@ porte sa source et sa fraîcheur.
 |---|---|---|
 | **profiler** | la qualité = **assertions déclaratives unitaires** (objet + condition + paramètres typés), à verdict machine — jamais « données propres » en prose ; pont optionnel vers un lineage@1 (P4, cf. dataQualityAssertions OpenLineage) | Great Expectations |
 | **tracer** | toute donnée servie **déclare son lineage** : entrées (datasets datés) → transformations (typées statique/runtime/déclaratif) → sorties + horodatage + niveau de maturité 0-3 et méthode ; grain colonne optionnel (T6) | OpenLineage (object model : run · job · inputs · outputs · facets) |
-| **restituer** | tout chiffre d'un rapport **référence une entrée déclarée** (id → valeur + source + date) et le rapport pointe sa déclaration de lineage — le document se génère des déclarations, jamais l'inverse | dbt-core (déclaré → généré) |
+| **restituer** | tout chiffre d'un rapport **référence une entrée déclarée** (id → valeur + source + date) et le rapport pointe sa déclaration de lineage — le document se génère des déclarations, jamais l'inverse. **R5 (TF-0378)** : et tout NOMBRE du corps porte son marqueur, ou l'échappement explicite `[c:-]` — sans elle, un chiffre écrit en prose sans marqueur n'existait pas pour l'oracle, qui rendait PASS (mesuré : 788 nus contre 135 ancrés sur cinq rapports réels, tous PASS) | dbt-core (déclaré → généré) |
 | **contractualiser** | l'accord producteur↔consommateur est **inspectable** : schéma typé + SLA mesurable + propriétaire joignable + versionnage à statut de cycle de vie — jamais un accord oral ou en prose | ODCS v3.1.0 (Bitol / Linux Foundation) |
 
 ## Oracles (contrat JSON, exit 0/1/2, `non_juge`, fixtures rouge/verte)
@@ -30,7 +30,9 @@ porte sa source et sa fraîcheur.
 ```bash
 node oracles/oracle-profiler.mjs <assertions.json>        # P1-P3 (+P4 optionnel) : forme exécutable + pont lineage
 node oracles/oracle-tracer.mjs <lineage.json>             # T1-T5 (+T6 optionnel) : lineage complet + grain colonne
-node oracles/oracle-restituer.mjs <rapport.md>            # R1-R4 : chiffres ancrés + lineage_ref
+node oracles/oracle-restituer.mjs <rapport.md> [--strict]  # R1-R5 : chiffres ancrés, lineage_ref,
+                                                          # et COUVERTURE des nombres de prose (R5,
+                                                          # avertie par défaut, bloquante en strict)
 node oracles/oracle-contractualiser.mjs <contrat.json>    # C1-C5 : schéma + SLA + propriétaire + version
 node oracles/self-test.mjs                                 # double sens — à rejouer après toute modification
 ```

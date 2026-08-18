@@ -19,7 +19,7 @@ un schéma exporté (DDL Postgres en v0).
 |---|---|---|---|
 | **Profiler (qualité en assertions)** | exprimer et vérifier la qualité de mes données en assertions exécutables | `node oracles\oracle-profiler.mjs <assertions.json>` | prouvé (experimental) |
 | **Tracer (lineage exigible)** | déclarer et vérifier le lineage complet de mes données | `node oracles\oracle-tracer.mjs <lineage.json>` | prouvé (experimental) |
-| **Restituer (chiffres sourcés)** | garantir que tout chiffre restitué est ancré à sa source | `node oracles\oracle-restituer.mjs <rapport.md>` | prouvé (experimental) |
+| **Restituer (chiffres sourcés)** | garantir que tout chiffre restitué est ancré à sa source — **y compris les nombres écrits en prose** (R5, TF-0378) | `node oracles\oracle-restituer.mjs <rapport.md> [--strict]` | prouvé (experimental) |
 | **Fonds de savoir data** | réutiliser les patterns éprouvés de rétro-ingénierie et de lineage | `references\ du dépôt data (lecture)` | déclaré (experimental) |
 | **Contractualiser (data contract)** | sceller l'accord producteur↔consommateur en contrat vérifiable machine | `node oracles\oracle-contractualiser.mjs <contrat.json>` | prouvé (experimental) |
 | **Importer un schéma exporté** | dériver un brouillon d'assertions et de contrat depuis le schéma exporté de ma base | `node scripts\importer.mjs <schema.sql>` | prouvé (experimental) |

@@ -15,3 +15,8 @@ chiffres:
 
 Le total s'établit à [c:total-ventes] unités, avec un panier moyen de
 [c:panier-moyen] euros.
+
+## Nombres nus (R5)
+
+Le mapping porte sur les 122 cibles à source, soit 87 % du périmètre.
+Le taux de rejet observé est de 4,5 points.
