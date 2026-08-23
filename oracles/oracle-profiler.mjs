@@ -42,7 +42,9 @@ const TYPES = {
   motif: ["objet", "regex"],
   fraicheur: ["objet", "max_age_jours"],
 };
-const SUBJECTIF = /\b(propre|correct|bon|bonne|valide|cohérent|fiable)\w*\b|\bde qualité\b/i;
+// `\b` est ASCII : « de qualité » finit par « é », donc la frontière finale ne se posait jamais
+// et la tournure n'était pas détectée. Trouvé par `oracle-pieges-regex` du pilot (23/08/2026).
+const SUBJECTIF = /(?<![0-9A-Za-zÀ-ÿ])(propre|correct|bon|bonne|valide|cohérent|fiable)\w*(?![0-9A-Za-zÀ-ÿ])|(?<![0-9A-Za-zÀ-ÿ])de qualité(?![0-9A-Za-zÀ-ÿ])/i;
 
 const args = process.argv.slice(2);
 const file = args.find(a => !a.startsWith("--"));
