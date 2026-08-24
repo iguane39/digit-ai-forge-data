@@ -18,7 +18,7 @@
 //       (`entrees`, dataset figurant dans `entrees`) ; `transformation` optionnelle doit
 //       viser une étape déclarée. Un lineage@1 sans `colonnes` reste T1-T5 valide (v0).
 //   T7  L'ENVIRONNEMENT DE CHAQUE DATASET — champ `namespace` sur chaque entrée et chaque
-//       sortie (TF-0580, retour SCC_ALX du 24/08). OpenLineage identifie un dataset par le
+//       sortie (TF-0595, retour SCC_ALX du 24/08). OpenLineage identifie un dataset par le
 //       COUPLE (namespace, name) ; la transcription maison n'avait retenu que le nom, et
 //       cette moitié perdue est précisément le « où ». Jugée à partir du 2026-08-24 sur
 //       l'`horodatage` du lineage lui-même : antériorité DÉCLARÉE plutôt qu'un corpus
@@ -103,7 +103,7 @@ if (d.colonnes !== undefined) {
   });
 }
 
-// ---- T7 — l'ENVIRONNEMENT de chaque dataset (TF-0580, retour SCC_ALX du 24/08) -------------
+// ---- T7 — l'ENVIRONNEMENT de chaque dataset (TF-0595, retour SCC_ALX du 24/08) -------------
 // LE FAIT MESURÉ. Un poste portait deux profils de connexion vers deux workspaces Databricks
 // distincts, exposant TOUS DEUX un catalogue nommé `catalog_any_bronze_d1`. La même requête sur
 // l'un et sur l'autre rend deux résultats différents et — c'est là le défaut — deux archives

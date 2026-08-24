@@ -1,5 +1,5 @@
 {
-  "_fait": "TF-0580 (retour SCC_ALX du 24/08/2026). Fixture DÉDIÉE à T7, et dédiée parce que `lineage-verte.json` porte un horodatage du 11/08 : sous la borne d'antériorité, T7 n'y rendrait qu'un `info` et sa branche PASS ne serait jouée par personne. Le cas reproduit le fait mesuré à l'identique — DEUX instances distinctes exposant chacune un catalogue `catalog_any_bronze_d1`, donc deux datasets aux noms IDENTIQUES que seul le namespace sépare.",
+  "_fait": "TF-0595 (retour SCC_ALX du 24/08/2026). Fixture DÉDIÉE à T7, et dédiée parce que `lineage-verte.json` porte un horodatage du 11/08 : sous la borne d'antériorité, T7 n'y rendrait qu'un `info` et sa branche PASS ne serait jouée par personne. Le cas reproduit le fait mesuré à l'identique — DEUX instances distinctes exposant chacune un catalogue `catalog_any_bronze_d1`, donc deux datasets aux noms IDENTIQUES que seul le namespace sépare.",
   "format": "forge-data/lineage@1",
   "artefact": "rapprochement_portefeuille",
   "entrees": [

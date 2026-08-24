@@ -18,7 +18,7 @@
 //     deux formes sont reconnues)
 //   UNIQUE / PRIMARY KEY (colonne seule)            → assertion unique
 //   colonnes + types                                → contrat@1 schema[].proprietes[]
-//   COMMENT ON TABLE/COLUMN … IS '…'                → contrat@1 `description` (TF-0585)
+//   COMMENT ON TABLE/COLUMN … IS '…'                → contrat@1 `description` (TF-0600)
 //
 // Limites assumées, jamais silencieuses (remontées en `avertissements` de la sortie) :
 //   - clés composites (PRIMARY KEY / UNIQUE sur plusieurs colonnes) : NOT NULL par colonne
@@ -28,7 +28,7 @@
 //     converti à l'aveugle ;
 //   - FOREIGN KEY : sa CONVERSION reste hors périmètre assertions@1/contrat@1 v0, signalée ; sa
 //     CIBLE est en revanche vérifiée — une clé qui référence une table absente du schéma est
-//     dénoncée comme ORPHELINE (TF-0584), parce qu'un objet encore référencé n'est pas un objet
+//     dénoncée comme ORPHELINE (TF-0599), parce qu'un objet encore référencé n'est pas un objet
 //     hors périmètre : c'est un constat à livrer ;
 //   - type de colonne hors mapping connu : repli "string" avec avertissement explicite ;
 //   - sla / propriétaire / version / statut du contrat@1 ne se déduisent PAS d'un DDL : le
@@ -39,7 +39,7 @@
 //     regex sur la clause entière, pas par analyseur lexical complet).
 //
 //
-// LE COMMENTAIRE D'UNE COLONNE EST UNE SOURCE DE VÉRITÉ DE PREMIER ORDRE (TF-0585, retour
+// LE COMMENTAIRE D'UNE COLONNE EST UNE SOURCE DE VÉRITÉ DE PREMIER ORDRE (TF-0600, retour
 // SCC_ALX du 24/08), et ce fichier portait la preuve du contraire : sa boucle de lecture rangeait
 // `COMMENT ON` avec `GRANT` et `SET` sous « hors périmètre schéma, ignorés ». Ce qui a tranché un
 // sujet resté ouvert TROIS TOURS d'analyse n'est ni une jointure ni un décompte : c'est le
@@ -289,7 +289,7 @@ function traiterContrainteTable(def, t, nomT) {
     return;
   }
   if (/^(?:CONSTRAINT\s+[\w"$]+\s+)?FOREIGN\s+KEY\b/i.test(s)) {
-    // TF-0584 — la CIBLE de la clé étrangère est mémorisée, pas seulement signalée. Sa conversion
+    // TF-0599 — la CIBLE de la clé étrangère est mémorisée, pas seulement signalée. Sa conversion
     // reste hors périmètre du format v0 ; son EXISTENCE, elle, se vérifie et vaut le détour (voir
     // le contrôle des clés orphelines plus bas).
     const mRef = s.match(/REFERENCES\s+([\w".$]+)/i);
@@ -322,7 +322,7 @@ function traiterDefinition(def, t, nomT) {
 }
 
 // ---------- Boucle principale ----------
-// TF-0585 — `COMMENT ON` est une INSTRUCTION du dialecte, pas un commentaire SQL : `retirerCommentaires`
+// TF-0600 — `COMMENT ON` est une INSTRUCTION du dialecte, pas un commentaire SQL : `retirerCommentaires`
 // (qui enlève les `--` et les `/* */`) ne la touche pas, elle arrive donc entière dans la boucle.
 const RE_COMMENT_ON = /^\s*COMMENT\s+ON\s+(TABLE|COLUMN)\s+([\w".]+)\s+IS\s+'((?:[^']|'')*)'/i;
 //: Un nom d'objet QUALIFIÉ cité dans un commentaire : `schema.table` ou `schema.table.colonne`.
@@ -332,7 +332,7 @@ const RE_OBJET_CITE = /\b([a-z_][\w]*(?:\.[a-z_][\w]*){1,2})\b/gi;
 //: Ce qui ressemble à un nom qualifié sans en être un — extensions, décimales, abréviations.
 const CITATIONS_INNOCENTES = /^(?:\d|v\d|etc\.|cf\.|ex\.)/i;
 const commentaires = [];
-//: TF-0584 — les clés étrangères relevées, pour pouvoir dire lesquelles pointent vers du vide.
+//: TF-0599 — les clés étrangères relevées, pour pouvoir dire lesquelles pointent vers du vide.
 const clesEtrangeres = [];
 
 const stmts = decouperStatements(retirerCommentaires(texteBrut));
@@ -356,7 +356,7 @@ for (const stmt of stmts) {
     traiterContrainteTable(mAlter[2], table(nomT), nomT);
     continue;
   }
-  // COMMENT ON TABLE|COLUMN <nom> IS '<texte>' (TF-0585). Le guillemet simple doublé est
+  // COMMENT ON TABLE|COLUMN <nom> IS '<texte>' (TF-0600). Le guillemet simple doublé est
   // l'échappement SQL : `l''activité` se relit `l'activité`.
   const mCom = stmt.match(RE_COMMENT_ON);
   if (mCom) {
@@ -374,7 +374,7 @@ const toutesAssertions = [];
 for (const nom of nomsTables) toutesAssertions.push(...tables.get(nom).assertions);
 if (!toutesAssertions.length) avert("aucune contrainte NOT NULL / CHECK / UNIQUE / PRIMARY KEY détectée — brouillon assertions@1 non produit (rien à y mettre)");
 
-// ---- Les commentaires : rattachés, puis CONTRÔLÉS (TF-0585) ----------------------------------
+// ---- Les commentaires : rattachés, puis CONTRÔLÉS (TF-0600) ----------------------------------
 // Rattachement : `COMMENT ON TABLE a.b` vise la table `b` du schéma `a` ; `COMMENT ON COLUMN
 // a.b.c` vise la colonne `c` de cette table. `nomTable` normalise déjà la qualification, on
 // applique la même normalisation aux deux bouts pour ne pas comparer des formes différentes.
@@ -402,7 +402,7 @@ for (const com of commentaires) {
     descColonne.set(`${nomT}.${colonne}`, com.texte);
   }
 }
-// LA CLÉ ÉTRANGÈRE ORPHELINE (TF-0584, retour SCC_ALX du 24/08). LE FAIT : une cible du périmètre
+// LA CLÉ ÉTRANGÈRE ORPHELINE (TF-0599, retour SCC_ALX du 24/08). LE FAIT : une cible du périmètre
 // a été RETIRÉE parce que sa table était absente du déploiement visé — recherche par motif fournie,
 // complète et honnête, et la décision était quand même la mauvaise. La table existe dans le modèle
 // du groupe, sur un autre déploiement : 12 colonnes, 236 lignes. Son absence ici n'était pas un

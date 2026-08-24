@@ -4,7 +4,7 @@
 Exécute une requête SQL EN LECTURE SEULE sur un warehouse Databricks et archive le couple
 requête/résultat/CIBLE : chaque chiffre d'un rapport devient remontable à sa source — c'est ce
 que `oracle-restituer` exige d'un `[c:id]` et que `oracle-tracer` exige d'un lineage.
-Le champ `cible` (TF-0580, 24/08) porte le profil, le warehouse, l'HÔTE et le `namespace`
+Le champ `cible` (TF-0595, 24/08) porte le profil, le warehouse, l'HÔTE et le `namespace`
 OpenLineage de l'instance interrogée : le quoi et le comment étaient archivés, le OÙ ne
 l'était pas — et deux workspaces d'un même groupe portent les mêmes noms de catalogues par
 construction, ce qui rendait deux archives strictement indiscernables.
@@ -66,7 +66,7 @@ def _environnement() -> tuple[str, str]:
 
 
 def cible(profil: str, warehouse: str) -> dict:
-    """L'identite de l'instance interrogee — TF-0580 (retour SCC_ALX du 24/08/2026).
+    """L'identite de l'instance interrogee — TF-0595 (retour SCC_ALX du 24/08/2026).
 
     LE FAIT MESURE. Une archive de mesure portait `id`, `sql`, `colonnes`, `lignes`,
     `nb_lignes`, `statement_id` — et rien d'autre. Or un poste porte couramment DEUX profils
@@ -182,7 +182,7 @@ def self_test() -> None:
             echecs.append(f"{sql!r} : attendu {'accepté' if attendu_ok else 'refusé'}")
     if echecs:
         raise SystemExit("SELF-TEST FAIL : " + " · ".join(echecs))
-    # TF-0580 — `cible()` dans ses DEUX sens, hors ligne. La branche qui compte n'est pas celle
+    # TF-0595 — `cible()` dans ses DEUX sens, hors ligne. La branche qui compte n'est pas celle
     # qui trouve l'hôte : c'est celle qui ne le trouve pas, parce qu'une archive qui tait sa
     # cible SANS DIRE POURQUOI reproduit le défaut corrigé, un cran plus bas.
     cas_cible = []

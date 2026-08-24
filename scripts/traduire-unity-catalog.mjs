@@ -74,7 +74,7 @@ let doc = null;
 try { doc = JSON.parse(texteBrut); } catch (e) { sortir("ECHEC", 2, { erreur: `JSON invalide : ${e.message}` }); }
 
 if (!doc.artefact) sortir("ECHEC", 2, { erreur: "champ « artefact » absent — le lineage produit doit nommer le dataset servi qu'il documente" });
-// T7 (TF-0580, 24/08) — l'INSTANCE interrogée, et pourquoi elle ne peut pas être devinée ici.
+// T7 (TF-0595, 24/08) — l'INSTANCE interrogée, et pourquoi elle ne peut pas être devinée ici.
 // Un export `system.access.column_lineage` nomme ses tables `catalogue.schema.table` : trois
 // niveaux qui ne disent RIEN du workspace d'où l'export a été tiré. Deux workspaces d'un même
 // groupe exposent les mêmes noms de catalogues par construction — c'est la règle, pas

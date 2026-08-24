@@ -1,4 +1,4 @@
--- Fixture TF-0585 (retour SCC_ALX du 24/08) — LES COMMENTAIRES DU SCHEMA, dans les deux sens.
+-- Fixture TF-0600 (retour SCC_ALX du 24/08) — LES COMMENTAIRES DU SCHEMA, dans les deux sens.
 --
 -- Ce que le cas fondateur a etabli : le commentaire d'une colonne est une source de verite de
 -- PREMIER ORDRE. Celui de `activite.cod_activite` declare de quel systeme le code est repris, et
