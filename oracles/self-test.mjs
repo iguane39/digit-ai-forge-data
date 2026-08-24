@@ -28,6 +28,11 @@ const CAS = [
   { oracle: "oracle-profiler.mjs", verte: "assertions-pont-verte.json", rouge: "assertions-pont-rouge.json", regles: ["P4"] },
   { oracle: "oracle-tracer.mjs", verte: "lineage-verte.json", rouge: "lineage-rouge.json", regles: ["T2", "T3", "T4", "T5"] },
   { oracle: "oracle-tracer.mjs", verte: "lineage-colonne-verte.json", rouge: "lineage-colonne-rouge.json", regles: ["T6"] },
+  // TF-0580 (24/08) : T7 — l'environnement de chaque dataset. Fixtures DÉDIÉES, et dédiées pour
+  // une raison mécanique : les deux paires ci-dessus portent un horodatage du 11/08, sous la borne
+  // d'antériorité de T7, où la règle ne rend qu'un `info`. Sans ces fixtures-là, la branche PASS
+  // de T7 ne serait jouée par personne — et sa branche FAIL non plus.
+  { oracle: "oracle-tracer.mjs", verte: "lineage-environnement-verte.json", rouge: "lineage-environnement-rouge.json", regles: ["T7"] },
   { oracle: "oracle-restituer.mjs", verte: "rapport-verte.md", rouge: "rapport-rouge.md", regles: ["R2", "R3", "R4"] },
   { oracle: "oracle-contractualiser.mjs", verte: "contrat-verte.json", rouge: "contrat-rouge.json", regles: ["C2", "C3", "C4", "C5"] },
 ];
@@ -136,6 +141,42 @@ try {
   const ir = lanceScript("importer.mjs", [fx("schema-postgres-rouge.sql"), "--sortie-dir", tmp]);
   ok(ir.exit === 2 && ir.r.sortie === "ECHEC", "importer · fixture rouge (illisible) refusée proprement (exit 2, pas de brouillon inventé)");
   ok(!ir.r.fichiers_produits, "importer · rouge : aucun fichier produit");
+  // TF-0585 — les COMMENTAIRES, dans les DEUX sens. Le second sens est celui qui a servi tout de
+  // suite : au premier passage, le controle s'est accuse lui-meme sur un objet qui EXISTAIT, faute
+  // de normaliser la citation comme les noms du schema (lecon N-23 du pilot).
+  const iCom = lanceScript("importer.mjs", [fx("schema-commentaires.sql"), "--sortie-dir", tmp]);
+  ok(iCom.exit === 0 && iCom.r.sortie === "OK", "importer · schema commente produit un brouillon (exit 0)");
+  const pCom = iCom.r.fichiers_produits && iCom.r.fichiers_produits.contrat;
+  ok(!!pCom, "importer · contrat produit depuis le schema commente");
+  if (pCom) {
+    const doc = JSON.parse(fs.readFileSync(pCom, "utf8"));
+    const act = (doc.schema || []).find(o => o.objet === "activite");
+    ok(!!act && /Referentiel des activites/.test(act.description || ""),
+      "importer · COMMENT ON TABLE rattache a l'objet (la source de verite n'est plus jetee)");
+    const col = act && (act.proprietes || []).find(p => p.nom === "cod_activite");
+    ok(!!col && /systeme tiers/.test(col.description || ""),
+      "importer · COMMENT ON COLUMN rattache a la propriete — c'est CE commentaire qui a tranche un sujet reste ouvert trois tours");
+    const rc2 = lance("oracle-contractualiser.mjs", pCom);
+    ok(rc2.exit === 0 && rc2.r.verdict === "PASS",
+      "importer → oracle-contractualiser.mjs : les descriptions n'ont pas casse le contrat (round-trip)");
+  }
+  // TF-0584 — la CLE ETRANGERE ORPHELINE, les deux sens. La fixture porte une FK vers la table au
+  // PLURIEL qui n'existe pas ; la table `activite`, elle, n'est referencee par rien d'absent.
+  const orphelines = (iCom.r.avertissements || []).filter(a => /ORPHELINE/.test(a));
+  ok(orphelines.length === 1, `importer · UNE SEULE cle etrangere orpheline denoncee (obtenu : ${orphelines.length})`);
+  ok(orphelines.some(a => /ref\.activites/.test(a)),
+    "importer · l'orpheline nommee est bien la reference vers la table absente");
+  ok(orphelines.some(a => /CONSTAT A LIVRER|CONSTAT À LIVRER/.test(a)),
+    "importer · le message dit QUOI FAIRE — un objet encore reference n'est pas un objet hors perimetre");
+  const iVerte = lanceScript("importer.mjs", [fx("schema-postgres-verte.sql"), "--sortie-dir", tmp]);
+  ok(!(iVerte.r.avertissements || []).some(a => /ORPHELINE/.test(a)),
+    "importer · aucune orpheline inventee sur un schema dont les references se resolvent");
+  const alertes = (iCom.r.avertissements || []).filter(a => /NOMME/.test(a));
+  ok(alertes.length === 1, `importer · UN SEUL objet cite et inexistant denonce (obtenu : ${alertes.length}) — ni le silence, ni le bruit`);
+  ok(alertes.some(a => /ref\.activites\.cod_activite/.test(a)),
+    "importer · l'objet denonce est bien la table au PLURIEL qui n'existe pas — un commentaire faux se lit avec l'autorite du schema");
+  ok(!alertes.some(a => /ref\.activite\.cod_activite\b/.test(a.replace(/ref\.activites/g, ""))),
+    "importer · un objet cite QUI EXISTE n'est pas denonce — le faux positif du premier passage reste corrige");
 } finally {
   fs.rmSync(tmp, { recursive: true, force: true });
 }
@@ -155,6 +196,16 @@ try {
   const tr = lanceScript("traduire-unity-catalog.mjs", [fx("unity-catalog-rouge.json")]);
   ok(tr.exit === 2 && tr.r.sortie === "ECHEC", "traduire-unity-catalog · export incohérent (sortie sans dataset déclaré) refusé proprement (exit 2)");
   ok(!tr.r.fichier_produit, "traduire-unity-catalog · rouge : aucun fichier produit");
+  // TF-0580 : le namespace est la seule donnée du lineage produit qui ne se lit dans AUCUNE ligne
+  // de l'export. Le verbe doit donc REFUSER, jamais inventer — c'est la branche qui compte, car
+  // inventer ici produirait un lineage qui PASSE T7 en désignant la mauvaise instance.
+  const sansNs = JSON.parse(fs.readFileSync(fx("unity-catalog-verte.json"), "utf8"));
+  delete sansNs.namespace;
+  const pSansNs = path.join(tmp2, "uc-sans-namespace.json");
+  fs.writeFileSync(pSansNs, JSON.stringify(sansNs));
+  const tn = lanceScript("traduire-unity-catalog.mjs", [pSansNs, "--sortie-dir", tmp2]);
+  ok(tn.exit === 2 && tn.r.sortie === "ECHEC", "traduire-unity-catalog · export sans `namespace` refusé proprement (exit 2, T7)");
+  ok(!tn.r.fichier_produit, "traduire-unity-catalog · sans namespace : aucun lineage inventé");
 } finally {
   fs.rmSync(tmp2, { recursive: true, force: true });
 }

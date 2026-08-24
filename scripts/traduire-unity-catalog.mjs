@@ -14,6 +14,7 @@
 //
 // Format d'entrée attendu (fidèle au schéma documenté de system.access.column_lineage) :
 //   { "artefact": "<dataset servi que ce lineage documente>",
+//     "namespace": "<instance interrogée — databricks://adb-<id>.<n>.azuredatabricks.net>",
 //     "lignes": [ { source_table_full_name, source_column_name,
 //                   target_table_full_name, target_column_name,
 //                   entity_type, entity_id, event_time }, ... ] }
@@ -24,8 +25,9 @@
 //
 // Correspondance vers lineage@1 :
 //   entrees[]        = table sources distinctes, date = event_time le plus RÉCENT observé
-//                       pour cette table (facet de fraîcheur, au mieux du signal disponible) ;
-//   sorties[]         = tables cibles distinctes ;
+//                       pour cette table (facet de fraîcheur, au mieux du signal disponible),
+//                       `namespace` = celui déclaré par l'appelant (T7) ;
+//   sorties[]         = tables cibles distinctes, même `namespace` ;
 //   transformations[] = une étape par (entity_type, entity_id) distinct rencontré, type
 //                       TOUJOURS "runtime" — le lineage colonne d'Unity Catalog est par
 //                       nature une capture d'exécution réelle (REX X5/X6 : l'opaque n'est
@@ -72,6 +74,16 @@ let doc = null;
 try { doc = JSON.parse(texteBrut); } catch (e) { sortir("ECHEC", 2, { erreur: `JSON invalide : ${e.message}` }); }
 
 if (!doc.artefact) sortir("ECHEC", 2, { erreur: "champ « artefact » absent — le lineage produit doit nommer le dataset servi qu'il documente" });
+// T7 (TF-0580, 24/08) — l'INSTANCE interrogée, et pourquoi elle ne peut pas être devinée ici.
+// Un export `system.access.column_lineage` nomme ses tables `catalogue.schema.table` : trois
+// niveaux qui ne disent RIEN du workspace d'où l'export a été tiré. Deux workspaces d'un même
+// groupe exposent les mêmes noms de catalogues par construction — c'est la règle, pas
+// l'exception. Le « où » ne vit pas dans les lignes, il vit dans la CONNEXION : soit l'appelant
+// le déclare, soit il est perdu et aucune analyse a posteriori ne le retrouvera. Refus propre,
+// donc, plutôt qu'un lineage@1 qui échouerait T7 — même arbitrage que pour la date de fraîcheur.
+const NS = typeof doc.namespace === "string" ? doc.namespace.trim() : "";
+if (!NS)
+  sortir("ECHEC", 2, { erreur: "champ « namespace » absent — l'instance d'où cet export a été tiré ne se lit dans AUCUNE de ses lignes (`catalogue.schema.table` ne dit pas le workspace) et ne peut donc pas être devinée. Traduction refusée plutôt qu'un lineage@1 qui échouerait T7 : `databricks://adb-<id>.<n>.azuredatabricks.net`" });
 if (!Array.isArray(doc.lignes) || !doc.lignes.length) sortir("ECHEC", 2, { erreur: "champ « lignes » absent ou vide — aucun export column_lineage exploitable" });
 
 // ---------- Validation de cohérence (jamais un lineage inventé sur export incomplet) ----------
@@ -122,8 +134,8 @@ const tablesSansDate = [...entreesMap].filter(([, date]) => !date).map(([t]) => 
 if (tablesSansDate.length)
   sortir("ECHEC", 2, { erreur: "table(s) source sans aucun event_time exploitable — traduction refusée plutôt qu'un lineage@1 qui échouerait T2 (date de fraîcheur obligatoire)", tables_sans_date: tablesSansDate });
 
-const entrees = [...entreesMap].map(([dataset, date]) => ({ dataset, date }));
-const sorties = [...sortiesSet].map(dataset => ({ dataset }));
+const entrees = [...entreesMap].map(([dataset, date]) => ({ dataset, namespace: NS, date }));
+const sorties = [...sortiesSet].map(dataset => ({ dataset, namespace: NS }));
 const transformations = [...transformationsMap.values()].map(etape => ({ etape, type: "runtime" }));
 if (!transformations.length) sortir("ECHEC", 2, { erreur: "aucune transformation nommée (entity_type/entity_id absents de toutes les lignes) — traduction refusée plutôt qu'un lineage@1 qui échouerait T3 (transformation obligatoire)" });
 
