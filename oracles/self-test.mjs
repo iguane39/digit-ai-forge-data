@@ -28,7 +28,7 @@ const CAS = [
   { oracle: "oracle-profiler.mjs", verte: "assertions-pont-verte.json", rouge: "assertions-pont-rouge.json", regles: ["P4"] },
   { oracle: "oracle-tracer.mjs", verte: "lineage-verte.json", rouge: "lineage-rouge.json", regles: ["T2", "T3", "T4", "T5"] },
   { oracle: "oracle-tracer.mjs", verte: "lineage-colonne-verte.json", rouge: "lineage-colonne-rouge.json", regles: ["T6"] },
-  // TF-0580 (24/08) : T7 — l'environnement de chaque dataset. Fixtures DÉDIÉES, et dédiées pour
+  // TF-0595 (24/08) : T7 — l'environnement de chaque dataset. Fixtures DÉDIÉES, et dédiées pour
   // une raison mécanique : les deux paires ci-dessus portent un horodatage du 11/08, sous la borne
   // d'antériorité de T7, où la règle ne rend qu'un `info`. Sans ces fixtures-là, la branche PASS
   // de T7 ne serait jouée par personne — et sa branche FAIL non plus.
@@ -141,7 +141,7 @@ try {
   const ir = lanceScript("importer.mjs", [fx("schema-postgres-rouge.sql"), "--sortie-dir", tmp]);
   ok(ir.exit === 2 && ir.r.sortie === "ECHEC", "importer · fixture rouge (illisible) refusée proprement (exit 2, pas de brouillon inventé)");
   ok(!ir.r.fichiers_produits, "importer · rouge : aucun fichier produit");
-  // TF-0585 — les COMMENTAIRES, dans les DEUX sens. Le second sens est celui qui a servi tout de
+  // TF-0600 — les COMMENTAIRES, dans les DEUX sens. Le second sens est celui qui a servi tout de
   // suite : au premier passage, le controle s'est accuse lui-meme sur un objet qui EXISTAIT, faute
   // de normaliser la citation comme les noms du schema (lecon N-23 du pilot).
   const iCom = lanceScript("importer.mjs", [fx("schema-commentaires.sql"), "--sortie-dir", tmp]);
@@ -160,7 +160,7 @@ try {
     ok(rc2.exit === 0 && rc2.r.verdict === "PASS",
       "importer → oracle-contractualiser.mjs : les descriptions n'ont pas casse le contrat (round-trip)");
   }
-  // TF-0584 — la CLE ETRANGERE ORPHELINE, les deux sens. La fixture porte une FK vers la table au
+  // TF-0599 — la CLE ETRANGERE ORPHELINE, les deux sens. La fixture porte une FK vers la table au
   // PLURIEL qui n'existe pas ; la table `activite`, elle, n'est referencee par rien d'absent.
   const orphelines = (iCom.r.avertissements || []).filter(a => /ORPHELINE/.test(a));
   ok(orphelines.length === 1, `importer · UNE SEULE cle etrangere orpheline denoncee (obtenu : ${orphelines.length})`);
@@ -196,7 +196,7 @@ try {
   const tr = lanceScript("traduire-unity-catalog.mjs", [fx("unity-catalog-rouge.json")]);
   ok(tr.exit === 2 && tr.r.sortie === "ECHEC", "traduire-unity-catalog · export incohérent (sortie sans dataset déclaré) refusé proprement (exit 2)");
   ok(!tr.r.fichier_produit, "traduire-unity-catalog · rouge : aucun fichier produit");
-  // TF-0580 : le namespace est la seule donnée du lineage produit qui ne se lit dans AUCUNE ligne
+  // TF-0595 : le namespace est la seule donnée du lineage produit qui ne se lit dans AUCUNE ligne
   // de l'export. Le verbe doit donc REFUSER, jamais inventer — c'est la branche qui compte, car
   // inventer ici produirait un lineage qui PASSE T7 en désignant la mauvaise instance.
   const sansNs = JSON.parse(fs.readFileSync(fx("unity-catalog-verte.json"), "utf8"));
