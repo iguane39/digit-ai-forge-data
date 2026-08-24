@@ -21,7 +21,7 @@ porte sa source et sa fraîcheur.
 | Verbe | Discipline exigée | Barre de niveau |
 |---|---|---|
 | **profiler** | la qualité = **assertions déclaratives unitaires** (objet + condition + paramètres typés), à verdict machine — jamais « données propres » en prose ; pont optionnel vers un lineage@1 (P4, cf. dataQualityAssertions OpenLineage) | Great Expectations |
-| **tracer** | toute donnée servie **déclare son lineage** : entrées (datasets datés) → transformations (typées statique/runtime/déclaratif) → sorties + horodatage + niveau de maturité 0-3 et méthode ; grain colonne optionnel (T6) | OpenLineage (object model : run · job · inputs · outputs · facets) |
+| **tracer** | toute donnée servie **déclare son lineage** : entrées (datasets datés) → transformations (typées statique/runtime/déclaratif) → sorties + horodatage + niveau de maturité 0-3 et méthode ; grain colonne optionnel (T6) ; **environnement de chaque dataset** — `namespace` désignant l'INSTANCE, jugé à partir du 24/08 (T7, TF-0580 : deux catalogues homonymes sur deux workspaces sont la règle, cf. REX X13-X14) | OpenLineage (object model : run · job · inputs · outputs · facets — un dataset s'y identifie par le COUPLE namespace+nom) |
 | **restituer** | tout chiffre d'un rapport **référence une entrée déclarée** (id → valeur + source + date) et le rapport pointe sa déclaration de lineage — le document se génère des déclarations, jamais l'inverse. **R5 (TF-0378)** : et tout NOMBRE du corps porte son marqueur, ou l'échappement explicite `[c:-]` — sans elle, un chiffre écrit en prose sans marqueur n'existait pas pour l'oracle, qui rendait PASS (mesuré : 788 nus contre 135 ancrés sur cinq rapports réels, tous PASS) | dbt-core (déclaré → généré) |
 | **contractualiser** | l'accord producteur↔consommateur est **inspectable** : schéma typé + SLA mesurable + propriétaire joignable + versionnage à statut de cycle de vie — jamais un accord oral ou en prose | ODCS v3.1.0 (Bitol / Linux Foundation) |
 
@@ -29,7 +29,7 @@ porte sa source et sa fraîcheur.
 
 ```bash
 node oracles/oracle-profiler.mjs <assertions.json>        # P1-P3 (+P4 optionnel) : forme exécutable + pont lineage
-node oracles/oracle-tracer.mjs <lineage.json>             # T1-T5 (+T6 optionnel) : lineage complet + grain colonne
+node oracles/oracle-tracer.mjs <lineage.json>             # T1-T5 (+T6 optionnel, T7 environnement) : lineage complet, grain colonne, instance de chaque dataset
 node oracles/oracle-restituer.mjs <rapport.md> [--strict]  # R1-R5 : chiffres ancrés, lineage_ref,
                                                           # et COUVERTURE des nombres de prose (R5,
                                                           # avertie par défaut, bloquante en strict)

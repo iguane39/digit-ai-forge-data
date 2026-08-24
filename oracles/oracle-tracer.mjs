@@ -17,17 +17,32 @@
 //       dataset devant figurer dans `sorties`) et au moins une colonne d'entrée déclarée
 //       (`entrees`, dataset figurant dans `entrees`) ; `transformation` optionnelle doit
 //       viser une étape déclarée. Un lineage@1 sans `colonnes` reste T1-T5 valide (v0).
+//   T7  L'ENVIRONNEMENT DE CHAQUE DATASET — champ `namespace` sur chaque entrée et chaque
+//       sortie (TF-0580, retour SCC_ALX du 24/08). OpenLineage identifie un dataset par le
+//       COUPLE (namespace, name) ; la transcription maison n'avait retenu que le nom, et
+//       cette moitié perdue est précisément le « où ». Jugée à partir du 2026-08-24 sur
+//       l'`horodatage` du lineage lui-même : antériorité DÉCLARÉE plutôt qu'un corpus
+//       entier mis en échec rétroactivement (même arbitrage que R11 d'oracle-todo).
 // non_juge : véracité du lineage déclaré vs réalité d'exécution (capture runtime, hors v0) ;
 // résolution colonne→colonne multi-saut (T6 vérifie la référence directe, pas le chemin
-// complet) ; le catalogue cible.
+// complet) ; le catalogue cible ; la JUSTESSE d'un `namespace` déclaré (T7 constate qu'il
+// est là et qu'il désigne une instance, jamais que c'est la bonne).
 // Usage : node oracle-tracer.mjs <lineage.json> [--json-only]
 import fs from "node:fs";
 
-const DOM = "Lineage déclaré complet (T1-T5, T6 optionnel grain colonne — niveau OpenLineage)";
+const DOM = "Lineage déclaré complet (T1-T5, T6 optionnel grain colonne, T7 environnement des datasets — niveau OpenLineage)";
 const NON_JUGE = [
   "véracité du lineage déclaré contre le plan réellement exécuté (capture runtime — niveau 3, hors v0)",
   "résolution colonne→colonne multi-saut (T6 vérifie que la référence directe existe, pas la chaîne complète)",
   "ingestion dans un catalogue (OpenMetadata ou autre) — instanciation, pas discipline",
+  "T7 : la JUSTESSE du `namespace` déclaré. L'oracle constate qu'il est présent et qu'il ne se " +
+    "réduit pas à un nom de technologie ; il ne peut pas savoir si `databricks://adb-1234…` est " +
+    "bien l'instance qui a répondu. Un namespace faux mais bien formé passe — et c'est déjà " +
+    "infiniment mieux qu'un namespace absent, qui rend deux archives INDISCERNABLES au lieu de fausses",
+  "T7 : un lineage écrit aujourd'hui avec un `horodatage` antérieur au 2026-08-24 échappe au " +
+    "jugement. La borne d'antériorité est déclarée, donc contournable ; elle est préférée à la " +
+    "mise en échec rétroactive de tout lineage existant (R-33 bis : une règle bruyante se fait " +
+    "contourner au lieu de se corriger)",
 ];
 const args = process.argv.slice(2);
 const file = args.find(a => !a.startsWith("--"));
@@ -87,4 +102,70 @@ if (d.colonnes !== undefined) {
     if (c.transformation && !etapes.has(c.transformation)) add("bloquant", "T6", `transformation « ${c.transformation} » non déclarée parmi les étapes`, ou);
   });
 }
+
+// ---- T7 — l'ENVIRONNEMENT de chaque dataset (TF-0580, retour SCC_ALX du 24/08) -------------
+// LE FAIT MESURÉ. Un poste portait deux profils de connexion vers deux workspaces Databricks
+// distincts, exposant TOUS DEUX un catalogue nommé `catalog_any_bronze_d1`. La même requête sur
+// l'un et sur l'autre rend deux résultats différents et — c'est là le défaut — deux archives
+// STRICTEMENT INDISCERNABLES : plus de 60 mesures prises en onze jours sans que rien ne dise
+// laquelle a répondu. La doctrine réclamait le QUOI (`oracle-restituer`, le marqueur) et le
+// COMMENT (T1-T6, le lineage) ; personne ne réclamait le OÙ.
+//
+// POURQUOI C'EST UNE RÉGRESSION DE TRANSCRIPTION, ET PAS UN OUBLI DE RÉDACTEUR. La barre retenue
+// pour ce verbe est l'object model d'OpenLineage, où un dataset est identifié par le COUPLE
+// (namespace, name) — le namespace étant `scheme://authority`, c'est-à-dire l'instance. La
+// transcription maison `forge-data/lineage@1` n'avait retenu que `dataset`, donc la moitié NOM.
+// La moitié perdue est exactement celle qui porte le « où ».
+//
+// ET C'EST UNE DONNÉE QUI N'EST PAS DANS LES DONNÉES. Un export `system.access.column_lineage`
+// nomme ses tables `catalogue.schema.table` : trois niveaux qui ne disent RIEN du workspace
+// interrogé. Le « où » ne vit pas dans la ligne, il vit dans la CONNEXION — donc il se déclare,
+// ou il est perdu pour toujours. Aucune analyse a posteriori ne le retrouvera.
+//
+// LE JEU FERMÉ DES NAMESPACES QUI NE DISCRIMINENT RIEN. Un champ rempli n'est pas un champ utile :
+// « databricks » ne distingue pas deux workspaces Databricks, et c'est le mot que l'on écrit
+// spontanément. Même construction à liste fermée que les termes ambigus d'EA2 en conception —
+// un namespace qui est un nom de technologie NU est refusé, la convention OpenLineage
+// `scheme://authority` étant acceptée sans autre examen.
+const TECHNOS_NUES = new Set([
+  "databricks", "postgres", "postgresql", "mysql", "mariadb", "oracle", "sqlserver", "mssql",
+  "bigquery", "snowflake", "redshift", "athena", "s3", "gcs", "abfss", "adls", "azure", "aws",
+  "gcp", "kafka", "file", "local", "hive", "spark", "dbt", "prod", "production", "dev",
+  "developpement", "développement", "staging", "recette", "qualif", "test",
+]);
+// Antériorité DÉCLARÉE plutôt que corpus mis en échec (même arbitrage que R11 d'oracle-todo) :
+// T7 ne juge que les lineages dont le `horodatage` est postérieur à la publication de la règle.
+const T7_DEPUIS = Date.parse("2026-08-24T00:00:00Z");
+const t7Juge = (() => {
+  const t = Date.parse(d.horodatage || "");
+  return Number.isFinite(t) ? t >= T7_DEPUIS : true; // horodatage illisible : T4 le dit déjà, T7 juge
+})();
+if (!t7Juge) {
+  add("info", "T7", `lineage antérieur au 2026-08-24 (horodatage ${d.horodatage}) — l'environnement des datasets n'est pas jugé : antériorité déclarée, pas oubliée`, file);
+} else {
+  const jugerNamespace = (o, ou, role) => {
+    const ns = o && typeof o.namespace === "string" ? o.namespace.trim() : "";
+    if (!ns) {
+      add("bloquant", "T7",
+        `${role} « ${(o && o.dataset) || "?"} » sans \`namespace\` — OpenLineage identifie un dataset par (namespace, name) ; ` +
+        "sans le namespace, deux datasets homonymes sur deux instances rendent deux lineages INDISCERNABLES. " +
+        "Le « où » ne vit pas dans la donnée, il vit dans la connexion : il se déclare ou il est perdu",
+        ou);
+      return;
+    }
+    if (ns.includes("://")) return; // convention OpenLineage scheme://authority — l'instance est là
+    if (TECHNOS_NUES.has(ns.toLowerCase())) {
+      add("bloquant", "T7",
+        `${role} « ${o.dataset} » : namespace « ${ns} » est un nom de technologie NU — il ne distingue pas deux ` +
+        "instances de cette même technologie, qui est exactement le cas mesuré (deux workspaces, un catalogue homonyme). " +
+        "Nommer l'INSTANCE : `databricks://adb-0000000000000001.10.azuredatabricks.net`, ou un identifiant stable de l'environnement",
+        ou);
+    }
+  };
+  (Array.isArray(d.entrees) ? d.entrees : []).forEach((e, i) => jugerNamespace(e, `entrees #${i + 1}`, "entrée"));
+  (Array.isArray(d.sorties) ? d.sorties : []).forEach((s, i) => jugerNamespace(s, `sorties #${i + 1}`, "sortie"));
+  if (!F.some(f => f.regle === "T7"))
+    add("info", "T7", "chaque dataset déclare son environnement (namespace désignant une instance)", file);
+}
+
 out(F.some(f => f.sev === "bloquant") ? "FAIL" : "PASS", F.some(f => f.sev === "bloquant") ? 1 : 0);

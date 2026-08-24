@@ -1,5 +1,6 @@
 {
   "artefact": "main.servi.ventes_mensuelles",
+  "namespace": "databricks://adb-0000000000000001.10.azuredatabricks.net",
   "lignes": [
     {
       "source_table_full_name": "main.brut.exports_pgi",

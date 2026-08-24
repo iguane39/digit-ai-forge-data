@@ -1,0 +1,36 @@
+{
+  "_fait": "TF-0580. Le lineage tel qu'il s'écrivait AVANT la règle, avec l'horodatage du jour : deux entrées au nom strictement identique et rien pour les séparer — c'est mot pour mot l'état des 60+ mesures archivées par SCC_ALX du 13/08 au 24/08. La troisième entrée porte le namespace qu'on écrit spontanément, « databricks », qui ne distingue pas les deux workspaces Databricks du poste : un champ rempli n'est pas un champ utile.",
+  "format": "forge-data/lineage@1",
+  "artefact": "rapprochement_portefeuille",
+  "entrees": [
+    {
+      "dataset": "catalog_any_bronze_d1.al2.bail",
+      "date": "2026-08-24"
+    },
+    {
+      "dataset": "catalog_any_bronze_d1.al2.bail",
+      "date": "2026-08-24"
+    },
+    {
+      "dataset": "catalog_any_bronze_d1.dl50.customer",
+      "namespace": "databricks",
+      "date": "2026-08-24"
+    }
+  ],
+  "transformations": [
+    {
+      "etape": "rapprochement_par_code_immeuble",
+      "type": "declaratif"
+    }
+  ],
+  "sorties": [
+    {
+      "dataset": "servi.ecarts_portefeuille"
+    }
+  ],
+  "horodatage": "2026-08-24T18:00:00Z",
+  "confiance": {
+    "niveau": 2,
+    "methode": "requêtes archivées avec leur SQL et leur statement_id — le OÙ n'est nulle part"
+  }
+}

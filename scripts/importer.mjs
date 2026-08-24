@@ -18,6 +18,7 @@
 //     deux formes sont reconnues)
 //   UNIQUE / PRIMARY KEY (colonne seule)            → assertion unique
 //   colonnes + types                                → contrat@1 schema[].proprietes[]
+//   COMMENT ON TABLE/COLUMN … IS '…'                → contrat@1 `description` (TF-0585)
 //
 // Limites assumées, jamais silencieuses (remontées en `avertissements` de la sortie) :
 //   - clés composites (PRIMARY KEY / UNIQUE sur plusieurs colonnes) : NOT NULL par colonne
@@ -25,7 +26,10 @@
 //     porte qu'un seul objet par assertion — pas de clé composite) ;
 //   - CHECK portant sur plusieurs colonnes, ou motif non reconnu : ignoré et signalé, jamais
 //     converti à l'aveugle ;
-//   - FOREIGN KEY : hors périmètre assertions@1/contrat@1 v0, signalé ;
+//   - FOREIGN KEY : sa CONVERSION reste hors périmètre assertions@1/contrat@1 v0, signalée ; sa
+//     CIBLE est en revanche vérifiée — une clé qui référence une table absente du schéma est
+//     dénoncée comme ORPHELINE (TF-0584), parce qu'un objet encore référencé n'est pas un objet
+//     hors périmètre : c'est un constat à livrer ;
 //   - type de colonne hors mapping connu : repli "string" avec avertissement explicite ;
 //   - sla / propriétaire / version / statut du contrat@1 ne se déduisent PAS d'un DDL : le
 //     brouillon pose des valeurs placeholder explicites et un statut "brouillon" — jamais un
@@ -33,6 +37,22 @@
 //   - littéral de chaîne (DEFAULT '...') contenant par coïncidence un mot-clé de contrainte
 //     (« UNIQUE », « NOT NULL ») : risque de faux positif non filtré en v0 (repérage par
 //     regex sur la clause entière, pas par analyseur lexical complet).
+//
+//
+// LE COMMENTAIRE D'UNE COLONNE EST UNE SOURCE DE VÉRITÉ DE PREMIER ORDRE (TF-0585, retour
+// SCC_ALX du 24/08), et ce fichier portait la preuve du contraire : sa boucle de lecture rangeait
+// `COMMENT ON` avec `GRANT` et `SET` sous « hors périmètre schéma, ignorés ». Ce qui a tranché un
+// sujet resté ouvert TROIS TOURS d'analyse n'est ni une jointure ni un décompte : c'est le
+// commentaire porté par une colonne de code, qui déclarait en toutes lettres de quel système ce
+// code était repris. Un commentaire peut nommer l'AMONT d'une colonne, la COMPOSITION d'une clé,
+// la CIBLE d'une clé étrangère, la RÈGLE de dérivation d'une valeur — et l'ignorer, c'est jeter la
+// seule phrase du schéma écrite par quelqu'un qui savait.
+//
+// AVEC SON CONTRÔLE, qui coûte trois lignes et paie tout de suite : tout objet NOMMÉ dans un
+// commentaire existe-t-il ? Sur le cas fondateur, un commentaire de clé étrangère désignait une
+// table sous un nom que le catalogue ne portait pas — et il avait traversé trois revues sans que
+// personne le relève. Un commentaire faux est pire qu'un commentaire absent : il se lit avec
+// l'autorité du schéma.
 //
 // Usage : node scripts/importer.mjs <schema.sql> [--sortie-dir <dossier>] [--json-only]
 // Sortie : écrit <base>.assertions.json (si au moins une assertion dérivée) et
@@ -269,6 +289,11 @@ function traiterContrainteTable(def, t, nomT) {
     return;
   }
   if (/^(?:CONSTRAINT\s+[\w"$]+\s+)?FOREIGN\s+KEY\b/i.test(s)) {
+    // TF-0584 — la CIBLE de la clé étrangère est mémorisée, pas seulement signalée. Sa conversion
+    // reste hors périmètre du format v0 ; son EXISTENCE, elle, se vérifie et vaut le détour (voir
+    // le contrôle des clés orphelines plus bas).
+    const mRef = s.match(/REFERENCES\s+([\w".$]+)/i);
+    if (mRef) clesEtrangeres.push({ depuis: nomT, vers: nomTable(mRef[1]), brut: mRef[1].replace(/"/g, "") });
     avert(`table ${nomT} : FOREIGN KEY non convertie (hors périmètre assertions@1/contrat@1 v0) — à documenter manuellement`);
     return;
   }
@@ -297,6 +322,19 @@ function traiterDefinition(def, t, nomT) {
 }
 
 // ---------- Boucle principale ----------
+// TF-0585 — `COMMENT ON` est une INSTRUCTION du dialecte, pas un commentaire SQL : `retirerCommentaires`
+// (qui enlève les `--` et les `/* */`) ne la touche pas, elle arrive donc entière dans la boucle.
+const RE_COMMENT_ON = /^\s*COMMENT\s+ON\s+(TABLE|COLUMN)\s+([\w".]+)\s+IS\s+'((?:[^']|'')*)'/i;
+//: Un nom d'objet QUALIFIÉ cité dans un commentaire : `schema.table` ou `schema.table.colonne`.
+//: Volontairement étroit — un mot seul n'est pas une citation d'objet, et le confondre avec un mot
+//: de prose ferait crier le contrôle sur chaque phrase française qui porte un point.
+const RE_OBJET_CITE = /\b([a-z_][\w]*(?:\.[a-z_][\w]*){1,2})\b/gi;
+//: Ce qui ressemble à un nom qualifié sans en être un — extensions, décimales, abréviations.
+const CITATIONS_INNOCENTES = /^(?:\d|v\d|etc\.|cf\.|ex\.)/i;
+const commentaires = [];
+//: TF-0584 — les clés étrangères relevées, pour pouvoir dire lesquelles pointent vers du vide.
+const clesEtrangeres = [];
+
 const stmts = decouperStatements(retirerCommentaires(texteBrut));
 let nbTablesTrouvees = 0;
 for (const stmt of stmts) {
@@ -318,7 +356,16 @@ for (const stmt of stmts) {
     traiterContrainteTable(mAlter[2], table(nomT), nomT);
     continue;
   }
-  // CREATE INDEX, COMMENT ON, ALTER ... OWNER TO, SET, GRANT… : hors périmètre schéma, ignorés
+  // COMMENT ON TABLE|COLUMN <nom> IS '<texte>' (TF-0585). Le guillemet simple doublé est
+  // l'échappement SQL : `l''activité` se relit `l'activité`.
+  const mCom = stmt.match(RE_COMMENT_ON);
+  if (mCom) {
+    const cible = mCom[2].replace(/"/g, "");
+    const texte = mCom[3].replace(/''/g, "'").trim();
+    if (texte) commentaires.push({ genre: mCom[1].toUpperCase(), cible, texte });
+    continue;
+  }
+  // CREATE INDEX, ALTER ... OWNER TO, SET, GRANT… : hors périmètre schéma, ignorés
 }
 if (nbTablesTrouvees === 0) sortir("ECHEC", 2, { erreur: "aucune instruction CREATE TABLE reconnue — fichier illisible ou hors dialecte couvert (Postgres v0)" });
 
@@ -327,10 +374,103 @@ const toutesAssertions = [];
 for (const nom of nomsTables) toutesAssertions.push(...tables.get(nom).assertions);
 if (!toutesAssertions.length) avert("aucune contrainte NOT NULL / CHECK / UNIQUE / PRIMARY KEY détectée — brouillon assertions@1 non produit (rien à y mettre)");
 
-const schema = nomsTables.map(nom => ({
-  objet: nom,
-  proprietes: tables.get(nom).colonnes.map(c => ({ nom: c.nom, type: typeContrat(c.typeDdl, nom, c.nom) })),
-})).filter(s => s.proprietes.length);
+// ---- Les commentaires : rattachés, puis CONTRÔLÉS (TF-0585) ----------------------------------
+// Rattachement : `COMMENT ON TABLE a.b` vise la table `b` du schéma `a` ; `COMMENT ON COLUMN
+// a.b.c` vise la colonne `c` de cette table. `nomTable` normalise déjà la qualification, on
+// applique la même normalisation aux deux bouts pour ne pas comparer des formes différentes.
+const descTable = new Map();
+const descColonne = new Map();
+const objetsConnus = new Set();
+for (const nom of nomsTables) {
+  objetsConnus.add(nom.toLowerCase());
+  for (const c of tables.get(nom).colonnes) objetsConnus.add(`${nom}.${c.nom}`.toLowerCase());
+}
+for (const com of commentaires) {
+  if (com.genre === "TABLE") {
+    const nomT = nomTable(com.cible);
+    if (!tables.has(nomT)) { avert(`COMMENT ON TABLE ${com.cible} : table non vue en CREATE TABLE — commentaire non rattaché`); continue; }
+    descTable.set(nomT, com.texte);
+  } else {
+    const morceaux = com.cible.split(".");
+    const colonne = morceaux.pop();
+    const nomT = nomTable(morceaux.join("."));
+    const t = tables.has(nomT) ? tables.get(nomT) : null;
+    if (!t || !t.colonnes.some(c => c.nom === colonne)) {
+      avert(`COMMENT ON COLUMN ${com.cible} : colonne non vue dans le schéma — commentaire non rattaché`);
+      continue;
+    }
+    descColonne.set(`${nomT}.${colonne}`, com.texte);
+  }
+}
+// LA CLÉ ÉTRANGÈRE ORPHELINE (TF-0584, retour SCC_ALX du 24/08). LE FAIT : une cible du périmètre
+// a été RETIRÉE parce que sa table était absente du déploiement visé — recherche par motif fournie,
+// complète et honnête, et la décision était quand même la mauvaise. La table existe dans le modèle
+// du groupe, sur un autre déploiement : 12 colonnes, 236 lignes. Son absence ici n'était pas un
+// trou de CONCEPTION mais un trou de DÉPLOIEMENT, et la méthode n'avait pas d'état pour le dire.
+//
+// L'AGGRAVANT, et c'est lui qui se mécanise : la colonne qui référence cette table existe bel et
+// bien dans le catalogue visé, et pointe donc vers un objet INEXISTANT. Le retrait de la cible a
+// MASQUÉ ce défaut au lieu de le révéler — une clé étrangère renseignée sur 1 407 lignes sur
+// 24 136, vers une table que rien ne porte. La règle qui en sort tient en une phrase : *avant de
+// conclure qu'un objet absent est hors périmètre, regarder si quelque chose le référence encore* —
+// si oui, l'absence est un CONSTAT à livrer, pas un objet à retirer.
+//
+// Borne déclarée : un schéma exporté table par table verra ses références externes signalées comme
+// orphelines, ce qui est le comportement voulu — le doute se lit plutôt qu'il ne se devine — mais
+// il faut savoir que sur un export PARTIEL le signal est attendu et bénin.
+for (const fk of clesEtrangeres) {
+  if (tables.has(fk.vers)) continue;
+  avert(`table ${fk.depuis} : CLÉ ÉTRANGÈRE ORPHELINE — elle référence « ${fk.brut} », que ce schéma ne porte pas. ` +
+    "Deux lectures, et le choix n'est pas neutre : soit la table manque à CE déploiement seulement (un autre la porte, " +
+    "et la cible reste au périmètre), soit elle manque au modèle. Dans les deux cas, la référence qui pointe vers du " +
+    "vide est un CONSTAT À LIVRER, jamais un objet à retirer du périmètre. Sur un export partiel, ce signal est attendu");
+}
+
+// LE CONTRÔLE. Un commentaire qui NOMME un objet absent du schéma est un commentaire FAUX, et il
+// se lit avec l'autorité du schéma. Sur le cas fondateur, un commentaire de clé étrangère désignait
+// une table sous un nom que le catalogue ne portait pas, après trois revues. Ce qui n'est pas jugé
+// est déclaré : la JUSTESSE de ce qu'un commentaire affirme reste hors de portée — seule
+// l'existence de ce qu'il nomme se vérifie.
+//
+// PREMIER PASSAGE DE CE CONTRÔLE, ET IL S'EST ACCUSÉ LUI-MÊME — la leçon N-23 du pilot appliquée
+// telle quelle : jouer la liste sur un cas réel, et lire d'abord ce qu'elle attrape À TORT. Sur un
+// schéma à trois commentaires, il en a dénoncé DEUX, dont un JUSTE (`ref.activites` au pluriel,
+// table inexistante) et un FAUX : `ref.activite.cod_activite`, qui existe. Cause — `nomTable`
+// normalise en ne gardant que le DERNIER segment, donc le registre des objets connus porte
+// `activite.cod_activite` et pas sa forme qualifiée. Un contrôle qui crie un coup sur deux ne se
+// corrige pas, il se fait désactiver (R-33 bis) : la citation est donc normalisée par LE MÊME
+// chemin que les noms du schéma, et ses deux lectures possibles sont essayées avant de conclure.
+//
+//   `a.b.c`  → schéma.table.colonne          → clé `b.c`
+//   `a.b`    → soit schéma.table (clé `b`), soit table.colonne (clé `a.b`) — l'une suffit
+const citationConnue = (cite) => {
+  const seg = cite.toLowerCase().split(".");
+  if (seg.length >= 3) return objetsConnus.has(`${seg[seg.length - 2]}.${seg[seg.length - 1]}`);
+  return objetsConnus.has(seg[seg.length - 1]) || objetsConnus.has(seg.join("."));
+};
+for (const com of commentaires) {
+  const cites = [...new Set((com.texte.match(RE_OBJET_CITE) || []))]
+    .filter(x => !CITATIONS_INNOCENTES.test(x))
+    .filter(x => !citationConnue(x));
+  if (cites.length)
+    avert(`COMMENT ON ${com.genre} ${com.cible} NOMME ${cites.length} objet(s) que le schéma ne porte pas : ` +
+      `${cites.join(", ")} — un commentaire faux se lit avec l'autorité du schéma. Vérifier le nom, ou le retirer`);
+}
+
+const schema = nomsTables.map(nom => {
+  const o = {
+    objet: nom,
+    proprietes: tables.get(nom).colonnes.map(c => {
+      const prop = { nom: c.nom, type: typeContrat(c.typeDdl, nom, c.nom) };
+      const d = descColonne.get(`${nom}.${c.nom}`);
+      if (d) prop.description = d;
+      return prop;
+    }),
+  };
+  const dt = descTable.get(nom);
+  if (dt) o.description = dt;
+  return o;
+}).filter(s => s.proprietes.length);
 if (!schema.length) avert("aucune colonne exploitable — brouillon contrat@1 non produit");
 else avert("contrat@1 brouillon : sla / proprietaire / version réels ne se déduisent pas d'un schéma DDL — valeurs placeholder posées (statut \"brouillon\"), complétion humaine obligatoire avant usage réel");
 
