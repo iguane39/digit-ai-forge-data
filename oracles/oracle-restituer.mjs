@@ -120,6 +120,22 @@ for (const d of declares) if (!utilises.includes(d))
   add("avertissement", "R3", `chiffre « ${d} » déclaré mais jamais restitué (déclaration morte)`, "frontmatter");
 if (lineageRef && !fs.existsSync(path.join(path.dirname(path.resolve(file)), lineageRef)))
   add("bloquant", "R4", `lineage_ref introuvable à côté du rapport : ${lineageRef}`, file);
+// --- R6 — un chiffre peut pointer un LOT DE RÉCONCILIATION (TF-0864, lot L7 du 07/09/2026) -------
+// Quand le rapport restitue des mesures d'un modèle sémantique, le frontmatter porte
+// `reconciliation_ref:` : le fichier existe à côté du rapport et est au format
+// `forge-data/reconciliation@1` (jugé ensuite par oracle-reconcilier, RC1-RC6). Optionnel :
+// un rapport sans mesure aval n'en porte pas, et R6 ne dit rien. Présent et faux : bloquant —
+// un chiffre qui prétend être réconcilié et ne pointe rien est pire qu'un chiffre nu.
+const reconciliationRef = (front.match(/^reconciliation_ref\s*:\s*(.+)$/m) || [])[1]?.trim();
+if (reconciliationRef) {
+  const pr = path.join(path.dirname(path.resolve(file)), reconciliationRef);
+  if (!fs.existsSync(pr)) add("bloquant", "R6", `reconciliation_ref introuvable à côté du rapport : ${reconciliationRef}`, file);
+  else {
+    let rc = null;
+    try { rc = JSON.parse(fs.readFileSync(pr, "utf8")); } catch { add("bloquant", "R6", `reconciliation_ref illisible (JSON attendu) : ${reconciliationRef}`, file); }
+    if (rc && rc.format !== "forge-data/reconciliation@1") add("bloquant", "R6", `reconciliation_ref au format « ${rc.format} » (attendu forge-data/reconciliation@1)`, file);
+  }
+}
 // --- R5 — couverture des nombres de prose (TF-0378) ---------------------------------------
 // Le corps jugeable de R3 a déjà retiré le code et les échappements. On retire en plus les
 // LIGNES DE TABLEAU (hors champ, cf. NON_JUGE) et les titres, dont la numérotation n'est pas

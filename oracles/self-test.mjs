@@ -35,6 +35,18 @@ const CAS = [
   { oracle: "oracle-tracer.mjs", verte: "lineage-environnement-verte.json", rouge: "lineage-environnement-rouge.json", regles: ["T7"] },
   { oracle: "oracle-restituer.mjs", verte: "rapport-verte.md", rouge: "rapport-rouge.md", regles: ["R2", "R3", "R4"] },
   { oracle: "oracle-contractualiser.mjs", verte: "contrat-verte.json", rouge: "contrat-rouge.json", regles: ["C2", "C3", "C4", "C5"] },
+  // Lots L3, L4, L7 de l'étude d'opportunité du pilot (07/09/2026, mandat D-5 puis GO A-24 à A-26).
+  // modéliser (TF-0860) : la rouge porte un fait sans grain, une mesure d'agrégation inconnue, une
+  // dimension définie deux fois, une clé de substitution égale à la clé naturelle, un type de
+  // changement hors jeu, aucune dimension temps, un processus absent de la matrice en bus.
+  { oracle: "oracle-modeliser.mjs", verte: "modele-dimensionnel-verte.json", rouge: "modele-dimensionnel-rouge.json", regles: ["M2", "M3", "M4", "M5", "M6"] },
+  // transformer (TF-0861) : cible = dossier des artefacts de l'outil (manifest, run_results, catalog).
+  { oracle: "oracle-transformer.mjs", verte: "transformation-verte", rouge: "transformation-rouge", regles: ["TR2", "TR3", "TR4", "TR5", "TR6"] },
+  // réconcilier (TF-0864) : tolérance absente, cible sans namespace, mesure sans homologue, écart.
+  { oracle: "oracle-reconcilier.mjs", verte: "reconciliation-verte.json", rouge: "reconciliation-rouge.json", regles: ["RC2", "RC3", "RC4", "RC5"] },
+  // restituer R6 : un rapport qui pointe un lot de réconciliation existant PASSE, un rapport qui
+  // prétend une réconciliation vers un fichier absent ÉCHOUE sur R6 — et sur R6 seulement.
+  { oracle: "oracle-restituer.mjs", verte: "rapport-reconciliation-verte.md", rouge: "rapport-reconciliation-rouge.md", regles: ["R6"] },
 ];
 
 console.log("SELF-TEST forge-data — discipline aux niveaux des 4 barres (fixtures synthétiques)\n");

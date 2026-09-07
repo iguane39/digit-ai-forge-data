@@ -1,0 +1,9 @@
+{
+  "metadata": { "dbt_schema_version": "https://schemas.getdbt.com/dbt/run-results/v6.json", "generated_at": "2026-09-07T10:05:00Z" },
+  "results": [
+    { "unique_id": "test.ventes_silver_gold.unique_stg_ventes_id_commande.a1", "status": "pass", "failures": 0 },
+    { "unique_id": "test.ventes_silver_gold.not_null_stg_ventes_id_commande.b2", "status": "pass", "failures": 0 },
+    { "unique_id": "test.ventes_silver_gold.accepted_values_fct_ventes_pays.c3", "status": "pass", "failures": 0 }
+  ],
+  "elapsed_time": 4.2
+}

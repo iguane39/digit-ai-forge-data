@@ -1,0 +1,23 @@
+{
+  "metadata": { "dbt_schema_version": "https://schemas.getdbt.com/dbt/manifest/v12.json", "project_name": "ventes_brouillon", "generated_at": "2026-09-07T10:00:00Z" },
+  "sources": {},
+  "nodes": {
+    "model.ventes_brouillon.ventes_propres": {
+      "resource_type": "model", "name": "ventes_propres", "path": "ventes_propres.sql",
+      "description": "",
+      "depends_on": { "nodes": [] },
+      "columns": {}
+    },
+    "model.ventes_brouillon.fct_ventes": {
+      "resource_type": "model", "name": "fct_ventes", "path": "fct_ventes.sql",
+      "description": "Faits ventes.",
+      "depends_on": { "nodes": ["model.ventes_brouillon.ventes_propres"] },
+      "columns": {}
+    },
+    "test.ventes_brouillon.not_null_fct_ventes_montant.z9": {
+      "resource_type": "test", "name": "not_null_fct_ventes_montant",
+      "test_metadata": { "name": "not_null" },
+      "depends_on": { "nodes": ["model.ventes_brouillon.fct_ventes"] }
+    }
+  }
+}

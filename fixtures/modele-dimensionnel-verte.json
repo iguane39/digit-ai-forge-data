@@ -1,0 +1,25 @@
+{
+  "format": "forge-data/modele-dimensionnel@1",
+  "id": "gold_ventes_v1",
+  "matrice_bus": [
+    { "processus": "ventes", "dimensions": ["date", "client", "produit", "pays"] },
+    { "processus": "retours", "dimensions": ["date", "client", "produit"] }
+  ],
+  "dimensions": [
+    { "nom": "date", "role": "temps", "grain": "jour", "debut": "2024-01-01", "fin": "2026-12-31", "contigue": true,
+      "cle_substitution": "date_sk", "cle_naturelle": "date", "type_changement": 0, "attributs": ["annee", "trimestre", "mois", "jour", "jour_semaine"], "conforme": true },
+    { "nom": "client", "cle_substitution": "client_sk", "cle_naturelle": "id_client", "type_changement": 2, "attributs": ["statut", "segment", "pays_facturation"], "conforme": true },
+    { "nom": "produit", "cle_substitution": "produit_sk", "cle_naturelle": "sku", "type_changement": 1, "attributs": ["famille", "marque", "unite"], "conforme": true },
+    { "nom": "pays", "cle_substitution": "pays_sk", "cle_naturelle": "code_iso", "type_changement": 0, "attributs": ["libelle", "zone"], "conforme": true }
+  ],
+  "faits": [
+    { "nom": "ventes", "processus": "ventes",
+      "grain": "une ligne par ligne de commande livrée, par jour de livraison",
+      "dimensions": ["date", "client", "produit", "pays"],
+      "mesures": [ { "nom": "montant_ht", "agregation": "somme" }, { "nom": "quantite", "agregation": "somme" }, { "nom": "commandes", "agregation": "compte_distinct" } ] },
+    { "nom": "retours", "processus": "retours",
+      "grain": "une ligne par article retourné, par jour de réception du retour",
+      "dimensions": ["date", "client", "produit"],
+      "mesures": [ { "nom": "quantite_retournee", "agregation": "somme" }, { "nom": "montant_rembourse", "agregation": "somme" } ] }
+  ]
+}

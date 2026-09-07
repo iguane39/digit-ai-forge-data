@@ -1,0 +1,35 @@
+{
+  "metadata": { "dbt_schema_version": "https://schemas.getdbt.com/dbt/manifest/v12.json", "project_name": "ventes_silver_gold", "generated_at": "2026-09-07T10:00:00Z" },
+  "sources": {
+    "source.ventes_silver_gold.bronze.ventes": { "resource_type": "source", "name": "ventes", "source_name": "bronze", "description": "Ventes brutes reprises du système de caisse" }
+  },
+  "nodes": {
+    "model.ventes_silver_gold.stg_ventes": {
+      "resource_type": "model", "name": "stg_ventes", "path": "silver/stg_ventes.sql",
+      "description": "Ventes typées et dédoublonnées de la couche Silver, une ligne par ligne de commande.",
+      "depends_on": { "nodes": ["source.ventes_silver_gold.bronze.ventes"] },
+      "columns": { "id_commande": { "name": "id_commande", "description": "Identifiant de commande" } }
+    },
+    "model.ventes_silver_gold.fct_ventes": {
+      "resource_type": "model", "name": "fct_ventes", "path": "gold/fct_ventes.sql",
+      "description": "Table de faits des ventes au grain ligne de commande livrée par jour, couche Gold.",
+      "depends_on": { "nodes": ["model.ventes_silver_gold.stg_ventes"] },
+      "columns": {}
+    },
+    "test.ventes_silver_gold.unique_stg_ventes_id_commande.a1": {
+      "resource_type": "test", "name": "unique_stg_ventes_id_commande",
+      "test_metadata": { "name": "unique" },
+      "depends_on": { "nodes": ["model.ventes_silver_gold.stg_ventes"] }
+    },
+    "test.ventes_silver_gold.not_null_stg_ventes_id_commande.b2": {
+      "resource_type": "test", "name": "not_null_stg_ventes_id_commande",
+      "test_metadata": { "name": "not_null" },
+      "depends_on": { "nodes": ["model.ventes_silver_gold.stg_ventes"] }
+    },
+    "test.ventes_silver_gold.accepted_values_fct_ventes_pays.c3": {
+      "resource_type": "test", "name": "accepted_values_fct_ventes_pays",
+      "test_metadata": { "name": "accepted_values" },
+      "depends_on": { "nodes": ["model.ventes_silver_gold.fct_ventes"] }
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "format": "forge-data/modele-dimensionnel@1",
+  "id": "gold_ventes_brouillon",
+  "matrice_bus": [
+    { "processus": "ventes", "dimensions": ["client", "produit"] }
+  ],
+  "dimensions": [
+    { "nom": "client", "cle_substitution": "id_client", "cle_naturelle": "id_client", "type_changement": 2, "attributs": ["statut"] },
+    { "nom": "client", "cle_substitution": "client_sk", "cle_naturelle": "id_client", "type_changement": 7, "attributs": [] },
+    { "nom": "produit", "cle_substitution": "produit_sk", "cle_naturelle": "sku", "type_changement": 1, "attributs": ["famille"] },
+    { "nom": "entrepot", "cle_substitution": "entrepot_sk", "cle_naturelle": "code", "type_changement": 0, "attributs": ["ville"] }
+  ],
+  "faits": [
+    { "nom": "ventes", "processus": "ventes",
+      "dimensions": ["client", "produit", "pays"],
+      "mesures": [ { "nom": "montant_ht", "agregation": "total" } ] },
+    { "nom": "stocks", "processus": "stocks",
+      "grain": "stock",
+      "dimensions": ["produit", "entrepot"],
+      "mesures": [] }
+  ]
+}

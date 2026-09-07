@@ -1,0 +1,7 @@
+{
+  "metadata": { "dbt_schema_version": "https://schemas.getdbt.com/dbt/run-results/v6.json", "generated_at": "2026-09-07T10:05:00Z" },
+  "results": [
+    { "unique_id": "test.ventes_brouillon.not_null_fct_ventes_montant.z9", "status": "fail", "failures": 12 }
+  ],
+  "elapsed_time": 1.1
+}

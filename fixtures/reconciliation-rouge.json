@@ -1,0 +1,26 @@
+{
+  "format": "forge-data/reconciliation@1",
+  "id": "reconciliation_ventes_2026-08_brouillon",
+  "reference": {
+    "nom": "gold",
+    "cible": { "profil": "profil-exemple" },
+    "date": "2026-09-01",
+    "source": "forge/etapes/data/mesures/2026-09-01-gold-ventes-2026-08.json",
+    "mesures": [
+      { "id": "ca_ht_2026_08", "valeur": 1234567.89 },
+      { "id": "commandes_2026_08", "valeur": 24136 },
+      { "id": "clients_actifs_2026_08", "valeur": 1407 }
+    ]
+  },
+  "compare": {
+    "nom": "modele_semantique_ventes",
+    "cible": { "namespace": "powerbi://app.powerbi.com/groups/00000000-0000-0000-0000-000000000000/datasets/11111111-1111-1111-1111-111111111111" },
+    "date": "2026-09-07",
+    "source": "forge/etapes/data/mesures/2026-09-07-semantique-ventes-2026-08.json",
+    "mesures": [
+      { "id": "ca_ht_2026_08", "valeur": 1198000.00 },
+      { "id": "commandes_2026_08", "valeur": 24136 },
+      { "id": "panier_moyen_2026_08", "valeur": 51.15 }
+    ]
+  }
+}

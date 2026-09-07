@@ -92,6 +92,28 @@ lineage inventé. Preuve en boucle : la sortie doit PASSER `oracle-tracer` (vér
 node scripts/traduire-unity-catalog.mjs fixtures/unity-catalog-verte.json --sortie <fichier.json>
 ```
 
+## Trois verbes de plus pour la couche Gold et la restitution (07/09/2026 — lots L3, L4, L7)
+
+Nés de l'étude d'opportunité du pilot du 07/09/2026 (mission data Silver/Gold sur Databricks
+puis rapports Power BI), sur mandat humain, chacun contre une barre validée le même jour :
+
+| Verbe | Discipline exigée | Barre | Oracle |
+|---|---|---|---|
+| **modéliser** (TF-0860) | la couche Gold EST le modèle dimensionnel, déclaré AVANT construction : grain en une phrase par fait, dimensions conformes définies une fois, clé de substitution distincte de la clé naturelle, type de changement lent 0-3, dimension temps unique au grain jour et contiguë, matrice en bus qui précède le modèle | Kimball — Dimensional Modeling Techniques | `oracle-modeliser.mjs <modele.json>` — M1-M6, format `forge-data/modele-dimensionnel@1` |
+| **transformer** (TF-0861) | un projet de transformation déclare ses dépendances (ref/source), décrit et teste chaque modèle, rejoue ses tests, GÉNÈRE sa documentation ; l'oracle lit les artefacts de l'outil (`manifest.json`, `run_results.json`, `catalog.json`), jamais un YAML réinterprété | dbt-core | `oracle-transformer.mjs <dossier-target>` — TR1-TR6 |
+| **réconcilier** (TF-0864) | toute mesure exposée par un modèle sémantique vaut ce que Gold dit : deux lots de mesures identifiées (Gold archivé par `mesurer_base.py`, export du modèle), chacun avec son instance (T7), sous tolérance DÉCLARÉE, chaque écart nommé | prolonge dbt-core (déclaré → généré) ; défaut n° 18 de l'analyse L99 | `oracle-reconcilier.mjs <reconciliation.json>` — RC1-RC6, format `forge-data/reconciliation@1` ; `oracle-restituer` **R6** : un rapport peut pointer un lot par `reconciliation_ref:` |
+
+Frontière tenue : les trois jugent une FORME déclarée ou des artefacts archivés — jamais la
+donnée vivante, jamais une connexion. La construction (transformer sous gates) appartient à
+forge-development (profil `data-transformation`, manifeste `.forge/profile.toml`) ; le jugement
+du modèle sémantique aval à forge-audit (`verifier-modele-semantique.mjs`).
+
+```bash
+node oracles/oracle-modeliser.mjs fixtures/modele-dimensionnel-verte.json
+node oracles/oracle-transformer.mjs fixtures/transformation-verte
+node oracles/oracle-reconcilier.mjs fixtures/reconciliation-verte.json
+```
+
 ## Profils-moteur (TF-0140, `references\profils-moteur\`)
 
 Référentiels versionnés (loi n° 4, jamais du code) : dialecte de contraintes, mapping de

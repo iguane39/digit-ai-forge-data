@@ -1,0 +1,8 @@
+{
+  "metadata": { "dbt_schema_version": "https://schemas.getdbt.com/dbt/catalog/v1.json", "generated_at": "2026-09-07T10:06:00Z" },
+  "nodes": {
+    "model.ventes_silver_gold.stg_ventes": { "metadata": { "type": "table", "schema": "silver", "name": "stg_ventes" }, "columns": { "id_commande": { "type": "bigint", "index": 1, "name": "id_commande" } } },
+    "model.ventes_silver_gold.fct_ventes": { "metadata": { "type": "table", "schema": "gold", "name": "fct_ventes" }, "columns": {} }
+  },
+  "sources": {}
+}

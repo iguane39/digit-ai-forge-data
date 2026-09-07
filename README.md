@@ -35,6 +35,9 @@ node oracles/oracle-profiler.mjs fixtures/assertions-verte.json
 node oracles/oracle-tracer.mjs fixtures/lineage-verte.json
 node oracles/oracle-restituer.mjs fixtures/rapport-verte.md
 node oracles/oracle-contractualiser.mjs fixtures/contrat-verte.json
+node oracles/oracle-modeliser.mjs fixtures/modele-dimensionnel-verte.json      # M1-M6, couche Gold déclarée (TF-0860)
+node oracles/oracle-transformer.mjs fixtures/transformation-verte             # TR1-TR6, artefacts de l'outil de transformation (TF-0861)
+node oracles/oracle-reconcilier.mjs fixtures/reconciliation-verte.json        # RC1-RC6, Gold ↔ modèle sémantique (TF-0864)
 node scripts/importer.mjs fixtures/schema-postgres-verte.sql --sortie-dir <dossier>
 node scripts/importer.mjs fixtures/schema-databricks-verte.sql --sortie-dir <dossier>   # dialecte Databricks (SHOW CREATE TABLE), TF-0858
 node scripts/traduire-unity-catalog.mjs fixtures/unity-catalog-verte.json --sortie <fichier.json>
