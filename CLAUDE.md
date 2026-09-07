@@ -57,8 +57,21 @@ mappés : jamais convertis à l'aveugle, toujours signalés en `avertissements`.
 doit PASSER `oracle-profiler`/`oracle-contractualiser` sans retouche (vérifié par
 `oracles/self-test.mjs` sur `fixtures/schema-postgres-{verte,rouge}.sql`).
 
+**Dialecte Databricks (TF-0858, 07/09/2026 — lot L1 de l'étude d'opportunité du pilot, premier
+artefact réel attendu au temps T1 d'une mission Silver/Gold)** : l'entrée est la sortie de
+`SHOW CREATE TABLE` (nom `catalogue.schéma.table`, clauses `USING delta` / `COMMENT` /
+`PARTITIONED BY` / `TBLPROPERTIES`). Le dialecte se détecte ou se déclare
+(`--dialecte databricks`) et figure au manifeste (`dialecte`). Différences assumées, toutes
+averties et jamais silencieuses : `PRIMARY KEY` / `UNIQUE` / `FOREIGN KEY` sont
+**informationnelles** (profil §1) — l'assertion `unique` dérivée est produite comme brouillon
+avec un avertissement de fiabilité inférieure, à confirmer par `mesurer_base.py` ; les types
+imbriqués `ARRAY` / `MAP` / `STRUCT` se replient sur `string` en le disant ; le `COMMENT` en
+ligne vaut `COMMENT ON` (rattaché, contrôlé). Preuve en boucle sur
+`fixtures/schema-databricks-{verte,rouge}.sql` (`oracles/self-test.mjs`).
+
 ```bash
 node scripts/importer.mjs fixtures/schema-postgres-verte.sql --sortie-dir <dossier>
+node scripts/importer.mjs fixtures/schema-databricks-verte.sql --sortie-dir <dossier>   # dialecte détecté
 ```
 
 ## Le verbe traduire-unity-catalog (TF-0141) — un générateur, pas un oracle

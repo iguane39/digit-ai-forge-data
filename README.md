@@ -36,6 +36,7 @@ node oracles/oracle-tracer.mjs fixtures/lineage-verte.json
 node oracles/oracle-restituer.mjs fixtures/rapport-verte.md
 node oracles/oracle-contractualiser.mjs fixtures/contrat-verte.json
 node scripts/importer.mjs fixtures/schema-postgres-verte.sql --sortie-dir <dossier>
+node scripts/importer.mjs fixtures/schema-databricks-verte.sql --sortie-dir <dossier>   # dialecte Databricks (SHOW CREATE TABLE), TF-0858
 node scripts/traduire-unity-catalog.mjs fixtures/unity-catalog-verte.json --sortie <fichier.json>
 node oracles/self-test.mjs   # double sens : vertes PASS, rouges FAIL localisants + round-trips importer/traducteur
 ```

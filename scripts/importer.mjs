@@ -54,7 +54,25 @@
 // personne le relève. Un commentaire faux est pire qu'un commentaire absent : il se lit avec
 // l'autorité du schéma.
 //
-// Usage : node scripts/importer.mjs <schema.sql> [--sortie-dir <dossier>] [--json-only]
+// DIALECTE DATABRICKS (TF-0858, lot L1 de l'étude d'opportunité du 07/09/2026 — premier artefact
+// réel de ce moteur attendu au temps T1 d'une mission Silver/Gold, condition posée par
+// references/profils-moteur/LISEZMOI.md point 5). L'entrée est la sortie de `SHOW CREATE TABLE`
+// (une instruction par table, nom qualifié catalogue.schema.table, clauses de queue USING /
+// COMMENT / PARTITIONED BY / TBLPROPERTIES). Le dialecte se DÉTECTE (`USING delta`, nom à trois
+// segments, type ARRAY/MAP/STRUCT) ou se DÉCLARE (`--dialecte databricks`) — jamais deviné en
+// silence : le manifeste de sortie porte `dialecte`. Ce qui change, et pourquoi :
+//   - `COMMENT '…'` en ligne sur une colonne ou en queue de table est la forme Databricks de
+//     `COMMENT ON` — même rattachement, même contrôle des objets cités (TF-0600) ;
+//   - `PRIMARY KEY` / `FOREIGN KEY` sont INFORMATIONNELLES (profil §1 : « déclarées au catalogue
+//     mais jamais appliquées par le moteur ») : les assertions dérivées d'une clé sont produites
+//     comme brouillon, avec un avertissement de fiabilité inférieure — une clé qu'aucun moteur
+//     ne fait respecter ne prouve pas l'unicité, elle la souhaite. Seuls NOT NULL et CHECK
+//     protègent réellement la donnée à l'écriture ;
+//   - ARRAY<…> / MAP<…> / STRUCT<…> : repli `string` avec avertissement nommant le type
+//     imbriqué — un type imbriqué n'est pas une colonne scalaire (profil §2) ;
+//   - `RELY` / `NORELY` / `NOT ENFORCED` sur une clé : tolérés et retirés, jamais interprétés.
+//
+// Usage : node scripts/importer.mjs <schema.sql> [--sortie-dir <dossier>] [--dialecte postgres|databricks] [--json-only]
 // Sortie : écrit <base>.assertions.json (si au moins une assertion dérivée) et
 // <base>.contrat.json (si au moins une table à colonnes), + un manifeste JSON sur stdout
 // {verbe, domaine, sortie, ...}. Codes : 0 brouillon produit ; 1 échec d'écriture disque ;
@@ -63,8 +81,24 @@ import fs from "node:fs";
 import path from "node:path";
 
 const VERBE = "importer";
-const DOM = "Import de schéma exporté (DDL) → brouillon assertions@1 + contrat@1 (dialecte Postgres v0)";
-const MOTS_CONTRAINTE = ["NOT", "NULL", "DEFAULT", "UNIQUE", "PRIMARY", "CHECK", "REFERENCES", "COLLATE", "GENERATED", "CONSTRAINT"];
+const DOM = "Import de schéma exporté (DDL) → brouillon assertions@1 + contrat@1 (dialectes Postgres v0 · Databricks TF-0858)";
+// `COMMENT` ferme la lecture du type comme une contrainte : en dialecte Databricks il suit le type
+// sur la même ligne (`montant DECIMAL(10,2) NOT NULL COMMENT '…'`) ; en Postgres il n'apparaît
+// jamais à cet endroit, l'ajout est donc sans effet sur le dialecte historique.
+const MOTS_CONTRAINTE = ["NOT", "NULL", "DEFAULT", "UNIQUE", "PRIMARY", "CHECK", "REFERENCES", "COLLATE", "GENERATED", "CONSTRAINT", "COMMENT"];
+const MAP_TYPE_DATABRICKS = {
+  tinyint: "entier", smallint: "entier", int: "entier", integer: "entier", bigint: "entier", long: "entier", short: "entier", byte: "entier",
+  decimal: "decimal", numeric: "decimal", dec: "decimal", float: "decimal", double: "decimal", real: "decimal",
+  boolean: "booleen",
+  date: "date",
+  timestamp: "timestamp", timestamp_ntz: "timestamp", timestamp_ltz: "timestamp",
+  string: "string", varchar: "string", char: "string", binary: "string", variant: "string",
+};
+const RE_TYPE_IMBRIQUE = /^(array|map|struct)\s*</i;
+//: Marqueurs de dialecte Databricks — l'un suffit à le détecter quand il n'est pas déclaré.
+const RE_MARQUE_DATABRICKS = /\bUSING\s+delta\b|\bTBLPROPERTIES\s*\(|\b(ARRAY|MAP|STRUCT)\s*<|^\s*CREATE\s+(?:OR\s+REPLACE\s+)?(?:TABLE|VIEW)\s+(?:IF\s+NOT\s+EXISTS\s+)?[\w`]+\.[\w`]+\.[\w`]+/im;
+//: Qualificatifs d'une clé Unity Catalog, tolérés puis retirés : ils ne changent rien à ce qu'on en dérive.
+const RE_QUALIF_CLE = /\b(RELY|NORELY|NOT\s+ENFORCED|ENFORCED|DEFERRABLE|INITIALLY\s+DEFERRED)\b/gi;
 const MAP_TYPE = {
   smallint: "entier", integer: "entier", int: "entier", int4: "entier", bigint: "entier", int8: "entier",
   serial: "entier", bigserial: "entier", smallserial: "entier",
@@ -75,16 +109,22 @@ const MAP_TYPE = {
   text: "string", "character varying": "string", varchar: "string", character: "string", char: "string", bpchar: "string",
   uuid: "string", json: "string", jsonb: "string", citext: "string", bytea: "string", inet: "string", cidr: "string",
 };
-const RE_CREATE_TABLE = /^CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([\w."$]+)\s*\(/i;
+const RE_CREATE_TABLE = /^CREATE\s+(?:OR\s+REPLACE\s+)?TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([\w."$`]+)\s*\(/i;
 const RE_ALTER_ADD = /^ALTER\s+TABLE\s+(?:ONLY\s+)?([\w."$]+)\s+ADD\s+CONSTRAINT\s+[\w"$]+\s+([\s\S]+)$/i;
 const RE_TABLE_CONSTRAINT = /^(?:CONSTRAINT\s+[\w"$]+\s+)?(PRIMARY\s+KEY|UNIQUE|CHECK|FOREIGN\s+KEY|EXCLUDE)\b/i;
-const RE_COL = /^"?([A-Za-z_][\w$]*)"?\s+([\s\S]+)$/;
+const RE_COL = /^["`]?([A-Za-z_][\w$]*)["`]?\s+([\s\S]+)$/;
 
 const args = process.argv.slice(2);
 const file = args.find(a => !a.startsWith("--"));
 const jsonOnly = args.includes("--json-only");
 const sortieDirIdx = args.indexOf("--sortie-dir");
 const sortieDirArg = sortieDirIdx !== -1 ? args[sortieDirIdx + 1] : null;
+const dialecteIdx = args.indexOf("--dialecte");
+const dialecteArg = dialecteIdx !== -1 ? String(args[dialecteIdx + 1] || "").toLowerCase() : null;
+if (dialecteArg && !["postgres", "databricks"].includes(dialecteArg)) {
+  process.stdout.write(JSON.stringify({ verbe: "importer", sortie: "ECHEC", erreur: `dialecte inconnu : ${dialecteArg} (postgres | databricks)` }));
+  process.exit(2);
+}
 
 const AVERT = [];
 const avert = msg => AVERT.push(msg);
@@ -97,6 +137,9 @@ const sortir = (sortie, code, extra = {}) => {
 if (!file || !fs.existsSync(file)) sortir("ECHEC", 2, { erreur: `fichier introuvable : ${file}` });
 const texteBrut = fs.readFileSync(file, "utf8");
 if (!texteBrut.trim()) sortir("ECHEC", 2, { erreur: "fichier vide — rien à importer" });
+//: Le dialecte : déclaré, sinon détecté sur ses marqueurs, sinon Postgres (le dialecte historique).
+const DIALECTE = dialecteArg || (RE_MARQUE_DATABRICKS.test(texteBrut) ? "databricks" : "postgres");
+const DATABRICKS = DIALECTE === "databricks";
 
 // ---------- Tokenisation minimale, consciente des chaînes '...' et des parenthèses ----------
 function retirerCommentaires(sql) {
@@ -163,7 +206,7 @@ function extraireParenthese(str, debut) {
   return null;
 }
 function nomTable(brut) {
-  return brut.trim().replace(/"/g, "").split(".").pop();
+  return brut.trim().replace(/["`]/g, "").split(".").pop();
 }
 function separerTypeEtContraintes(rest) {
   let depth = 0, enChaine = false, i = 0;
@@ -185,10 +228,22 @@ function normaliserType(t) {
   return t.replace(/\([^)]*\)/g, "").replace(/\s+/g, " ").trim().toLowerCase();
 }
 function typeContrat(ddlType, table, col) {
+  if (DATABRICKS && RE_TYPE_IMBRIQUE.test(ddlType.trim())) {
+    avert(`type imbriqué « ${ddlType.trim()} » (${table}.${col}) — un type imbriqué n'est pas une colonne scalaire : repli sur "string", la structure interne n'est pas contractualisée (profil Databricks §2)`);
+    return "string";
+  }
   const norm = normaliserType(ddlType);
-  if (MAP_TYPE[norm]) return MAP_TYPE[norm];
-  avert(`type « ${ddlType.trim()} » (${table}.${col}) non reconnu — repli sur "string", à vérifier`);
+  const carte = DATABRICKS ? MAP_TYPE_DATABRICKS : MAP_TYPE;
+  if (carte[norm]) return carte[norm];
+  avert(`type « ${ddlType.trim()} » (${table}.${col}) non reconnu (dialecte ${DIALECTE}) — repli sur "string", à vérifier`);
   return "string";
+}
+//: Databricks : `COMMENT '…'` en ligne (colonne) ou en queue d'instruction (table). Le guillemet
+//: simple doublé est l'échappement SQL, comme pour `COMMENT ON`.
+const RE_COMMENT_INLINE = /\bCOMMENT\s+'((?:[^']|'')*)'/i;
+function commentaireEnLigne(texte) {
+  const m = texte.match(RE_COMMENT_INLINE);
+  return m ? m[1].replace(/''/g, "'").trim() : null;
 }
 function analyserContraintesColonne(reste) {
   const r = { notNull: false, unique: false, pk: false, check: null };
@@ -256,11 +311,19 @@ function ajouterAssertion(t, objet, type, params = {}) {
   t.assertions.push({ objet, type, ...params });
 }
 
+//: Databricks : une clé primaire ou une contrainte d'unicité y sont de la DOCUMENTATION de schéma,
+//: jamais une garantie (profil §1). L'assertion est produite — c'est un brouillon —, l'avertissement
+//: dit qu'elle vaut moins qu'en Postgres et qu'une mesure doit la confirmer.
+function avertirCleInformationnelle(nomT, genre, cols) {
+  if (!DATABRICKS) return;
+  avert(`table ${nomT} : ${genre} (${cols.join(", ")}) est INFORMATIONNELLE sur Databricks — déclarée au catalogue, jamais appliquée par le moteur : l'assertion "unique" dérivée est de fiabilité inférieure à son équivalent Postgres/Oracle/Azure SQL, à confirmer par une mesure (mesurer_base.py) avant tout usage réel`);
+}
 function traiterContrainteTable(def, t, nomT) {
-  const s = def.trim();
+  const s = def.trim().replace(RE_QUALIF_CLE, "").replace(/\s+/g, " ").trim();
   let m;
-  if ((m = s.match(/^(?:CONSTRAINT\s+[\w"$]+\s+)?PRIMARY\s+KEY\s*\(([\s\S]*)\)/i))) {
-    const cols = splitTopLevel(m[1], ",").map(c => c.replace(/"/g, "").trim());
+  if ((m = s.match(/^(?:CONSTRAINT\s+[\w"$`]+\s+)?PRIMARY\s+KEY\s*\(([\s\S]*)\)/i))) {
+    const cols = splitTopLevel(m[1], ",").map(c => c.replace(/["`]/g, "").trim());
+    avertirCleInformationnelle(nomT, "PRIMARY KEY", cols);
     if (cols.length === 1) { ajouterAssertion(t, `${nomT}.${cols[0]}`, "non_nul"); ajouterAssertion(t, `${nomT}.${cols[0]}`, "unique"); }
     else {
       cols.forEach(c => ajouterAssertion(t, `${nomT}.${c}`, "non_nul"));
@@ -268,8 +331,9 @@ function traiterContrainteTable(def, t, nomT) {
     }
     return;
   }
-  if ((m = s.match(/^(?:CONSTRAINT\s+[\w"$]+\s+)?UNIQUE\s*\(([\s\S]*)\)/i))) {
-    const cols = splitTopLevel(m[1], ",").map(c => c.replace(/"/g, "").trim());
+  if ((m = s.match(/^(?:CONSTRAINT\s+[\w"$`]+\s+)?UNIQUE\s*\(([\s\S]*)\)/i))) {
+    const cols = splitTopLevel(m[1], ",").map(c => c.replace(/["`]/g, "").trim());
+    avertirCleInformationnelle(nomT, "UNIQUE", cols);
     if (cols.length === 1) ajouterAssertion(t, `${nomT}.${cols[0]}`, "unique");
     else avert(`table ${nomT} : contrainte UNIQUE composite (${cols.join(", ")}) — non convertie (assertions@1 ne porte pas de clé multi-colonnes), à compléter manuellement`);
     return;
@@ -292,9 +356,9 @@ function traiterContrainteTable(def, t, nomT) {
     // TF-0599 — la CIBLE de la clé étrangère est mémorisée, pas seulement signalée. Sa conversion
     // reste hors périmètre du format v0 ; son EXISTENCE, elle, se vérifie et vaut le détour (voir
     // le contrôle des clés orphelines plus bas).
-    const mRef = s.match(/REFERENCES\s+([\w".$]+)/i);
-    if (mRef) clesEtrangeres.push({ depuis: nomT, vers: nomTable(mRef[1]), brut: mRef[1].replace(/"/g, "") });
-    avert(`table ${nomT} : FOREIGN KEY non convertie (hors périmètre assertions@1/contrat@1 v0) — à documenter manuellement`);
+    const mRef = s.match(/REFERENCES\s+([\w".$`]+)/i);
+    if (mRef) clesEtrangeres.push({ depuis: nomT, vers: nomTable(mRef[1]), brut: mRef[1].replace(/["`]/g, "") });
+    avert(`table ${nomT} : FOREIGN KEY non convertie (hors périmètre assertions@1/contrat@1 v0)${DATABRICKS ? " — informationnelle sur Databricks, jamais appliquée par le moteur" : ""} — à documenter manuellement`);
     return;
   }
   avert(`table ${nomT} : contrainte non reconnue — ignorée : « ${s.slice(0, 80)} »`);
@@ -303,11 +367,16 @@ function traiterDefinition(def, t, nomT) {
   if (RE_TABLE_CONSTRAINT.test(def)) { traiterContrainteTable(def, t, nomT); return; }
   const mCol = def.match(RE_COL);
   if (!mCol) { avert(`table ${nomT} : définition non reconnue — ignorée : « ${def.slice(0, 60)}${def.length > 60 ? "…" : ""} »`); return; }
-  const nomCol = mCol[1];
+  const nomCol = mCol[1].replace(/`/g, "");
   const { type: typeDdl, reste } = separerTypeEtContraintes(mCol[2]);
   if (!typeDdl) { avert(`table ${nomT}.${nomCol} : type non détecté — colonne ignorée`); return; }
   t.colonnes.push({ nom: nomCol, typeDdl });
-  const c = analyserContraintesColonne(reste);
+  //: Databricks : le commentaire de colonne vit en ligne — même source de vérité que `COMMENT ON`.
+  const comCol = DATABRICKS ? commentaireEnLigne(reste) : null;
+  if (comCol) commentaires.push({ genre: "COLUMN", cible: `${nomT}.${nomCol}`, texte: comCol });
+  const c = analyserContraintesColonne(DATABRICKS ? reste.replace(RE_COMMENT_INLINE, " ") : reste);
+  if (c.pk) avertirCleInformationnelle(nomT, "PRIMARY KEY", [nomCol]);
+  else if (c.unique) avertirCleInformationnelle(nomT, "UNIQUE", [nomCol]);
   if (c.notNull || c.pk) ajouterAssertion(t, `${nomT}.${nomCol}`, "non_nul");
   if (c.unique || c.pk) ajouterAssertion(t, `${nomT}.${nomCol}`, "unique");
   if (c.check) {
@@ -347,6 +416,14 @@ for (const stmt of stmts) {
     const corps = extraireParenthese(stmt, parenIdx);
     if (corps === null) { avert(`table ${nomT} : parenthèse de définition non refermée — ignorée`); continue; }
     for (const def of splitTopLevel(corps, ",")) traiterDefinition(def, t, nomT);
+    //: Databricks : la queue de l'instruction (`USING delta COMMENT '…' PARTITIONED BY (…)
+    //: TBLPROPERTIES (…)`) porte le commentaire de TABLE. Les groupes parenthésés en sont retirés
+    //: avant lecture pour qu'une propriété de table ne passe jamais pour un commentaire.
+    if (DATABRICKS) {
+      const queue = stmt.slice(parenIdx + 1 + corps.length + 1).replace(/\([^()]*\)/g, " ");
+      const comTable = commentaireEnLigne(queue);
+      if (comTable) commentaires.push({ genre: "TABLE", cible: nomT, texte: comTable });
+    }
     continue;
   }
   const mAlter = stmt.match(RE_ALTER_ADD);
@@ -367,7 +444,7 @@ for (const stmt of stmts) {
   }
   // CREATE INDEX, ALTER ... OWNER TO, SET, GRANT… : hors périmètre schéma, ignorés
 }
-if (nbTablesTrouvees === 0) sortir("ECHEC", 2, { erreur: "aucune instruction CREATE TABLE reconnue — fichier illisible ou hors dialecte couvert (Postgres v0)" });
+if (nbTablesTrouvees === 0) sortir("ECHEC", 2, { dialecte: DIALECTE, erreur: "aucune instruction CREATE TABLE reconnue — fichier illisible, vue seule, ou hors dialecte couvert (Postgres v0 · Databricks)" });
 
 const nomsTables = [...tables.keys()];
 const toutesAssertions = [];
@@ -503,6 +580,7 @@ if (schema.length) {
 }
 
 sortir(Object.keys(chemins).length ? "OK" : "ECHEC", Object.keys(chemins).length ? 0 : 2, {
+  dialecte: DIALECTE,
   tables: nomsTables,
   compte: {
     tables: nomsTables.length,

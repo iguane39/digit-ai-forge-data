@@ -18,14 +18,17 @@
 4. Un profil-moteur ne rend PAS son moteur consommable par une **connexion live** : la
    forge juge des artefacts déjà exportés (DDL, DACPAC, JSON de catalogue), jamais une base
    vivante — garde-fou fondateur (§0-C de l'étude référencée ci-dessus).
-5. Seul le dialecte Postgres est aujourd'hui **consommé** par `scripts/importer.mjs` (v0).
-   Les profils Oracle / Azure SQL / Databricks documentent leur dialecte pour une extension
-   future du verbe, prouvée par non-recouvrement (R-28) le jour où un artefact réel de ce
-   moteur doit être importé — jamais ajoutée par anticipation dans le code.
+5. Deux dialectes sont aujourd'hui **consommés** par `scripts/importer.mjs` : Postgres (v0)
+   et **Databricks** (profil 1.1.0, TF-0858 du 07/09/2026 — ouvert le jour où un artefact
+   réel de ce moteur a dû être importé, temps T1 d'une mission Silver/Gold, exactement la
+   condition que ce point posait). Les profils Oracle / Azure SQL documentent leur dialecte
+   pour une extension future du verbe, prouvée par non-recouvrement (R-28) le jour où un
+   artefact réel de ce moteur doit être importé — jamais ajoutée par anticipation dans le code.
 6. Databricks est **à part** : ce n'est pas un RDBMS ligne-à-ligne (lakehouse Spark +
    Delta + Unity Catalog) — son apport distinctif est le lineage colonne natif d'Unity
-   Catalog, couvert par un verbe séparé (`scripts/traduire-unity-catalog.mjs`, TF-0141),
-   pas par `importer`.
+   Catalog, couvert par un verbe séparé (`scripts/traduire-unity-catalog.mjs`, TF-0141) ;
+   son schéma de table (`SHOW CREATE TABLE`) est couvert par `importer` depuis TF-0858,
+   avec les clés déclarées informationnelles (§1 du profil) averties comme telles.
 7. Fraîcheur = les `sources` datées en frontmatter ; une mise à jour de profil exige une
    nouvelle `version` (SemVer) + `challenge_date` rafraîchie — jamais une édition silencieuse
    d'un fait daté.

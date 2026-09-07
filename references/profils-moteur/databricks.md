@@ -1,7 +1,7 @@
 ---
 moteur: databricks
-version: 1.0.0
-challenge_date: 2026-08-12
+version: 1.1.0
+challenge_date: 2026-09-07
 sources:
   - "Delta Lake — Constraints clause (CONSTRAINT ... CHECK / NOT NULL) — docs.delta.io"
   - "Databricks Unity Catalog — Data lineage (system.access.column_lineage) — learn.microsoft.com, mise à jour 2026-08-06"
@@ -64,10 +64,19 @@ avertissement de fiabilité inférieure à l'équivalent Postgres/Oracle/Azure S
 
 ## 5. Consommation
 
-- **Schéma de table** (`CONSTRAINT` Delta) : non couvert par `scripts/importer.mjs` v0
-  (dialecte Postgres seul). Un ajout Databricks est **de moindre valeur** que pour les RDBMS
-  classiques, faute de contrainte d'unicité native — à ouvrir seulement si un run réel
-  l'exige (R-28).
+- **Schéma de table** (`CONSTRAINT` Delta) : **couvert par `scripts/importer.mjs` depuis la
+  version 1.1.0 de ce profil (TF-0858, 07/09/2026)** — ouvert parce qu'un run réel l'exige
+  (temps T1 d'une mission Silver/Gold sur Databricks, décision humaine D-2 a du 07/09 ; lot L1
+  de `output\03-etudes\20260907-etude-opportunite-mission-data-silver-gold-powerbi.md` du
+  pilot). Entrée : la sortie de `SHOW CREATE TABLE`, une instruction par table. Le dialecte se
+  détecte (`USING delta`, nom à trois segments, type imbriqué) ou se déclare
+  (`--dialecte databricks`) et figure au manifeste. Conséquences du §1 : les assertions
+  dérivées d'une `PRIMARY KEY` ou d'une `UNIQUE` portent un **avertissement de fiabilité
+  inférieure** (clé informationnelle) ; `NOT NULL` et `CHECK` se dérivent comme en Postgres.
+  Conséquence du §2 : `ARRAY` / `MAP` / `STRUCT` → repli `string` averti. Le `COMMENT` en ligne
+  (colonne) ou en queue (table) est rattaché au contrat et contrôlé comme un `COMMENT ON`
+  (TF-0600). Preuve en boucle : `oracles/self-test.mjs` sur
+  `fixtures/schema-databricks-{verte,rouge}.sql`.
 - **Lineage colonne Unity Catalog** : couvert par `scripts/traduire-unity-catalog.mjs`
   (TF-0141) — traducteur dédié `system.access.column_lineage` → `forge-data/lineage@1`,
   validé sur fixture **synthétique** uniquement (aucun export UC réel disponible sans
