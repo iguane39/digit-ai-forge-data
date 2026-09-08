@@ -52,8 +52,18 @@
 //                                  "grain": "jour", "debut": "AAAA-MM-JJ", "fin": "AAAA-MM-JJ",
 //                                  "contigue": true } } }
 //
+// MODE --inventaire (TF-0917) : le même dossier TMDL, mais traduit vers le bloc `source.inventaire`
+// de `forge-data/couverture@1` — celui que `oracles/oracle-couvrir.mjs` attendait DÉJÀ RELEVÉ. Sans
+// ce mode, l'inventaire du modèle se recopiait à la main entre le verbe et l'oracle, et une recopie
+// est l'endroit exact où la couverture ment sans que personne le voie : un objet oublié n'est
+// orphelin pour personne. Objets typés `table` / `colonne` / `mesure`, `date` et `releve_par` posés.
+// Restent absents et NOMMÉS : le `namespace` de l'instance (TMDL ne le porte pas — `--namespace`)
+// et le bloc `mapping` (le livrable jugé, produit ailleurs).
+//
 // Usage : node scripts/traduire-modele-semantique.mjs --modele <dossier> [--complement <f.json>]
 //         [--sortie <fichier>] [--sortie-dir <dossier>] [--json-only]
+//         node scripts/traduire-modele-semantique.mjs --modele <dossier> --inventaire
+//         [--namespace <uri de l'instance>] [--date AAAA-MM-JJ] [--sortie <fichier>]
 // Codes : 0 brouillon produit ; 1 échec d'écriture disque ; 2 entrée absente/illisible/
 // incohérente (aucune table, aucune relation, orientation indécidable) — jamais un modèle inventé.
 import fs from "node:fs";
@@ -154,6 +164,65 @@ for (const f of fichiers) {
 }
 
 if (!tables.size) sortir("ECHEC", 2, { erreur: "aucune table lue dans les fichiers TMDL — le modèle n'existe pas dans le dossier fourni" });
+
+const idModele = path.basename(path.resolve(modeleArg)).replace(/\.SemanticModel$/i, "");
+
+// ---------- Mode --inventaire (TF-0917) : le bloc source.inventaire de forge-data/couverture@1 ----
+// `oracle-couvrir` (TF-0911) attend un inventaire DÉJÀ relevé, et ce verbe lit précisément la
+// source qui le contient. Entre les deux, il n'y avait qu'une transcription à la main : sur le
+// cas réel, 25 requêtes, 160 mesures et 17 relations recopiées dans un mapping de 47 lignes
+// AVANT tout jugement. Or une transcription est exactement l'endroit où la couverture peut
+// mentir sans que personne le voie — un objet oublié à la recopie n'est orphelin pour personne.
+// Ce mode ferme la chaîne TMDL → couverture@1 sans transcription.
+//
+// Placé AVANT la lecture des relations, et c'est délibéré : un inventaire ÉNUMÈRE ce que la
+// source contient, il n'a pas besoin de savoir quelle table est un fait. Un modèle sans
+// relation active n'a pas de modèle dimensionnel, mais il a bien un inventaire.
+//
+// Ce qui reste ABSENT, comme partout dans ce verbe : le `namespace` de l'instance (TMDL ne le
+// porte pas — `--namespace` le fournit) et le bloc `mapping` (le livrable JUGÉ, produit par
+// ailleurs). Les poser au jugé ferait PASSER CV1/CV2 en mentant.
+if (args.includes("--inventaire") || args.includes("--couverture")) {
+  const inventaire = [];
+  for (const [nomTable, t] of tables) {
+    inventaire.push({ objet: nomTable, type: "table" });
+    for (const c of t.colonnes) inventaire.push({ objet: `${nomTable}.${c.nom}`, type: "colonne" });
+    for (const me of t.mesures) inventaire.push({ objet: `${nomTable}[${me.nom}]`, type: "mesure" });
+  }
+  const dateReleve = opt("--date") || new Date().toISOString().slice(0, 10);
+  const source = { nom: idModele, date: dateReleve,
+    releve_par: `${VERBE} --inventaire (lecture TMDL du projet PBIP fourni, ${fichiers.length} fichier(s)) — aucune transcription humaine` };
+  const ns = opt("--namespace");
+  if (ns) source.namespace = ns;
+  else aCompleter("source.namespace absent — TMDL ne porte pas l'INSTANCE qui a servi (T7 : deux modèles homonymes sur deux espaces de travail sont la règle) ; à fournir par --namespace (CV2)");
+  source.inventaire = inventaire;
+  aCompleter("bloc « mapping » absent — c'est le livrable dont la couverture se mesure, produit hors de ce verbe ; à ajouter avant de juger (CV1)");
+  const doc = {
+    format: "forge-data/couverture@1",
+    id: `couverture_${idModele}_${dateReleve}`,
+    source,
+    origine: { verbe: VERBE, mode: "inventaire",
+      source: path.relative(process.cwd(), modeleArg).replace(/\\/g, "/") || modeleArg,
+      fichiers_tmdl: fichiers.length, statut: "brouillon" },
+  };
+  let cible = sortieArg;
+  if (!cible) {
+    const outDir = sortieDirArg || path.dirname(path.resolve(modeleArg));
+    try { fs.mkdirSync(outDir, { recursive: true }); } catch (e) { sortir("ECHEC", 1, { erreur: `dossier de sortie impossible à créer : ${e.message}` }); }
+    cible = path.join(outDir, `${idModele}.couverture.json`);
+  }
+  try { fs.writeFileSync(cible, JSON.stringify(doc, null, 2) + "\n"); }
+  catch (e) { sortir("ECHEC", 1, { erreur: `écriture impossible : ${e.message}` }); }
+  sortir("OK", 0, {
+    compte: { tables_lues: tables.size, objets: inventaire.length,
+              par_type: { table: tables.size,
+                          colonne: inventaire.filter(o => o.type === "colonne").length,
+                          mesure: inventaire.filter(o => o.type === "mesure").length } },
+    statut: "brouillon",
+    fichier_produit: cible,
+  });
+}
+
 const refDe = ref => { const m = String(ref || "").match(/^('([^']+)'|[^.]+)\.(.+)$/); return m ? { table: nomDe(m[1]), colonne: nomDe(m[3]) } : null; };
 const actives = relations.filter(r => r.active && r.from && r.to).map(r => ({ id: r.id, from: refDe(r.from), to: refDe(r.to) })).filter(r => r.from && r.to);
 if (!actives.length)
@@ -248,7 +317,7 @@ for (const [nom, cleSub] of nomsDims) {
   dimensions.push(dim);
 }
 
-const idLu = path.basename(path.resolve(modeleArg)).replace(/\.SemanticModel$/i, "");
+const idLu = idModele;
 const brouillon = {
   format: "forge-data/modele-dimensionnel@1",
   id: comp.id || idLu,

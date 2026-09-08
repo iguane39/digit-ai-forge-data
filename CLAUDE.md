@@ -196,10 +196,24 @@ Modèle sans relation active : refus propre (exit 2) — l'orientation fait/dime
 pas, et un modèle deviné serait faux sans être détectable. Preuve en boucle (deux sens) sur
 `fixtures/modele-semantique-{verte,rouge}/` et `fixtures/complement-modele-verte.json`.
 
+**Mode `--inventaire` (TF-0917, 08/09/2026)** — le même dossier TMDL traduit vers le bloc
+`source.inventaire` de `forge-data/couverture@1`, celui qu'`oracle-couvrir` attendait DÉJÀ RELEVÉ.
+Entre le verbe qui lit la source et l'oracle qui la juge, il n'y avait qu'une **transcription à la
+main** (25 requêtes, 160 mesures, 17 relations sur le cas réel) — et une transcription est
+l'endroit exact où la couverture ment sans que personne le voie : un objet oublié à la recopie
+n'est orphelin pour personne. Objets **typés** `table` / `colonne` / `mesure` (`Table`,
+`Table.colonne`, `Table[Mesure]`), `date` et `releve_par` posés. Restent absents et **nommés dans
+`a_completer`**, jamais inventés : le `namespace` de l'instance (TMDL ne le porte pas — `--namespace`
+le fournit ; sans lui `oracle-couvrir` réclame CV2) et le bloc `mapping` (le livrable JUGÉ, produit
+ailleurs — CV1). Chaîne prouvée en boucle par `self-test.mjs` : verbe → `oracle-couvrir` rend FAIL
+sur CV1 et CV5 seulement, puis PASS 26/26 dès que le mapping arrive.
+
 ```bash
 node scripts/traduire-modele-semantique.mjs --modele fixtures/modele-semantique-verte --sortie <f.json>
 node scripts/traduire-modele-semantique.mjs --modele fixtures/modele-semantique-verte \
      --complement fixtures/complement-modele-verte.json --sortie <f.json>   # PASSE oracle-modeliser
+node scripts/traduire-modele-semantique.mjs --modele fixtures/modele-semantique-verte \
+     --inventaire --namespace <uri de l'instance> --sortie <couverture.json>   # bloc source.inventaire
 ```
 
 ## Profils-moteur (TF-0140, `references\profils-moteur\`)

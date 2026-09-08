@@ -450,5 +450,70 @@ try {
   fs.rmSync(tmp3, { recursive: true, force: true });
 }
 
+// ---- TF-0917 : la chaîne TMDL → couverture@1 se ferme SANS transcription ----
+// `oracle-couvrir` attendait un inventaire déjà relevé, et le verbe lisait déjà la source qui le
+// contient : entre les deux, une recopie à la main (25 requêtes, 160 mesures, 17 relations sur le
+// cas réel). Une recopie est l'endroit exact où la couverture ment sans que personne le voie — un
+// objet oublié à la transcription n'est orphelin pour personne. Ce qui se prouve ici : l'inventaire
+// produit est CONSOMMÉ tel quel par l'oracle, et ce qui reste absent est NOMMÉ, jamais inventé.
+console.log(String.fromCharCode(10) + "traduire-modele-semantique --inventaire (TF-0917) — TMDL → couverture@1, chaîne fermée" + String.fromCharCode(10));
+const tmp4 = fs.mkdtempSync(path.join(os.tmpdir(), "forge-data-inventaire-"));
+try {
+  const NS = "powerbi://app.powerbi.com/groups/00000000-0000-0000-0000-000000000000/datasets/11111111-1111-1111-1111-111111111111";
+  const pCouv = path.join(tmp4, "couverture.json");
+  const i = lanceScript("traduire-modele-semantique.mjs", ["--modele", fx("modele-semantique-verte"), "--inventaire", "--namespace", NS, "--date", "2026-09-08", "--sortie", pCouv]);
+  ok(i.exit === 0 && i.r.sortie === "OK", "--inventaire · fixture verte TMDL produit un bloc source.inventaire (exit 0)");
+  ok(i.r.compte && i.r.compte.objets === 26 && i.r.compte.par_type.table === 4 && i.r.compte.par_type.colonne === 19 && i.r.compte.par_type.mesure === 3,
+    `--inventaire · les objets sont TYPÉS et comptés (4 tables, 19 colonnes, 3 mesures = 26) — obtenu ${JSON.stringify(i.r.compte)}`);
+  const doc = JSON.parse(fs.readFileSync(pCouv, "utf8"));
+  ok(doc.format === "forge-data/couverture@1" && doc.source.namespace === NS && /^\d{4}-\d{2}-\d{2}$/.test(doc.source.date) && /traduire-modele-semantique/.test(doc.source.releve_par),
+    "--inventaire · le document est un couverture@1 daté, dont `releve_par` dit COMMENT l'inventaire a été relevé (CV2 : un inventaire sans provenance n'est pas opposable)");
+  ok(doc.source.inventaire.some(o => o.objet === "Ventes[Montant HT]" && o.type === "mesure") &&
+     doc.source.inventaire.some(o => o.objet === "Calendrier.trimestre" && o.type === "colonne"),
+    "--inventaire · mesures en `Table[Mesure]` et colonnes en `Table.colonne` — la nomenclature que le mapping cite déjà");
+
+  // Sens 1 — ce qui MANQUE est nommé et l'oracle le réclame : le mapping (le livrable jugé) est
+  // produit ailleurs, et un bloc vraisemblable posé ici ferait PASSER CV1 en mentant.
+  const sansMap = lance("oracle-couvrir.mjs", pCouv).r;
+  const durs = [...new Set((sansMap.findings || []).filter(f => f.sev === "bloquant").map(f => f.regle))].sort();
+  ok(JSON.stringify(durs) === JSON.stringify(["CV1", "CV5"]),
+    `--inventaire → oracle-couvrir : FAIL sur CV1 (mapping absent) et CV5 (tout orphelin) et RIEN d'autre — obtenu ${JSON.stringify(durs)}`);
+  ok((i.r.a_completer || []).some(x => /mapping/.test(x)),
+    "--inventaire · le mapping manquant est nommé dans `a_completer` — le lecteur du brouillon sait quoi faire sans exécuter l'oracle");
+
+  // Sens 2 — la chaîne FERMÉE : le mapping arrive, l'inventaire produit est consommé TEL QUEL,
+  // et le verdict est PASS à 26/26. C'est la transcription qui disparaît, pas le jugement.
+  doc.mapping = { nom: "mapping-gold-modele-semantique", artefact: "forge/etapes/data/mapping.md", date: "2026-09-08",
+    objets_source: ["Ventes[Montant HT]", "Ventes[Commandes]", "Ventes[Panier moyen]"] };
+  doc.regles_rattachement = ["Ventes", "Client", "Produit", "Calendrier"].map(t => ({ type: "table_entiere", portee: t,
+    motif: `table ${t} reprise intégralement depuis la couche Gold, colonne à colonne` }));
+  doc.taux_declare = 100;
+  const pFerme = path.join(tmp4, "couverture-fermee.json");
+  fs.writeFileSync(pFerme, JSON.stringify(doc, null, 2));
+  const ferme = lance("oracle-couvrir.mjs", pFerme);
+  ok(ferme.exit === 0 && ferme.r.verdict === "PASS" && ferme.r.couverture.inventorie === 26 && ferme.r.couverture.orphelins === 0 && ferme.r.couverture.taux.retenu === 100,
+    `--inventaire + mapping → oracle-couvrir : PASS, 26 inventoriés, 0 orphelin, 100 % (chaîne fermée) — obtenu ${JSON.stringify(ferme.r.couverture)}`);
+
+  // Le `namespace` n'est pas dans TMDL : sans --namespace il reste ABSENT et l'oracle le réclame
+  // (CV2). Un namespace vraisemblable posé au jugé mesurerait la couverture d'une autre instance.
+  const pSansNs = path.join(tmp4, "sans-namespace.json");
+  const sansNs = lanceScript("traduire-modele-semantique.mjs", ["--modele", fx("modele-semantique-verte"), "--inventaire", "--sortie", pSansNs]);
+  ok(sansNs.exit === 0 && (sansNs.r.a_completer || []).some(x => /namespace/.test(x)) && !JSON.parse(fs.readFileSync(pSansNs, "utf8")).source.namespace,
+    "--inventaire · sans --namespace, l'INSTANCE reste absente et nommée à compléter — TMDL ne la porte pas, et l'inventer mesurerait autre chose (CV2)");
+  const cv2 = (lance("oracle-couvrir.mjs", pSansNs).r.findings || []).filter(f => f.regle === "CV2" && f.sev === "bloquant");
+  ok(cv2.length === 1 && /namespace/.test(cv2[0].msg),
+    "--inventaire · et l'oracle le RÉCLAME — l'absence n'est pas un silence commode");
+
+  // Rouge : un dossier sans aucun fichier TMDL. Aucun inventaire inventé, refus propre — un
+  // inventaire vide rendrait 100 % de couverture sur rien.
+  const vide = path.join(tmp4, "modele-vide");
+  fs.mkdirSync(vide, { recursive: true });
+  const rge = lanceScript("traduire-modele-semantique.mjs", ["--modele", vide, "--inventaire", "--sortie-dir", tmp4]);
+  ok(rge.exit === 2 && rge.r.sortie === "ECHEC" && !rge.r.fichier_produit,
+    "--inventaire · rouge : dossier sans fichier TMDL → refus propre (exit 2), aucun inventaire inventé");
+} finally {
+  fs.rmSync(tmp4, { recursive: true, force: true });
+}
+
 console.log(`\nSelf-test forge-data : ${pass} PASS, ${echec} FAIL`);
 process.exit(echec ? 1 : 0);
