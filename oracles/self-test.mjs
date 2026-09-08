@@ -156,21 +156,39 @@ console.log(String.fromCharCode(10) + "TF-0379 — tout oracle cité en non_juge
   const resolvable = chemin => racines.some(r => fs.existsSync(path.join(r, chemin)));
   const CITATION = /`([^`]*oracle-[\w.-]+\.(?:mjs|py))`/g;
   const NOM_NU = /\boracle-[\w-]+\b(?![\w.-]*\.(?:mjs|py))/g;
+  const fantomesDe = texte => [...texte.matchAll(CITATION)].map(m => m[1]).filter(c => !resolvable(c));
 
-  for (const oracle of ["oracle-profiler.mjs", "oracle-tracer.mjs", "oracle-restituer.mjs", "oracle-contractualiser.mjs", "oracle-couvrir.mjs"]) {
-    const cibles = { "oracle-restituer.mjs": fx("rapport-verte.md"), "oracle-tracer.mjs": fx("lineage-verte.json"),
-                     "oracle-profiler.mjs": fx("assertions-verte.json"), "oracle-contractualiser.mjs": fx("contrat-verte.json"),
-                     "oracle-couvrir.mjs": fx("couverture-verte.json") };
-    const rap = lance(oracle, cibles[oracle]).r;
+  // TF-0916 — le PÉRIMÈTRE se LIT sur le disque, il ne s'écrit plus à la main. Une liste manuelle
+  // se périme au premier oracle ajouté : modéliser, transformer et réconcilier sont nés en deux
+  // jours sans que la boucle les couvre, et un chemin cité faux y serait resté invisible. La
+  // cible verte de chaque oracle est celle déjà déclarée en tête (CAS) — donc un oracle nouveau
+  // sans cas de double sens fait échouer ce contrôle-ci, ce qui est exactement le rappel voulu.
+  const surDisque = fs.readdirSync(ici).filter(f => /^oracle-.+\.mjs$/.test(f)).sort();
+  const verteDe = new Map();
+  for (const cas of CAS) if (!verteDe.has(cas.oracle)) verteDe.set(cas.oracle, fx(cas.verte));
+  const sansCas = surDisque.filter(o => !verteDe.has(o));
+  ok(!sansCas.length, `périmètre lu dans oracles/ : ${surDisque.length} oracle(s), tous pourvus d'une fixture verte${sansCas.length ? " — sans cas déclaré : " + sansCas.join(", ") : ""}`);
+
+  for (const oracle of surDisque.filter(o => verteDe.has(o))) {
+    const rap = lance(oracle, verteDe.get(oracle)).r;
     const texte = (rap.non_juge || []).join(" ");
     // Un chemin cité en span de code doit EXISTER.
     const chemins = [...texte.matchAll(CITATION)].map(m => m[1]);
-    const fantomes = chemins.filter(c => !resolvable(c));
+    const fantomes = fantomesDe(texte);
     ok(!fantomes.length, `${oracle} · chemins cités au non_juge tous résolvables${fantomes.length ? " — fantôme(s) : " + fantomes.join(", ") : ` (${chemins.length} vérifié(s))`}`);
     // Et aucun oracle ne doit être cité par son SEUL nom : c'est ce qui a coûté la recherche.
     const nus = [...texte.matchAll(NOM_NU)].map(m => m[0]);
     ok(!nus.length, `${oracle} · aucun oracle cité par son seul nom au non_juge${nus.length ? " — " + [...new Set(nus)].join(", ") + " (donner le chemin, ou dire « aucun oracle du parc »)" : ""}`);
   }
+
+  // TF-0916 · la règle elle-même, dans les DEUX sens. La boucle ci-dessus est verte par
+  // construction tant que le parc est propre : sans ces deux assertions, rien ne prouverait
+  // qu'elle SAIT échouer, et un contrôle qui ne sait pas échouer ne contrôle rien.
+  ok(!fantomesDe("le lineage se juge avec `oracles/oracle-tracer.mjs` de ce dépôt").length,
+    "TF-0916 · sens vert : un chemin cité qui existe sur disque n'est pas signalé fantôme");
+  const fantomeTemoin = fantomesDe("la couverture se juge avec `oracles/oracle-fantome.mjs` de ce dépôt");
+  ok(fantomeTemoin.length === 1 && fantomeTemoin[0] === "oracles/oracle-fantome.mjs",
+    `TF-0916 · sens rouge : un chemin cité INEXISTANT est signalé fantôme et fait échouer le self-test — obtenu ${JSON.stringify(fantomeTemoin)}`);
 }
 
 // ---- verbe importer (TF-0139) : round-trip verte + rejet propre rouge ----

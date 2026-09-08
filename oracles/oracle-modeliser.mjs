@@ -30,7 +30,7 @@ import fs from "node:fs";
 
 const DOM = "Modèle dimensionnel déclaré : grain, dimensions conformes, clés, temps, matrice en bus (M1-M6, niveau Kimball)";
 const NON_JUGE = [
-  "véracité du grain réel contre la table construite — une mesure (oracle-reconcilier, mesurer_base.py), jamais une déclaration",
+  "véracité du grain réel contre la table construite — une mesure (`oracles/oracle-reconcilier.mjs` et `scripts/mesurer_base.py` de ce dépôt), jamais une déclaration",
   "pertinence métier du type de changement lent retenu par dimension (0-3) — arbitrage du concepteur",
   "performance et volumétrie de la couche Gold",
   "correspondance colonne à colonne avec le modèle sémantique aval — profil Power BI de forge-audit",
