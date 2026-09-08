@@ -37,6 +37,7 @@ node oracles/oracle-restituer.mjs <rapport.md> [--strict]  # R1-R5 : chiffres an
                                                           # R8 vocabulaire du destinataire (glossaire)
 node oracles/oracle-contractualiser.mjs <contrat.json>    # C1-C5 : schéma + SLA + propriétaire + version
 node oracles/oracle-couvrir.mjs <couverture.json>         # CV1-CV6 : mapping mesuré contre l'inventaire de sa source
+node oracles/oracle-evoluer.mjs <evolutions.json>         # EV1-EV5 : projection des évolutions d'une couche, provenance typée, comptes recalculés
 node oracles/self-test.mjs                                 # double sens — à rejouer après toute modification
 ```
 
@@ -224,6 +225,40 @@ node scripts/traduire-modele-semantique.mjs --modele fixtures/modele-semantique-
      --complement fixtures/complement-modele-verte.json --sortie <f.json>   # PASSE oracle-modeliser
 node scripts/traduire-modele-semantique.mjs --modele fixtures/modele-semantique-verte \
      --inventaire --namespace <uri de l'instance> --sortie <couverture.json>   # bloc source.inventaire
+```
+
+## Le verbe projeter-evolutions (TF-0937, 08/09/2026) — la première question d'une équipe data
+
+`lineage@1` porte les sorties proposées et les transformations. Il ne porte pas la vue **colonne
+par colonne** de ce qui change dans chaque couche et d'où ça vient — la première question posée
+devant une reprise, et celle qui se reconstituait à la main depuis les DDL, le mapping et le
+catalogue : **397 lignes de provenance** relevées chez le produit demandeur (119 Silver, 278 Gold).
+
+`scripts/projeter-evolutions.mjs --couche <nom> --cible <ddl.sql> [--existant <ddl.sql>]
+[--lineage <lineage.json>] [--format json|md|csv]` PRODUIT (il ne juge pas) une projection
+`forge-data/evolutions@1` : une ligne par colonne, **{ table, colonne, type, évolution, provenance }**,
+plus les cartes de comptage. Les quatre évolutions de table (`table_creee`, `table_completee`,
+`table_deplacee`, `inchangee`) se **déduisent de la comparaison des deux DDL**, jamais d'une
+heuristique de nom : une table déplacée (même nom court, autre catalogue) lue comme créée ferait
+croire à une construction là où il y a un transfert. La provenance vient des artefacts fournis,
+dans cet ordre : `commentaire_ddl` (le plus proche du producteur), `couche_existante`, `mapping`
+(entrées déclarées du lineage). Sans aucun des trois, elle reste **`indeterminee` avec son motif** —
+une provenance vraisemblable ferait passer la projection pour complète (défaut de TF-0911). Sans
+`--existant`, toute table est lue comme créée et le verbe l'**avertit** : vrai d'une couche neuve,
+faux d'une reprise. Les rendus `md` et `csv` portent **les mêmes lignes dans le même ordre** que le
+JSON jugé : le rendu `md` EST le chapitre « Évolutions <couche> » de la restitution.
+
+`oracles/oracle-evoluer.mjs` juge la **complétude interne** de la projection (EV1-EV5) : cinq champs
+par ligne, jeux fermés d'évolution et de provenance, aucun couple table+colonne projeté deux fois,
+bijection `tables` ⇄ `lignes` (une table annoncée sans colonne projetée est le trou exact que la
+reconstitution à la main laissait), indétermination motivée, et **comptes recalculés** — jamais
+recopiés. Frontière tenue : l'exhaustivité contre le DDL réel exige une SECONDE source et reste à
+`oracle-couvrir` ; les confondre rendrait les deux fausses.
+
+```bash
+node scripts/projeter-evolutions.mjs --couche silver --cible fixtures/evolutions-cible.sql      --existant fixtures/evolutions-existant.sql --lineage fixtures/lineage-verte.json --sortie <f.json>
+node scripts/projeter-evolutions.mjs --couche silver --cible fixtures/evolutions-cible.sql      --existant fixtures/evolutions-existant.sql --format md --sortie <chapitre.md>
+node oracles/oracle-evoluer.mjs fixtures/evolutions-verte.json
 ```
 
 ## Profils-moteur (TF-0140, `references\profils-moteur\`)

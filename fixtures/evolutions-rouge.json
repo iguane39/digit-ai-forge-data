@@ -1,0 +1,39 @@
+{
+  "format": "forge-data/evolutions@1",
+  "id": "evolutions_silver_2026-09-08_rouge",
+  "couche": "silver",
+  "date": "2026-09-08",
+  "origine": {
+    "verbe": "reconstitution à la main depuis les DDL, le mapping et le catalogue",
+    "cible": null,
+    "existant": null,
+    "lineage": null
+  },
+  "comptes": {
+    "tables": 3,
+    "colonnes": 8,
+    "par_evolution": { "inchangee": 4, "colonne_ajoutee": 4 },
+    "provenance_indeterminee": 0
+  },
+  "tables": [
+    { "table": "catalog_any_silver_d1.ventes.ventes", "evolution": "table_completee", "origine": "catalog_any_silver_d1.ventes.ventes" },
+    { "table": "catalog_any_silver_d1.ventes.clients", "evolution": "table_deplacee", "origine": "catalog_any_bronze_d1.brut.clients" },
+    { "table": "catalog_any_silver_d1.ventes.remises", "evolution": "table_creee", "origine": null }
+  ],
+  "lignes": [
+    { "table": "catalog_any_silver_d1.ventes.ventes", "colonne": "id_commande", "type": "BIGINT", "evolution": "inchangee",
+      "provenance": { "type": "commentaire_ddl", "detail": "Identifiant de commande, repris du systeme amont de caisse" } },
+    { "table": "catalog_any_silver_d1.ventes.ventes", "colonne": "montant", "type": "DECIMAL(10,2)", "evolution": "modifiee",
+      "provenance": { "type": "commentaire_ddl", "detail": "Montant TTC en euros" } },
+    { "table": "catalog_any_silver_d1.ventes.ventes", "colonne": "date_maj", "type": "TIMESTAMP_NTZ", "evolution": "colonne_ajoutee",
+      "provenance": { "type": "indeterminee" } },
+    { "table": "catalog_any_silver_d1.ventes.ventes", "colonne": "date_maj", "type": "TIMESTAMP_NTZ", "evolution": "colonne_ajoutee",
+      "provenance": { "type": "indeterminee", "motif": "relevée deux fois pendant la reconstitution à la main" } },
+    { "table": "catalog_any_silver_d1.ventes.clients", "colonne": "id_client", "type": "BIGINT", "evolution": "inchangee",
+      "provenance": { "type": "couche_existante", "detail": "catalog_any_bronze_d1.brut.clients.id_client" } },
+    { "table": "catalog_any_silver_d1.ventes.clients", "colonne": "actif", "type": "BOOLEAN", "evolution": "colonne_ajoutee",
+      "provenance": { "type": "a_verifier", "detail": "vu dans une capture d'écran du catalogue" } },
+    { "table": "catalog_any_gold_d1.servi.ventes_mensuelles", "colonne": "total_ht", "type": "DECIMAL(12,2)", "evolution": "colonne_ajoutee",
+      "provenance": { "type": "mapping", "detail": "ligne 42 du mapping Silver ← Bronze" } }
+  ]
+}

@@ -51,6 +51,11 @@ const CAS = [
   // jeu, une exclusion sans motif, un type de règle inconnu, un objet cité par le mapping et
   // absent de l'inventaire, quatre orphelins, et un taux déclaré à 100 % qui en vaut 63,6.
   { oracle: "oracle-couvrir.mjs", verte: "couverture-verte.json", rouge: "couverture-rouge.json", regles: ["CV2", "CV3", "CV4", "CV5", "CV6"] },
+  // évoluer (TF-0937, 08/09) : la rouge porte une évolution hors jeu, un couple table+colonne
+  // projeté deux fois, une provenance de type inconnu, une table annoncée dont aucune colonne
+  // n'est projetée, une ligne citant une table hors du bloc « tables », une indétermination sans
+  // motif, et des cartes de comptage qui annoncent 8 colonnes là où on en recompte 6.
+  { oracle: "oracle-evoluer.mjs", verte: "evolutions-verte.json", rouge: "evolutions-rouge.json", regles: ["EV2", "EV3", "EV4", "EV5"] },
   // restituer R7 : un rapport de mapping qui pointe une mesure de couverture existante PASSE ;
   // celui qui se dit exhaustif en pointant le vide ÉCHOUE — sur R7 et sur R7 seulement.
   { oracle: "oracle-restituer.mjs", verte: "rapport-couverture-verte.md", rouge: "rapport-couverture-rouge.md", regles: ["R7"] },
@@ -477,6 +482,77 @@ try {
   ok(cf.exit === 2, "traduire-modele-semantique · complément au mauvais format : refusé, jamais interprété au jugé");
 } finally {
   fs.rmSync(tmp3, { recursive: true, force: true });
+}
+
+// ---- verbe projeter-evolutions (TF-0937) : la première question d'une équipe data ----
+// `lineage@1` porte les sorties proposées et les transformations, jamais la vue colonne par
+// colonne de ce qui change dans une couche et d'où ça vient. Elle se reconstituait à la main :
+// 397 lignes de provenance chez le produit demandeur. Ce qui se prouve ici : les quatre
+// évolutions se DÉDUISENT de la comparaison de deux DDL (jamais d'une heuristique de nom), la
+// provenance vient des artefacts fournis ou reste indéterminée EN LE DISANT, et le rendu de
+// restitution porte exactement les mêmes lignes que le JSON jugé.
+console.log(String.fromCharCode(10) + "projeter-evolutions.mjs (verbe, TF-0937) — DDL × DDL × lineage → evolutions@1" + String.fromCharCode(10));
+const tmp5 = fs.mkdtempSync(path.join(os.tmpdir(), "forge-data-evolutions-"));
+try {
+  const pJson = path.join(tmp5, "silver.json");
+  const p = lanceScript("projeter-evolutions.mjs", ["--couche", "silver", "--cible", fx("evolutions-cible.sql"),
+    "--existant", fx("evolutions-existant.sql"), "--lineage", fx("lineage-verte.json"), "--date", "2026-09-08", "--sortie", pJson]);
+  ok(p.exit === 0 && p.r.sortie === "OK", "projeter-evolutions · deux DDL et un lineage produisent une projection (exit 0)");
+  ok(p.r.comptes && p.r.comptes.colonnes === 12 && p.r.comptes.tables === 3 &&
+     JSON.stringify(p.r.comptes.tables_par_evolution) === JSON.stringify({ table_completee: 1, table_deplacee: 1, table_creee: 1 }),
+    `projeter-evolutions · les trois évolutions de TABLE se déduisent de la comparaison des deux DDL, jamais d'un nom : complétée, DÉPLACÉE (même nom court, autre catalogue) et créée — obtenu ${JSON.stringify(p.r.comptes && p.r.comptes.tables_par_evolution)}`);
+  const doc = JSON.parse(fs.readFileSync(pJson, "utf8"));
+  const ligne = (t, c) => doc.lignes.find(l => l.table.endsWith(t) && l.colonne === c);
+  ok(ligne("ventes.ventes", "montant").evolution === "colonne_corrigee" && ligne("ventes.ventes", "montant").type === "DECIMAL(10,2)",
+    "projeter-evolutions · un TYPE qui change est lu comme corrigé — c'est ce que l'équipe data cherche en premier, et une lecture par nom seul le raterait");
+  ok(ligne("ventes.clients", "id_client").provenance.type === "couche_existante" &&
+     ligne("ventes.clients", "id_client").provenance.detail === "catalog_any_bronze_d1.brut.clients.id_client",
+    "projeter-evolutions · la provenance d'une colonne déplacée NOMME son emplacement d'origine");
+  ok(ligne("servi.ventes_mensuelles", "total_ht").provenance.type === "mapping" &&
+     /brut\.exports_pgi/.test(ligne("servi.ventes_mensuelles", "total_ht").provenance.detail),
+    "projeter-evolutions · une table déclarée en sortie du lineage tire sa provenance de ses ENTRÉES déclarées");
+  ok(ligne("ventes.ventes", "id_commande").provenance.type === "commentaire_ddl",
+    "projeter-evolutions · le commentaire DDL prime : c'est la source la plus proche du producteur (8 des 33 emplois du retour venaient de là)");
+  const indet = doc.lignes.filter(l => l.provenance.type === "indeterminee");
+  ok(indet.length === 2 && indet.every(l => (l.provenance.motif || "").split(/\s+/).length >= 4),
+    `projeter-evolutions · sans commentaire, sans existant et sans lineage, la provenance reste INDÉTERMINÉE avec son motif — une provenance vraisemblable ferait passer la projection pour complète (obtenu ${indet.length})`);
+  const re = lance("oracle-evoluer.mjs", pJson);
+  ok(re.exit === 0 && re.r.verdict === "PASS", "projeter-evolutions → oracle-evoluer.mjs sur la projection produite : PASS (round-trip)");
+
+  // Sans --existant, l'état antérieur n'existe pas : tout est lu comme créé, et le verbe le DIT.
+  // Un verbe qui se tairait ferait lire une reprise entière comme une construction neuve.
+  const pSansExistant = path.join(tmp5, "sans-existant.json");
+  const se = lanceScript("projeter-evolutions.mjs", ["--couche", "silver", "--cible", fx("evolutions-cible.sql"), "--date", "2026-09-08", "--sortie", pSansExistant]);
+  ok(se.exit === 0 && se.r.comptes.tables_par_evolution.table_creee === 3 && (se.r.avertissements || []).some(x => /état existant/.test(x)),
+    "projeter-evolutions · sans --existant, toute table est lue comme CRÉÉE et le verbe l'avertit — vrai d'une couche neuve, faux d'une reprise");
+
+  // Le rendu de restitution porte les MÊMES lignes que le JSON jugé : un rendu qui recompterait
+  // serait une seconde source de vérité, donc une divergence en attente.
+  const pMd = path.join(tmp5, "silver.md");
+  const md = lanceScript("projeter-evolutions.mjs", ["--couche", "silver", "--cible", fx("evolutions-cible.sql"),
+    "--existant", fx("evolutions-existant.sql"), "--lineage", fx("lineage-verte.json"), "--date", "2026-09-08", "--format", "md", "--sortie", pMd]);
+  const texteMd = fs.readFileSync(pMd, "utf8");
+  ok(md.exit === 0 && texteMd.split(/\r?\n/).filter(l => /^\| catalog|^\| servi/.test(l)).length === doc.lignes.length &&
+     /\| Table \| Colonne \| Type \| Évolution \| Provenance \|/.test(texteMd),
+    `projeter-evolutions · le rendu Markdown du chapitre porte les cinq colonnes attendues et AUTANT de lignes que le JSON jugé (${doc.lignes.length})`);
+  const pCsv = path.join(tmp5, "silver.csv");
+  lanceScript("projeter-evolutions.mjs", ["--couche", "silver", "--cible", fx("evolutions-cible.sql"),
+    "--existant", fx("evolutions-existant.sql"), "--lineage", fx("lineage-verte.json"), "--date", "2026-09-08", "--format", "csv", "--sortie", pCsv]);
+  const lignesCsv = fs.readFileSync(pCsv, "utf8").trim().split(/\r?\n/);
+  ok(lignesCsv[0] === "table;colonne;type;evolution;provenance" && lignesCsv.length === doc.lignes.length + 1,
+    `projeter-evolutions · le rendu CSV aussi — même en-tête, mêmes lignes (${lignesCsv.length - 1})`);
+
+  // Rouge : un DDL sans aucune table. Aucune projection inventée — une projection vide se lirait
+  // « aucune évolution », ce qui est le contraire de « rien n'a été relevé ».
+  const vide = path.join(tmp5, "vide.sql");
+  fs.writeFileSync(vide, "-- aucun CREATE TABLE ici\n");
+  const rg = lanceScript("projeter-evolutions.mjs", ["--couche", "silver", "--cible", vide, "--sortie-dir", tmp5]);
+  ok(rg.exit === 2 && rg.r.sortie === "ECHEC" && !rg.r.fichier_produit,
+    "projeter-evolutions · rouge : DDL sans table → refus propre (exit 2), aucune projection inventée");
+  const sansCouche = lanceScript("projeter-evolutions.mjs", ["--cible", fx("evolutions-cible.sql"), "--sortie-dir", tmp5]);
+  ok(sansCouche.exit === 2, "projeter-evolutions · rouge : sans --couche, refus — deux projections sans couche nommée se confondent");
+} finally {
+  fs.rmSync(tmp5, { recursive: true, force: true });
 }
 
 // ---- TF-0917 : la chaîne TMDL → couverture@1 se ferme SANS transcription ----
