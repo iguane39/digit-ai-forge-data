@@ -1,0 +1,47 @@
+{
+  "format": "forge-data/couverture@1",
+  "id": "couverture_mapping_ventes_rouge",
+  "taux_declare": 100,
+  "source": {
+    "nom": "modele_semantique_ventes",
+    "namespace": "powerbi://app.powerbi.com/groups/00000000-0000-0000-0000-000000000000/datasets/11111111-1111-1111-1111-111111111111",
+    "date": "2026-09-08",
+    "releve_par": "relevé manuel dans l'interface, transcrit à la main",
+    "inventaire": [
+      { "objet": "Ventes.id_commande", "type": "colonne" },
+      { "objet": "Ventes.date_sk", "type": "colonne" },
+      { "objet": "Ventes.client_sk", "type": "colonne" },
+      { "objet": "Ventes.montant_ht", "type": "colonne" },
+      { "objet": "Ventes.remise_ht", "type": "colonne" },
+      { "objet": "Ventes.horodatage_chargement", "type": "colonne" },
+      { "objet": "Client.client_sk", "type": "colonne" },
+      { "objet": "Client.statut", "type": "colonne" },
+      { "objet": "Client.segment", "type": "colonne" },
+      { "objet": "Ventes[Montant HT]", "type": "mesure" },
+      { "objet": "Ventes[Marge]", "type": "mesure" },
+      { "objet": "Ventes[Montant HT]", "type": "mesure" },
+      { "objet": "champ_visuel_sans_type", "type": "visuel" }
+    ]
+  },
+  "mapping": {
+    "nom": "mapping-silver-gold-ventes",
+    "artefact": "forge/etapes/data/mapping-silver-gold-ventes.md",
+    "date": "2026-09-08",
+    "objets_source": [
+      "Ventes.id_commande",
+      "Ventes.date_sk",
+      "Ventes.client_sk",
+      "Ventes.montant_ht",
+      "Client.client_sk",
+      "Client.statut",
+      "Ventes[Montant HT]",
+      "Ventes[Chiffre affaires N-1]"
+    ]
+  },
+  "regles_rattachement": [
+    { "type": "exclusion", "portee": "Ventes.horodatage_chargement", "motif": "technique" },
+    { "type": "table_entiere", "portee": "Fournisseur",
+      "motif": "table entièrement reprise depuis la couche Silver sans transformation" },
+    { "type": "rapprochement_flou", "portee": "Client.segment" }
+  ]
+}

@@ -47,6 +47,13 @@ const CAS = [
   // restituer R6 : un rapport qui pointe un lot de réconciliation existant PASSE, un rapport qui
   // prétend une réconciliation vers un fichier absent ÉCHOUE sur R6 — et sur R6 seulement.
   { oracle: "oracle-restituer.mjs", verte: "rapport-reconciliation-verte.md", rouge: "rapport-reconciliation-rouge.md", regles: ["R6"] },
+  // couvrir (TF-0911, 08/09) : la rouge porte un objet inventorié deux fois, un type d'objet hors
+  // jeu, une exclusion sans motif, un type de règle inconnu, un objet cité par le mapping et
+  // absent de l'inventaire, quatre orphelins, et un taux déclaré à 100 % qui en vaut 63,6.
+  { oracle: "oracle-couvrir.mjs", verte: "couverture-verte.json", rouge: "couverture-rouge.json", regles: ["CV2", "CV3", "CV4", "CV5", "CV6"] },
+  // restituer R7 : un rapport de mapping qui pointe une mesure de couverture existante PASSE ;
+  // celui qui se dit exhaustif en pointant le vide ÉCHOUE — sur R7 et sur R7 seulement.
+  { oracle: "oracle-restituer.mjs", verte: "rapport-couverture-verte.md", rouge: "rapport-couverture-rouge.md", regles: ["R7"] },
 ];
 
 console.log("SELF-TEST forge-data — discipline aux niveaux des 4 barres (fixtures synthétiques)\n");
@@ -104,6 +111,38 @@ console.log(String.fromCharCode(10) + "R5 (TF-0378) — nombres de prose ancrés
     `R5 · rouge --strict : le même constat devient bloquant — obtenu ${rsr5.map(f => f.sev).join(",") || "rien"}`);
 }
 
+// ---- CV5/CV6 : le CHIFFRE de la couverture, deux sens (TF-0911) ----
+// La boucle ci-dessus prouve que les règles se déclenchent. Elle ne prouve pas que le NOMBRE
+// rendu est juste — et c'est le nombre qui sert : « 38 colonnes et 22 mesures orphelines » est
+// ce qui a déclenché le retour, pas un verdict FAIL. Un oracle de couverture dont le taux serait
+// faux serait pire que pas d'oracle : il donnerait à un mapping troué la caution d'un chiffre.
+console.log(String.fromCharCode(10) + "CV5/CV6 (TF-0911) — le taux de couverture et les orphelins sont COMPTÉS juste" + String.fromCharCode(10));
+{
+  const v = lance("oracle-couvrir.mjs", fx("couverture-verte.json")).r;
+  ok(v.couverture && v.couverture.inventorie === 15 && v.couverture.couverts === 14 && v.couverture.exclus === 1 && v.couverture.orphelins === 0,
+    `CV5 · verte : 15 inventoriés, 14 couverts (dont 4 par une règle table_entiere qui ne les nomme pas), 1 exclu motivé, 0 orphelin — obtenu ${JSON.stringify(v.couverture && { i: v.couverture.inventorie, c: v.couverture.couverts, e: v.couverture.exclus, o: v.couverture.orphelins })}`);
+  ok(v.couverture && v.couverture.taux.retenu === 100 && v.couverture.taux.brut === 93.3,
+    `CV5 · verte : les deux taux sont distincts et nommés — retenu 100 % (hors exclusions motivées), brut 93,3 % (sur tout l'inventaire) ; les confondre ferait lire une exclusion comme un trou (obtenu ${JSON.stringify(v.couverture && v.couverture.taux)})`);
+  const r = lance("oracle-couvrir.mjs", fx("couverture-rouge.json")).r;
+  ok(r.couverture && r.couverture.orphelins === 4 && r.couverture.orphelins_par_type.colonne === 2 && r.couverture.orphelins_par_type.mesure === 1,
+    `CV5 · rouge : les orphelins sont comptés PAR TYPE (2 colonnes, 1 mesure, 1 de type hors jeu) — c'est cette ventilation qui a fait le retour, pas le total (obtenu ${JSON.stringify(r.couverture && r.couverture.orphelins_par_type)})`);
+  const cv5 = (r.findings || []).filter(f => f.regle === "CV5");
+  ok(cv5.length === 1 && /Ventes\.remise_ht/.test(cv5[0].msg) && /Ventes\[Marge\]/.test(cv5[0].msg),
+    "CV5 · rouge : chaque orphelin est NOMMÉ, pas seulement compté — un total anonyme ne se corrige pas");
+  const cv6 = (r.findings || []).filter(f => f.regle === "CV6");
+  ok(cv6.length === 1 && /100/.test(cv6[0].msg) && /63\.6/.test(cv6[0].msg),
+    "CV6 · rouge : le taux DÉCLARÉ à 100 % est confronté au taux RECALCULÉ à 63,6 % — un taux recopié est ce qui a laissé passer trois PASS");
+  const morte = (r.findings || []).filter(f => f.regle === "CV4" && f.sev === "avertissement");
+  ok(morte.length === 1 && /Fournisseur/.test(morte[0].msg),
+    "CV4 · rouge : une règle de rattachement qui ne touche RIEN est signalée — une portée mal écrite laisse ses objets orphelins sans le dire");
+  // Sens inverse, celui qui compte le plus : une règle `table_entiere` doit RÉELLEMENT couvrir
+  // ses objets. Si elle ne couvrait rien, la verte porterait 4 orphelins et non 0 — donc le PASS
+  // ci-dessus prouve déjà la couverture par préfixe, et cette assertion le dit à voix haute.
+  const vFind = (v.findings || []).filter(f => f.regle === "CV5");
+  ok(vFind.length === 1 && vFind[0].sev === "info" && /14\/14/.test(vFind[0].msg),
+    "CV5 · verte : les 4 colonnes de la dimension reprise en entier sont couvertes SANS être nommées une à une (règle table_entiere effective)");
+}
+
 // ---- TF-0379 : un non_juge nomme un outil RÉSOLVABLE, jamais un nom à chercher ----
 // Le fait : un retour a cherché « oracle-calculs » dans trois dépôts puis par nom sous C:\dev,
 // ne l'a pas trouvé, et en a conclu que la famille n'était couverte nulle part — après cinq
@@ -118,9 +157,10 @@ console.log(String.fromCharCode(10) + "TF-0379 — tout oracle cité en non_juge
   const CITATION = /`([^`]*oracle-[\w.-]+\.(?:mjs|py))`/g;
   const NOM_NU = /\boracle-[\w-]+\b(?![\w.-]*\.(?:mjs|py))/g;
 
-  for (const oracle of ["oracle-profiler.mjs", "oracle-tracer.mjs", "oracle-restituer.mjs", "oracle-contractualiser.mjs"]) {
+  for (const oracle of ["oracle-profiler.mjs", "oracle-tracer.mjs", "oracle-restituer.mjs", "oracle-contractualiser.mjs", "oracle-couvrir.mjs"]) {
     const cibles = { "oracle-restituer.mjs": fx("rapport-verte.md"), "oracle-tracer.mjs": fx("lineage-verte.json"),
-                     "oracle-profiler.mjs": fx("assertions-verte.json"), "oracle-contractualiser.mjs": fx("contrat-verte.json") };
+                     "oracle-profiler.mjs": fx("assertions-verte.json"), "oracle-contractualiser.mjs": fx("contrat-verte.json"),
+                     "oracle-couvrir.mjs": fx("couverture-verte.json") };
     const rap = lance(oracle, cibles[oracle]).r;
     const texte = (rap.non_juge || []).join(" ");
     // Un chemin cité en span de code doit EXISTER.

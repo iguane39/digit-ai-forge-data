@@ -1,0 +1,51 @@
+{
+  "format": "forge-data/couverture@1",
+  "id": "couverture_mapping_ventes_2026-09-08",
+  "taux_declare": 100,
+  "source": {
+    "nom": "modele_semantique_ventes",
+    "namespace": "powerbi://app.powerbi.com/groups/00000000-0000-0000-0000-000000000000/datasets/11111111-1111-1111-1111-111111111111",
+    "date": "2026-09-08",
+    "releve_par": "scripts/traduire-modele-semantique.mjs (lecture TMDL du projet PBIP archivé)",
+    "inventaire": [
+      { "objet": "Ventes.id_commande", "type": "colonne" },
+      { "objet": "Ventes.date_sk", "type": "colonne" },
+      { "objet": "Ventes.client_sk", "type": "colonne" },
+      { "objet": "Ventes.montant_ht", "type": "colonne" },
+      { "objet": "Ventes.horodatage_chargement", "type": "colonne" },
+      { "objet": "Client.client_sk", "type": "colonne" },
+      { "objet": "Client.statut", "type": "colonne" },
+      { "objet": "Client.pays", "type": "colonne" },
+      { "objet": "Calendrier.date_sk", "type": "colonne" },
+      { "objet": "Calendrier.date", "type": "colonne" },
+      { "objet": "Calendrier.annee", "type": "colonne" },
+      { "objet": "Calendrier.mois", "type": "colonne" },
+      { "objet": "Ventes[Montant HT]", "type": "mesure" },
+      { "objet": "Ventes[Commandes]", "type": "mesure" },
+      { "objet": "requete_silver_ventes", "type": "requete" }
+    ]
+  },
+  "mapping": {
+    "nom": "mapping-silver-gold-ventes",
+    "artefact": "forge/etapes/data/mapping-silver-gold-ventes.md",
+    "date": "2026-09-08",
+    "objets_source": [
+      "Ventes.id_commande",
+      "Ventes.date_sk",
+      "Ventes.client_sk",
+      "Ventes.montant_ht",
+      "Client.client_sk",
+      "Client.statut",
+      "Client.pays",
+      "Ventes[Montant HT]",
+      "Ventes[Commandes]",
+      "requete_silver_ventes"
+    ]
+  },
+  "regles_rattachement": [
+    { "type": "table_entiere", "portee": "Calendrier",
+      "motif": "dimension temps reprise intégralement depuis gold.dim_date, colonne à colonne, sans transformation" },
+    { "type": "exclusion", "portee": "Ventes.horodatage_chargement",
+      "motif": "colonne technique d'audit du chargement, sans équivalent ni usage métier en aval" }
+  ]
+}

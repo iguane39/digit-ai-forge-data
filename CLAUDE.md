@@ -32,8 +32,10 @@ node oracles/oracle-profiler.mjs <assertions.json>        # P1-P3 (+P4 optionnel
 node oracles/oracle-tracer.mjs <lineage.json>             # T1-T5 (+T6 optionnel, T7 environnement) : lineage complet, grain colonne, instance de chaque dataset
 node oracles/oracle-restituer.mjs <rapport.md> [--strict]  # R1-R5 : chiffres ancrés, lineage_ref,
                                                           # et COUVERTURE des nombres de prose (R5,
-                                                          # avertie par défaut, bloquante en strict)
+                                                          # avertie par défaut, bloquante en strict) ;
+                                                          # R6 reconciliation_ref, R7 couverture_ref
 node oracles/oracle-contractualiser.mjs <contrat.json>    # C1-C5 : schéma + SLA + propriétaire + version
+node oracles/oracle-couvrir.mjs <couverture.json>         # CV1-CV6 : mapping mesuré contre l'inventaire de sa source
 node oracles/self-test.mjs                                 # double sens — à rejouer après toute modification
 ```
 
@@ -131,6 +133,32 @@ du modèle sémantique aval à forge-audit (`verifier-modele-semantique.mjs`).
 node oracles/oracle-modeliser.mjs fixtures/modele-dimensionnel-verte.json
 node oracles/oracle-transformer.mjs fixtures/transformation-verte
 node oracles/oracle-reconcilier.mjs fixtures/reconciliation-verte.json
+```
+
+## Le verbe couvrir (TF-0911, 08/09/2026) — la complétude, que nulle règle de forme ne pose
+
+Un mapping livré a été jugé PASS par TROIS oracles de cette forge — `oracle-tracer` (lineage
+complet), `oracle-modeliser` (modèle bien formé), `oracle-restituer` (chiffres ancrés). Trois
+synthèses PASS, deux jours. Puis le produit a écrit son propre contrôle et trouvé **38 colonnes
+et 22 mesures orphelines**. Les trois oracles ne pouvaient pas les voir : ils jugent la forme de
+ce qui est DÉCLARÉ, donc un mapping vide leur passerait aussi bien qu'un mapping exhaustif. La
+complétude ne se déduit d'aucune règle de forme — elle exige une SECONDE source (l'inventaire de
+la source) et une soustraction.
+
+| Verbe | Discipline exigée | Barre | Oracle |
+|---|---|---|---|
+| **couvrir** (TF-0911) | un mapping se mesure contre l'INVENTAIRE de sa source : taux recalculé, orphelins nommés et comptés par type, exclusions **motivées** (une exclusion sans motif est un oubli déguisé en décision) ; PASS à zéro orphelin | prolonge dbt-core (déclaré → généré) ; contrôle maison du produit demandeur | `oracle-couvrir.mjs <couverture.json>` — CV1-CV6, format `forge-data/couverture@1` ; `oracle-restituer` **R7** : un rapport peut pointer sa mesure par `couverture_ref:` |
+
+Deux taux rendus et nommés, jamais confondus : `taux.retenu` (couverts / inventaire − exclus) et
+`taux.brut` (couverts / inventaire). Un `taux_declare` au document est RECALCULÉ et confronté
+(CV6) — un taux recopié d'une synthèse précédente est exactement ce qui a laissé passer trois PASS.
+Rattachement par règle déclarée : `nomme`, `table_entiere` (couvre par préfixe, sans citer chaque
+colonne), `exclusion` (motif ≥ 4 mots). CV3 juge le défaut symétrique, celui que personne ne
+cherche : un objet cité par le mapping et **absent de l'inventaire** — mapping faux ou inventaire
+périmé, dans les deux cas le taux ment.
+
+```bash
+node oracles/oracle-couvrir.mjs fixtures/couverture-verte.json
 ```
 
 ## Profils-moteur (TF-0140, `references\profils-moteur\`)

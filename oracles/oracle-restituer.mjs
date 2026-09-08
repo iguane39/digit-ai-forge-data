@@ -14,6 +14,11 @@
 //   R5  COUVERTURE des nombres de prose : tout nombre du corps porte un marqueur, ou
 //       l'échappement explicite [c:-]. Avertissement chiffré par défaut, BLOQUANT sous
 //       --strict (TF-0378).
+//   R6  (optionnel) `reconciliation_ref:` pointe un lot `forge-data/reconciliation@1` existant
+//       (TF-0864) — présent et faux : bloquant.
+//   R7  (optionnel) `couverture_ref:` pointe une mesure `forge-data/couverture@1` existante
+//       (TF-0911) — un rapport de mapping chaîne ainsi la question de la COMPLÉTUDE, celle
+//       qu'aucune règle de forme ne pose ; présent et faux : bloquant.
 //
 // R5 (TF-0378, lot Produit-10 20260818b) — R1-R4 jugeaient la BIJECTION marqueur ↔ déclaration :
 // tout [c:id] du corps est déclaré, toute déclaration est utilisée. Aucune règle ne demandait
@@ -134,6 +139,25 @@ if (reconciliationRef) {
     let rc = null;
     try { rc = JSON.parse(fs.readFileSync(pr, "utf8")); } catch { add("bloquant", "R6", `reconciliation_ref illisible (JSON attendu) : ${reconciliationRef}`, file); }
     if (rc && rc.format !== "forge-data/reconciliation@1") add("bloquant", "R6", `reconciliation_ref au format « ${rc.format} » (attendu forge-data/reconciliation@1)`, file);
+  }
+}
+// --- R7 — un rapport de mapping peut pointer sa MESURE DE COUVERTURE (TF-0911, 08/09/2026) ------
+// R6 chaînait la question « ces chiffres valent-ils ce que Gold dit ». R7 chaîne celle qui l'a
+// précédée de deux jours et que personne ne posait : « ce mapping couvre-t-il TOUT ce que la
+// source contient ». Trois synthèses PASS (oracle-tracer, oracle-modeliser, oracle-restituer)
+// ont été publiées avant que 38 colonnes et 22 mesures orphelines soient trouvées — par un
+// contrôle que le produit avait dû écrire lui-même. Même construction que R6 : optionnel (un
+// rapport qui ne restitue aucun mapping n'en porte pas, et R7 se tait), bloquant s'il est
+// présent et faux — un rapport qui se dit exhaustif en pointant le vide est pire qu'un rapport
+// muet. La MESURE, elle, appartient à `oracles/oracle-couvrir.mjs` : R7 chaîne, elle ne compte pas.
+const couvertureRef = (front.match(/^couverture_ref\s*:\s*(.+)$/m) || [])[1]?.trim();
+if (couvertureRef) {
+  const pc = path.join(path.dirname(path.resolve(file)), couvertureRef);
+  if (!fs.existsSync(pc)) add("bloquant", "R7", `couverture_ref introuvable à côté du rapport : ${couvertureRef}`, file);
+  else {
+    let cv = null;
+    try { cv = JSON.parse(fs.readFileSync(pc, "utf8")); } catch { add("bloquant", "R7", `couverture_ref illisible (JSON attendu) : ${couvertureRef}`, file); }
+    if (cv && cv.format !== "forge-data/couverture@1") add("bloquant", "R7", `couverture_ref au format « ${cv.format} » (attendu forge-data/couverture@1)`, file);
   }
 }
 // --- R5 — couverture des nombres de prose (TF-0378) ---------------------------------------
