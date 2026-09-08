@@ -1,0 +1,23 @@
+{
+  "artefact": "main.servi.ventes_mensuelles",
+  "namespace": "databricks://adb-0000000000000001.10.azuredatabricks.net",
+  "reponses": [
+    {
+      "table_name": "main.servi.ventes_mensuelles",
+      "reponse": {
+        "upstreams": [
+          {
+            "tableInfo": {
+              "catalog_name": "main",
+              "name": "exports_pgi",
+              "table_type": "TABLE",
+              "lineage_timestamp": "2026-09-05T08:00:00Z"
+            },
+            "notebookInfos": [ { "workspace_id": "1", "notebook_id": "4210" } ]
+          }
+        ],
+        "downstreams": []
+      }
+    }
+  ]
+}

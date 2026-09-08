@@ -41,6 +41,7 @@ node oracles/oracle-reconcilier.mjs fixtures/reconciliation-verte.json        # 
 node scripts/importer.mjs fixtures/schema-postgres-verte.sql --sortie-dir <dossier>
 node scripts/importer.mjs fixtures/schema-databricks-verte.sql --sortie-dir <dossier>   # dialecte Databricks (SHOW CREATE TABLE), TF-0858
 node scripts/traduire-unity-catalog.mjs fixtures/unity-catalog-verte.json --sortie <fichier.json>
+node scripts/traduire-unity-catalog.mjs fixtures/unity-catalog-api-verte.json --sortie <fichier.json>  # voie API lineage-tracking, grain table (TF-0893)
 node oracles/self-test.mjs   # double sens : vertes PASS, rouges FAIL localisants + round-trips importer/traducteur
 ```
 

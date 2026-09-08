@@ -261,6 +261,55 @@ try {
   const tn = lanceScript("traduire-unity-catalog.mjs", [pSansNs, "--sortie-dir", tmp2]);
   ok(tn.exit === 2 && tn.r.sortie === "ECHEC", "traduire-unity-catalog · export sans `namespace` refusé proprement (exit 2, T7)");
   ok(!tn.r.fichier_produit, "traduire-unity-catalog · sans namespace : aucun lineage inventé");
+  ok(tv.r.voie === "system-tables", "traduire-unity-catalog · la voie system-tables est DÉTECTÉE et déclarée au manifeste (jamais devinée en silence)");
+
+  // ---- TF-0893 : seconde voie d'entrée — API REST lineage-tracking, grain TABLE ----
+  // Le fait mesuré : sur un workspace réel, `SELECT … FROM system.access.table_lineage` rend
+  // INSUFFICIENT_PERMISSIONS (SQLSTATE 42501) tandis que l'API répond avec les droits ordinaires
+  // du jeton. Le verbe n'avait que l'entrée qui ne répond pas — 30 objets transcrits à la main.
+  const pApi = path.join(tmp2, "api.lineage.json");
+  const av = lanceScript("traduire-unity-catalog.mjs", [fx("unity-catalog-api-verte.json"), "--sortie", pApi]);
+  ok(av.exit === 0 && av.r.sortie === "OK", "traduire-unity-catalog/api · fixture verte (réponses lineage-tracking) produit un lineage@1 (exit 0)");
+  ok(av.r.voie === "api-lineage-tracking", "traduire-unity-catalog/api · la voie est DÉTECTÉE sur le champ `reponses` et déclarée au manifeste");
+  ok(fs.existsSync(pApi), "traduire-unity-catalog/api · fichier lineage écrit");
+  if (fs.existsSync(pApi)) {
+    const rt = lance("oracle-tracer.mjs", pApi);
+    ok(rt.exit === 0 && rt.r.verdict === "PASS", "traduire-unity-catalog/api → oracle-tracer.mjs sur le lineage produit : PASS (round-trip)");
+    const lg = JSON.parse(fs.readFileSync(pApi, "utf8"));
+    // Le sens des arêtes est la seule chose que ce format porte et que rien ne rattraperait en
+    // aval : un upstream alimente la table interrogée, un downstream en descend. Inverser les
+    // deux produirait un lineage@1 qui PASSE T1-T7 en racontant le flux à l'envers.
+    ok(lg.entrees.some(e => e.dataset === "main.brut.exports_pgi") && lg.sorties.some(s => s.dataset === "main.servi.ventes_mensuelles"),
+      "traduire-unity-catalog/api · un upstream devient une ENTRÉE et la table interrogée une SORTIE (sens de l'arête)");
+    ok(lg.entrees.some(e => e.dataset === "main.servi.ventes_mensuelles") && lg.sorties.some(s => s.dataset === "main.servi.ventes_mensuelles_agregees"),
+      "traduire-unity-catalog/api · un downstream devient une SORTIE et la table interrogée une entrée (sens inverse de l'arête)");
+    ok(lg.confiance.niveau === 0 && lg.transformations.every(t => t.type === "runtime"),
+      `traduire-unity-catalog/api · grain table → confiance.niveau 0 (REX X6 : 1-2-3 sont des grains colonne), transformations runtime — obtenu niveau ${lg.confiance.niveau}`);
+    ok(lg.colonnes === undefined, "traduire-unity-catalog/api · aucun champ `colonnes` inventé — cette voie ne voit pas la colonne");
+    ok(lg.transformations.some(t => t.etape === "notebook_4210") && lg.transformations.some(t => t.etape === "job_77012"),
+      "traduire-unity-catalog/api · les entités d'exécution (notebook, job) deviennent les étapes déclarées");
+  }
+  ok((av.r.avertissements || []).some(x => /fileInfo/.test(x)),
+    "traduire-unity-catalog/api · une entrée sans tableInfo (emplacement externe) est ÉCARTÉE en le DISANT — un silence ferait croire le relevé complet");
+  ok((av.r.avertissements || []).some(x => /niveau. = 0|niveau` = 0/.test(x)),
+    "traduire-unity-catalog/api · le niveau de maturité 0 est justifié dans les avertissements, jamais posé en silence");
+  const ar = lanceScript("traduire-unity-catalog.mjs", [fx("unity-catalog-api-rouge.json"), "--sortie-dir", tmp2]);
+  ok(ar.exit === 2 && ar.r.sortie === "ECHEC", "traduire-unity-catalog/api · tableInfo incomplet (schema_name absent) refusé proprement (exit 2)");
+  ok(!ar.r.fichier_produit, "traduire-unity-catalog/api · rouge : aucun lineage produit sur un nom qualifié impossible à reconstruire");
+  ok((ar.r.details || []).some(x => /schema_name/.test(x) && /reponses #1/.test(x)),
+    "traduire-unity-catalog/api · le refus LOCALISE la réponse et nomme le segment manquant");
+  const aVoie = lanceScript("traduire-unity-catalog.mjs", [fx("unity-catalog-api-verte.json"), "--voie", "tableau", "--sortie-dir", tmp2]);
+  ok(aVoie.exit === 2, "traduire-unity-catalog/api · une voie déclarée inconnue est refusée (exit 2), jamais interprétée");
+  const aContre = lanceScript("traduire-unity-catalog.mjs", [fx("unity-catalog-api-verte.json"), "--voie", "system-tables", "--sortie-dir", tmp2]);
+  ok(aContre.exit === 2, "traduire-unity-catalog/api · voie déclarée qui contredit le contenu : refusée, jamais arbitrée en silence");
+  // Ambiguïté : les deux champs à la fois. Traduire l'un en taisant l'autre perdrait la moitié
+  // du relevé sans qu'aucune ligne de la sortie ne le dise.
+  const mixte = JSON.parse(fs.readFileSync(fx("unity-catalog-api-verte.json"), "utf8"));
+  mixte.lignes = JSON.parse(fs.readFileSync(fx("unity-catalog-verte.json"), "utf8")).lignes;
+  const pMixte = path.join(tmp2, "uc-mixte.json");
+  fs.writeFileSync(pMixte, JSON.stringify(mixte));
+  const am = lanceScript("traduire-unity-catalog.mjs", [pMixte, "--sortie-dir", tmp2]);
+  ok(am.exit === 2 && /ambigu/.test(am.r.erreur || ""), "traduire-unity-catalog/api · export portant les DEUX voies : refusé comme ambigu (aucune moitié traduite en silence)");
 } finally {
   fs.rmSync(tmp2, { recursive: true, force: true });
 }

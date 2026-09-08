@@ -88,8 +88,27 @@ transformation toujours `"runtime"`, `confiance.niveau` toujours 3. Export incoh
 lineage inventé. Preuve en boucle : la sortie doit PASSER `oracle-tracer` (vérifié par
 `oracles/self-test.mjs` sur `fixtures/unity-catalog-{verte,rouge}.json`).
 
+**Seconde voie d'entrée : l'API REST lineage-tracking (TF-0893, 08/09/2026 — retour Produit-10 du
+07/09)** — sur un workspace réel, la voie system tables est refusée AVANT d'exister :
+`SELECT … FROM system.access.table_lineage` rend `[INSUFFICIENT_PERMISSIONS] … USE SCHEMA on
+Schema 'system.access'` (SQLSTATE 42501), droit de gouvernance qu'un compte de mission n'obtient
+pas dans la journée, tandis que `GET /api/2.0/lineage-tracking/table-lineage?…&include_entity_lineage=true`
+répond avec les droits ordinaires du jeton. Le verbe n'avait donc qu'une entrée, et c'était celle
+qui ne répond pas : un lineage de 30 objets a été relevé par l'API puis transcrit À LA MAIN. La
+voie `api-lineage-tracking` prend le champ `reponses` (une réponse par table interrogée :
+`upstreams` / `downstreams` avec `tableInfo` et les entités d'exécution) et rend un lineage@1 au
+grain **table**, transformations `runtime`, **`confiance.niveau` = 0** — arbitrage délibéré contre
+la proposition du retour (qui demandait 2) : sur l'échelle REX X6, les niveaux 1 à 3 sont TOUS des
+grains colonne, et T5 ne juge que la présence du niveau, jamais sa justesse. La voie se détecte
+(`lignes` → system tables, `reponses` → API) ou se déclare (`--voie`), figure au manifeste et dans
+`origine.voie` du lineage produit ; une entrée portant les deux champs est **ambiguë** (refus), une
+entrée `fileInfo` (emplacement externe) est écartée **en le disant**, un `tableInfo` dont un des
+trois segments manque est un refus propre. Preuve en boucle sur
+`fixtures/unity-catalog-api-{verte,rouge}.json`.
+
 ```bash
 node scripts/traduire-unity-catalog.mjs fixtures/unity-catalog-verte.json --sortie <fichier.json>
+node scripts/traduire-unity-catalog.mjs fixtures/unity-catalog-api-verte.json --sortie <fichier.json>   # voie détectée
 ```
 
 ## Trois verbes de plus pour la couche Gold et la restitution (07/09/2026 — lots L3, L4, L7)

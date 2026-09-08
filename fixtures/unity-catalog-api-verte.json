@@ -1,0 +1,69 @@
+{
+  "artefact": "main.servi.ventes_mensuelles",
+  "namespace": "databricks://adb-0000000000000001.10.azuredatabricks.net",
+  "reponses": [
+    {
+      "table_name": "main.servi.ventes_mensuelles",
+      "reponse": {
+        "upstreams": [
+          {
+            "tableInfo": {
+              "catalog_name": "main",
+              "schema_name": "brut",
+              "name": "exports_pgi",
+              "table_type": "TABLE",
+              "lineage_timestamp": "2026-09-05T08:00:00Z"
+            },
+            "notebookInfos": [ { "workspace_id": "1", "notebook_id": "4210" } ]
+          },
+          {
+            "tableInfo": {
+              "catalog_name": "main",
+              "schema_name": "referentiel",
+              "name": "transco_produits",
+              "table_type": "TABLE",
+              "lineage_timestamp": "2026-09-05T08:00:05Z"
+            },
+            "notebookInfos": [ { "workspace_id": "1", "notebook_id": "4210" } ]
+          },
+          {
+            "fileInfo": {
+              "path": "abfss://depot@exemple.dfs.core.windows.net/atterrissage/pgi/",
+              "lineage_timestamp": "2026-09-05T07:55:00Z"
+            }
+          }
+        ],
+        "downstreams": [
+          {
+            "tableInfo": {
+              "catalog_name": "main",
+              "schema_name": "servi",
+              "name": "ventes_mensuelles_agregees",
+              "table_type": "TABLE",
+              "lineage_timestamp": "2026-09-05T08:10:00Z"
+            },
+            "jobInfos": [ { "job_id": "77012" } ]
+          }
+        ]
+      }
+    },
+    {
+      "table_name": "main.brut.exports_pgi",
+      "reponse": {
+        "upstreams": [],
+        "downstreams": [
+          {
+            "tableInfo": {
+              "catalog_name": "main",
+              "schema_name": "servi",
+              "name": "ventes_mensuelles",
+              "table_type": "TABLE",
+              "lineage_timestamp": "2026-09-05T08:00:00Z"
+            },
+            "notebookInfos": [ { "workspace_id": "1", "notebook_id": "4210" } ]
+          }
+        ]
+      }
+    }
+  ]
+}

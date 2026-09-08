@@ -19,14 +19,17 @@
    forge juge des artefacts déjà exportés (DDL, DACPAC, JSON de catalogue), jamais une base
    vivante — garde-fou fondateur (§0-C de l'étude référencée ci-dessus).
 5. Deux dialectes sont aujourd'hui **consommés** par `scripts/importer.mjs` : Postgres (v0)
-   et **Databricks** (profil 1.1.0, TF-0858 du 07/09/2026 — ouvert le jour où un artefact
+   et **Databricks** (profil 1.2.0, TF-0858 du 07/09/2026 — ouvert le jour où un artefact
    réel de ce moteur a dû être importé, temps T1 d'une mission Silver/Gold, exactement la
    condition que ce point posait). Les profils Oracle / Azure SQL documentent leur dialecte
    pour une extension future du verbe, prouvée par non-recouvrement (R-28) le jour où un
    artefact réel de ce moteur doit être importé — jamais ajoutée par anticipation dans le code.
 6. Databricks est **à part** : ce n'est pas un RDBMS ligne-à-ligne (lakehouse Spark +
    Delta + Unity Catalog) — son apport distinctif est le lineage colonne natif d'Unity
-   Catalog, couvert par un verbe séparé (`scripts/traduire-unity-catalog.mjs`, TF-0141) ;
+   Catalog, couvert par un verbe séparé (`scripts/traduire-unity-catalog.mjs`, TF-0141), qui
+   porte depuis TF-0893 (08/09/2026) une **seconde voie d'entrée** — l'API REST
+   `lineage-tracking/table-lineage`, grain table, ouverte parce que la première est refusée en
+   DROIT sur un workspace réel (§4 du profil) et non seulement par l'édition ;
    son schéma de table (`SHOW CREATE TABLE`) est couvert par `importer` depuis TF-0858,
    avec les clés déclarées informationnelles (§1 du profil) averties comme telles.
 7. Fraîcheur = les `sources` datées en frontmatter ; une mise à jour de profil exige une
