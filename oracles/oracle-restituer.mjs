@@ -19,6 +19,11 @@
 //   R7  (optionnel) `couverture_ref:` pointe une mesure `forge-data/couverture@1` existante
 //       (TF-0911) — un rapport de mapping chaîne ainsi la question de la COMPLÉTUDE, celle
 //       qu'aucune règle de forme ne pose ; présent et faux : bloquant.
+//   R8  VOCABULAIRE DU DESTINATAIRE (TF-0936) : un terme déclaré « machine » au glossaire
+//       `references/glossaire-restitution.json` employé dans la prose d'un livrable humain
+//       est constaté, compté et rendu par son équivalent de restitution. Avertissement
+//       toujours — le terme reste admis dans les schémas et le code, d'où le retrait
+//       préalable des spans et blocs de code, qui est la frontière entre les deux registres.
 //
 // R5 (TF-0378, lot Produit-10 20260818b) — R1-R4 jugeaient la BIJECTION marqueur ↔ déclaration :
 // tout [c:id] du corps est déclaré, toute déclaration est utilisée. Aucune règle ne demandait
@@ -40,6 +45,7 @@
 // Usage : node oracle-restituer.mjs <rapport.md> [--json-only] [--strict]
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const DOM = "Restitution : chiffres ancrés, déclaré → généré (R1-R4, niveau dbt)";
 // TF-0379 (lot Produit-10 20260818b) — un non_juge est une PROMESSE DE PÉRIMÈTRE : le lire, c'est
@@ -201,6 +207,40 @@ for (const par of paragraphes) {
       const brut = m[0].trim();
       if (!brut) continue;
       nus.push({ nombre: brut, phrase: phrase.trim().slice(0, 90) });
+    }
+  }
+}
+// --- R8 — le vocabulaire du DESTINATAIRE (TF-0936, retour du 08/09/2026) -------------------
+// Le retour tient en une phrase : « utilise le mot granularité plutôt que grain ». Le terme
+// machine avait fuité du format vers la page lue par un humain — 33 emplois, dont 25 posés par
+// le générateur et 8 recopiés des commentaires DDL. Aucune règle ne pouvait le voir : R1-R7
+// jugent l'ancrage des chiffres, pas les mots.
+// Les deux vocabulaires COEXISTENT et c'est voulu : `grain` reste le champ de
+// `forge-data/modele-dimensionnel@1` (le renommer casserait les artefacts et l'oracle qui les
+// juge), et il reste admis partout où le texte parle machine — d'où le retrait préalable des
+// spans et blocs de code, qui est ici la frontière exacte entre les deux registres.
+// Le glossaire est une DONNÉE éditable, datée et sourcée (loi n° 4), pas une liste en dur :
+// `references/glossaire-restitution.json`. Avertissement, jamais bloquant — un mot est un
+// arbitrage de rédaction, et une règle de vocabulaire qui bloque une livraison se désactive.
+{
+  const pGlossaire = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "references", "glossaire-restitution.json");
+  let glossaire = null;
+  if (fs.existsSync(pGlossaire)) { try { glossaire = JSON.parse(fs.readFileSync(pGlossaire, "utf8")); } catch { /* glossaire illisible : signalé ci-dessous */ } }
+  if (!glossaire || !Array.isArray(glossaire.termes))
+    add("info", "R8", `glossaire de restitution absent ou illisible (${path.relative(process.cwd(), pGlossaire).replace(/\\/g, "/")}) — le vocabulaire du destinataire n'est pas jugé`, file);
+  else {
+    for (const t of glossaire.termes) {
+      const variantes = (Array.isArray(t.variantes) && t.variantes.length ? t.variantes : [t.machine]).filter(v => typeof v === "string" && v.trim());
+      if (!variantes.length || !t.rendu) continue;
+      const motif = new RegExp(`\\b(${variantes.map(v => v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})\\b`, "gi");
+      const trouves = [...corpsJugeable.matchAll(motif)];
+      if (!trouves.length) continue;
+      add("avertissement", "R8",
+        `${trouves.length} emploi(s) du terme MACHINE « ${t.machine} » dans le corps lu par un humain — ` +
+        `le glossaire (${glossaire.date}) rend ce terme « ${t.rendu} » à la restitution. ` +
+        `Le terme machine reste admis dans les schémas et le code (${t.portee_machine || "formats et sorties d'oracles"}), ` +
+        `d'où son retrait des spans et blocs de code avant ce constat. Motif : ${t.motif || "arbitrage du destinataire"}`,
+        "corps");
     }
   }
 }

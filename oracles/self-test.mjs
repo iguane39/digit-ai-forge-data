@@ -111,6 +111,35 @@ console.log(String.fromCharCode(10) + "R5 (TF-0378) — nombres de prose ancrés
     `R5 · rouge --strict : le même constat devient bloquant — obtenu ${rsr5.map(f => f.sev).join(",") || "rien"}`);
 }
 
+// ---- R8 : le vocabulaire du DESTINATAIRE, deux sens (TF-0936) ----
+// Le retour tient en une phrase : « utilise le mot granularité plutôt que grain ». Le terme
+// machine avait fuité du format vers la page lue — 33 emplois sur une seule page, dont 8
+// recopiés des commentaires DDL. R8 avertit, donc elle n'apparaît dans aucune liste de règles
+// bloquantes : sans cette branche, elle serait jouée par personne. Et le sens VERT compte
+// autant : une règle de vocabulaire qui hurlerait sur le mot cité en code rendrait tout
+// document technique rouge, et se ferait désactiver le jour même.
+console.log(String.fromCharCode(10) + "R8 (TF-0936) — terme machine du glossaire dans un livrable humain" + String.fromCharCode(10));
+{
+  const r8de = rap => (rap.findings || []).filter(f => f.regle === "R8");
+  const v = lance("oracle-restituer.mjs", fx("rapport-verte.md"));
+  ok(v.exit === 0 && r8de(v.r).length === 0,
+    `R8 · verte : « granularité » en prose et « grain » cité en SPAN DE CODE — aucun constat (obtenu ${r8de(v.r).map(f => f.sev).join(",") || "rien"})`);
+  const r = lance("oracle-restituer.mjs", fx("rapport-rouge.md"));
+  const rr8 = r8de(r.r);
+  ok(rr8.length === 1 && rr8[0].sev === "avertissement" && /2 emploi/.test(rr8[0].msg),
+    `R8 · rouge : le terme machine employé en prose est constaté et COMPTÉ (« grain », « grains ») — obtenu ${rr8.map(f => f.sev + ":" + f.msg.slice(0, 30)).join(",") || "rien"}`);
+  ok(rr8.length === 1 && /granularité/.test(rr8[0].msg) && /grain/.test(rr8[0].msg),
+    "R8 · rouge : le constat NOMME le terme trouvé et le terme de rendu — un avertissement qui ne dit pas par quoi remplacer ne se corrige pas");
+  ok(rr8.length === 1 && rr8[0].sev !== "bloquant",
+    "R8 · un mot est un arbitrage de rédaction : jamais bloquant — une règle de vocabulaire qui refuse une livraison se fait désactiver");
+  // Le glossaire est une DONNÉE (loi n° 4), datée et sourcée : sans lui, R8 ne juge pas et le
+  // DIT. Un oracle qui se tairait sur son propre référentiel manquant mentirait par omission.
+  const g = JSON.parse(fs.readFileSync(path.join(ici, "..", "references", "glossaire-restitution.json"), "utf8"));
+  ok(g.format === "forge-data/glossaire-restitution@1" && /^\d{4}-\d{2}-\d{2}$/.test(g.date) && g.source &&
+     g.termes.some(t => t.machine === "grain" && t.rendu === "granularité" && t.motif),
+    "R8 · le glossaire est une donnée éditable, DATÉE et SOURCÉE, dont chaque terme porte son motif (loi n° 4)");
+}
+
 // ---- CV5/CV6 : le CHIFFRE de la couverture, deux sens (TF-0911) ----
 // La boucle ci-dessus prouve que les règles se déclenchent. Elle ne prouve pas que le NOMBRE
 // rendu est juste — et c'est le nombre qui sert : « 38 colonnes et 22 mesures orphelines » est

@@ -33,11 +33,21 @@ node oracles/oracle-tracer.mjs <lineage.json>             # T1-T5 (+T6 optionnel
 node oracles/oracle-restituer.mjs <rapport.md> [--strict]  # R1-R5 : chiffres ancrés, lineage_ref,
                                                           # et COUVERTURE des nombres de prose (R5,
                                                           # avertie par défaut, bloquante en strict) ;
-                                                          # R6 reconciliation_ref, R7 couverture_ref
+                                                          # R6 reconciliation_ref, R7 couverture_ref,
+                                                          # R8 vocabulaire du destinataire (glossaire)
 node oracles/oracle-contractualiser.mjs <contrat.json>    # C1-C5 : schéma + SLA + propriétaire + version
 node oracles/oracle-couvrir.mjs <couverture.json>         # CV1-CV6 : mapping mesuré contre l'inventaire de sa source
 node oracles/self-test.mjs                                 # double sens — à rejouer après toute modification
 ```
+
+**Glossaire de restitution (TF-0936, 08/09/2026)** — `references/glossaire-restitution.json`,
+donnée éditable, datée et sourcée (loi n° 4) : chaque terme y porte sa forme MACHINE (celle des
+formats, des commentaires DDL et des sorties d'oracles, qui ne bouge pas) et sa forme de
+RESTITUTION (celle que le destinataire lit). Premier terme : « grain » machine, rendu
+« granularité ». `oracle-restituer` **R8** constate en avertissement tout terme machine employé
+dans la prose d'un livrable humain ; le même terme cité en span ou bloc de code n'est jamais
+compté, et c'est la frontière exacte entre les deux registres. Retour du 08/09 : 33 emplois sur
+une seule page livrée, dont 8 recopiés des commentaires DDL.
 
 Formats maison : `forge-data/assertions@1`, `forge-data/lineage@1`, `forge-data/contrat@1`
 (spécifiés en tête des oracles ; exemples = fixtures vertes). Un rapport porte un

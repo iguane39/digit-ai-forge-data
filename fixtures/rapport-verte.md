@@ -43,3 +43,10 @@ chapitre :
 |---|---|---|
 | FR | 769 | 62 % |
 | Autres | 471 | 38 % |
+
+## Vocabulaire de restitution (R8 — la fixture verte prouve les DEUX usages légitimes)
+
+La granularité de chaque fait est dite en toutes lettres, comme le destinataire la lit. Le
+champ machine `grain` du format `forge-data/modele-dimensionnel@1` reste écrit tel quel dans
+les schémas — cité ici en span de code, il n'est pas un mot de restitution et R8 ne le compte
+pas : c'est exactement la frontière entre les deux registres.

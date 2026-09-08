@@ -20,3 +20,8 @@ Le total s'établit à [c:total-ventes] unités, avec un panier moyen de
 
 Le mapping porte sur les 122 cibles à source, soit 87 % du périmètre.
 Le taux de rejet observé est de 4,5 points.
+
+## Vocabulaire (R8)
+
+Le grain de la table de faits est déclaré au niveau de la ligne de commande, et les grains
+des dimensions conformes suivent la même convention.
