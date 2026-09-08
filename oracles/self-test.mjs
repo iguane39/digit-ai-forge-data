@@ -54,8 +54,11 @@ const CAS = [
   // évoluer (TF-0937, 08/09) : la rouge porte une évolution hors jeu, un couple table+colonne
   // projeté deux fois, une provenance de type inconnu, une table annoncée dont aucune colonne
   // n'est projetée, une ligne citant une table hors du bloc « tables », une indétermination sans
-  // motif, et des cartes de comptage qui annoncent 8 colonnes là où on en recompte 6.
-  { oracle: "oracle-evoluer.mjs", verte: "evolutions-verte.json", rouge: "evolutions-rouge.json", regles: ["EV2", "EV3", "EV4", "EV5"] },
+  // motif, et des cartes de comptage qui annoncent 8 colonnes là où on en recompte 6. EV6 (TF-0942)
+  // s'ajoute le 08/09 : son arbre porte un statut de table recopié du niveau du dessous, un agrégat
+  // de schéma incohérent avec ses enfants, un parent qui pointe dans le vide, et deux colonnes
+  // projetées en ligne qu'aucun nœud ne porte.
+  { oracle: "oracle-evoluer.mjs", verte: "evolutions-verte.json", rouge: "evolutions-rouge.json", regles: ["EV2", "EV3", "EV4", "EV5", "EV6"] },
   // restituer R7 : un rapport de mapping qui pointe une mesure de couverture existante PASSE ;
   // celui qui se dit exhaustif en pointant le vide ÉCHOUE — sur R7 et sur R7 seulement.
   { oracle: "oracle-restituer.mjs", verte: "rapport-couverture-verte.md", rouge: "rapport-couverture-rouge.md", regles: ["R7"] },
@@ -541,6 +544,47 @@ try {
   const lignesCsv = fs.readFileSync(pCsv, "utf8").trim().split(/\r?\n/);
   ok(lignesCsv[0] === "table;colonne;type;evolution;provenance" && lignesCsv.length === doc.lignes.length + 1,
     `projeter-evolutions · le rendu CSV aussi — même en-tête, mêmes lignes (${lignesCsv.length - 1})`);
+
+  // TF-0942 (retour du 08/09) — la projection n'est plus une liste PLATE : elle porte un ARBRE
+  // schéma › table › colonne, statut à CHAQUE niveau et agrégat des enfants chez le parent. Sur la
+  // version livrée, 119 lignes Silver et 278 lignes Gold ne portaient de statut qu'à la ligne la
+  // plus fine, et aucun schéma n'y apparaissait comme objet.
+  ok(JSON.stringify(p.r.comptes.arbre_par_niveau) === JSON.stringify({ schema: 2, table: 3, colonne: 12 }),
+    `projeter-evolutions · l'arbre porte les TROIS niveaux, le schéma compris — obtenu ${JSON.stringify(p.r.comptes.arbre_par_niveau)}`);
+  const noeud = o => doc.arbre.find(n => n.objet === o);
+  ok(noeud("catalog_any_silver_d1.ventes").niveau === "schema" &&
+     noeud("catalog_any_silver_d1.ventes").statut === "schema_complete" &&
+     JSON.stringify(noeud("catalog_any_silver_d1.ventes").statut_agrege) === JSON.stringify({ table_completee: 1, table_deplacee: 1 }),
+    `projeter-evolutions · un SCHÉMA est un OBJET, avec son statut propre et l'agrégat « 2 tables dont 1 déplacée » que le lecteur cherche avant le détail — obtenu ${JSON.stringify(noeud("catalog_any_silver_d1.ventes"))}`);
+  ok(noeud("catalog_any_silver_d1.ventes.ventes").parent === "catalog_any_silver_d1.ventes" &&
+     noeud("catalog_any_silver_d1.ventes.ventes.montant").parent === "catalog_any_silver_d1.ventes.ventes" &&
+     noeud("catalog_any_silver_d1.ventes.ventes.montant").statut === "colonne_corrigee",
+    "projeter-evolutions · chaque nœud se rattache au niveau du dessus — la hiérarchie se LIT dans le document, elle ne se reconstitue plus par découpage du nom");
+  ok(/\| Niveau \| Objet \| Parent \| Statut \| Statuts des enfants \|/.test(texteMd) &&
+     texteMd.split(/\r?\n/).filter(l => /^\| (schema|table|colonne) \|/.test(l)).length === doc.arbre.length,
+    `projeter-evolutions · le rendu Markdown porte le tableau à trois niveaux et sa colonne « Niveau » filtrable (${doc.arbre.length} nœuds)`);
+
+  // Deux sens sur EV6. Sens vert : l'arbre produit ci-dessus PASSE (round-trip plus haut) — sans
+  // cette moitié, une EV6 qui hurlerait sur tout passerait le self-test. Sens rouge : un arbre qui
+  // MENT échoue, et sur EV6 SEULEMENT — une règle qui ferait tomber ses voisines ne prouve rien.
+  const plat = JSON.parse(JSON.stringify(doc));
+  plat.arbre = plat.arbre.filter(n => n.niveau === "colonne");
+  const pPlat = path.join(tmp5, "arbre-plat.json");
+  fs.writeFileSync(pPlat, JSON.stringify(plat));
+  const rPlat = lance("oracle-evoluer.mjs", pPlat);
+  const reglesPlat = [...new Set((rPlat.r.findings || []).filter(f => f.sev === "bloquant").map(f => f.regle))];
+  ok(rPlat.exit === 1 && JSON.stringify(reglesPlat) === JSON.stringify(["EV6"]),
+    `projeter-evolutions · rouge EV6 : une projection redevenue PLATE (plus que des feuilles) échoue — ni schéma ni table n'y est un objet ; sur EV6 seulement, obtenu ${JSON.stringify(reglesPlat)}`);
+
+  const menteur = JSON.parse(JSON.stringify(doc));
+  menteur.arbre.find(n => n.niveau === "schema").statut_agrege = { table_creee: 9 };
+  const pMenteur = path.join(tmp5, "arbre-menteur.json");
+  fs.writeFileSync(pMenteur, JSON.stringify(menteur));
+  const rMenteur = lance("oracle-evoluer.mjs", pMenteur);
+  const reglesMenteur = [...new Set((rMenteur.r.findings || []).filter(f => f.sev === "bloquant").map(f => f.regle))];
+  ok(rMenteur.exit === 1 && JSON.stringify(reglesMenteur) === JSON.stringify(["EV6"]) &&
+     (rMenteur.r.findings || []).some(f => /recompté/.test(f.msg)),
+    `projeter-evolutions · rouge EV6 : un agrégat de parent qui annonce 9 tables créées là où ses enfants n'en portent aucune est RECOMPTÉ et refusé — obtenu ${JSON.stringify(reglesMenteur)}`);
 
   // Rouge : un DDL sans aucune table. Aucune projection inventée — une projection vide se lirait
   // « aucune évolution », ce qui est le contraire de « rien n'a été relevé ».

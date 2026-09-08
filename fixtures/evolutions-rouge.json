@@ -20,6 +20,17 @@
     { "table": "catalog_any_silver_d1.ventes.clients", "evolution": "table_deplacee", "origine": "catalog_any_bronze_d1.brut.clients" },
     { "table": "catalog_any_silver_d1.ventes.remises", "evolution": "table_creee", "origine": null }
   ],
+  "arbre": [
+    { "niveau": "schema", "objet": "catalog_any_silver_d1.ventes", "parent": null, "statut": "schema_complete",
+      "statut_agrege": { "table_creee": 3 } },
+    { "niveau": "table", "objet": "catalog_any_silver_d1.ventes.ventes", "parent": "catalog_any_silver_d1.ventes",
+      "statut": "colonne_ajoutee", "statut_agrege": { "inchangee": 1, "colonne_ajoutee": 1, "modifiee": 1 } },
+    { "niveau": "colonne", "objet": "catalog_any_silver_d1.ventes.ventes.id_commande", "parent": "catalog_any_silver_d1.ventes.ventes", "statut": "inchangee", "statut_agrege": null },
+    { "niveau": "colonne", "objet": "catalog_any_silver_d1.ventes.ventes.date_maj", "parent": "catalog_any_silver_d1.ventes.ventes", "statut": "colonne_ajoutee", "statut_agrege": null },
+    { "niveau": "table", "objet": "catalog_any_silver_d1.ventes.clients", "parent": "catalog_any_silver_d1.ventes", "statut": "table_deplacee", "statut_agrege": { "inchangee": 1 } },
+    { "niveau": "colonne", "objet": "catalog_any_silver_d1.ventes.clients.id_client", "parent": "catalog_any_silver_d1.ventes.clients", "statut": "inchangee", "statut_agrege": null },
+    { "niveau": "colonne", "objet": "catalog_any_gold_d1.servi.ventes_mensuelles.total_ht", "parent": "catalog_any_gold_d1.servi.ventes_mensuelles", "statut": "colonne_ajoutee", "statut_agrege": null }
+  ],
   "lignes": [
     { "table": "catalog_any_silver_d1.ventes.ventes", "colonne": "id_commande", "type": "BIGINT", "evolution": "inchangee",
       "provenance": { "type": "commentaire_ddl", "detail": "Identifiant de commande, repris du systeme amont de caisse" } },

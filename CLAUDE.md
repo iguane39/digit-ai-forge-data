@@ -37,7 +37,8 @@ node oracles/oracle-restituer.mjs <rapport.md> [--strict]  # R1-R5 : chiffres an
                                                           # R8 vocabulaire du destinataire (glossaire)
 node oracles/oracle-contractualiser.mjs <contrat.json>    # C1-C5 : schéma + SLA + propriétaire + version
 node oracles/oracle-couvrir.mjs <couverture.json>         # CV1-CV6 : mapping mesuré contre l'inventaire de sa source
-node oracles/oracle-evoluer.mjs <evolutions.json>         # EV1-EV5 : projection des évolutions d'une couche, provenance typée, comptes recalculés
+node oracles/oracle-evoluer.mjs <evolutions.json>         # EV1-EV6 : projection des évolutions d'une couche, provenance typée,
+                                                          # comptes recalculés, arbre schéma › table › colonne
 node oracles/self-test.mjs                                 # double sens — à rejouer après toute modification
 ```
 
@@ -248,12 +249,29 @@ une provenance vraisemblable ferait passer la projection pour complète (défaut
 faux d'une reprise. Les rendus `md` et `csv` portent **les mêmes lignes dans le même ordre** que le
 JSON jugé : le rendu `md` EST le chapitre « Évolutions <couche> » de la restitution.
 
-`oracles/oracle-evoluer.mjs` juge la **complétude interne** de la projection (EV1-EV5) : cinq champs
+`oracles/oracle-evoluer.mjs` juge la **complétude interne** de la projection (EV1-EV6) : cinq champs
 par ligne, jeux fermés d'évolution et de provenance, aucun couple table+colonne projeté deux fois,
 bijection `tables` ⇄ `lignes` (une table annoncée sans colonne projetée est le trou exact que la
 reconstitution à la main laissait), indétermination motivée, et **comptes recalculés** — jamais
 recopiés. Frontière tenue : l'exhaustivité contre le DDL réel exige une SECONDE source et reste à
 `oracle-couvrir` ; les confondre rendrait les deux fausses.
+
+**Trois niveaux, pas une liste plate (TF-0942, 08/09/2026 — retour du même lot)** — la première
+version rendait 119 lignes Silver et 278 lignes Gold, une par colonne, répétant le nom de leur
+table : aucun objet « schéma », aucun agrégat « 3 tables dont 2 créées », et un statut qui
+n'existait qu'à la ligne la plus fine. La projection porte désormais un bloc **`arbre`** —
+un nœud par schéma, par table et par colonne, `{ niveau, parent, objet, statut, statut_agrege }` —
+où chaque niveau a son **propre jeu fermé** de statuts (`schema_cree`/`schema_complete`/`inchangee`
+pour un schéma, les quatre évolutions de table, les trois de colonne : un `colonne_ajoutee` posé
+sur une table dit que l'arbre a été rempli en recopiant la ligne du dessous) et où chaque parent
+porte le **recompte** des statuts de ses enfants. Le statut d'un schéma se **dérive** de ses tables
+par une règle déclarée, jamais par un vote. Le rendu `md` en fait un tableau à trois niveaux dont
+la colonne « Niveau » est la clé de filtrage, placé avant le détail colonne par colonne.
+**EV6** juge cet arbre : les trois niveaux peuplés, un statut du jeu fermé de son niveau à chaque
+nœud, un parent qui existe au niveau au-dessus, l'agrégat **recompté** et confronté aux enfants, et
+la **bijection** des feuilles avec les `lignes`. Preuve à deux sens : deux projections que
+l'oracle de la veille rendait PASS — l'une redevenue plate, l'autre annonçant « 9 tables créées »
+sous un schéma qui n'en porte aucune — échouent sur EV6 et sur EV6 seulement.
 
 ```bash
 node scripts/projeter-evolutions.mjs --couche silver --cible fixtures/evolutions-cible.sql      --existant fixtures/evolutions-existant.sql --lineage fixtures/lineage-verte.json --sortie <f.json>

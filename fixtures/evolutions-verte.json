@@ -22,7 +22,12 @@
       "table_deplacee": 1,
       "table_creee": 1
     },
-    "provenance_indeterminee": 2
+    "provenance_indeterminee": 2,
+    "arbre_par_niveau": {
+      "schema": 2,
+      "table": 3,
+      "colonne": 12
+    }
   },
   "tables": [
     {
@@ -57,6 +62,141 @@
         "corrigees": 0,
         "inchangees": 0
       }
+    }
+  ],
+  "arbre": [
+    {
+      "niveau": "schema",
+      "objet": "catalog_any_silver_d1.ventes",
+      "parent": null,
+      "statut": "schema_complete",
+      "statut_agrege": {
+        "table_completee": 1,
+        "table_deplacee": 1
+      }
+    },
+    {
+      "niveau": "table",
+      "objet": "catalog_any_silver_d1.ventes.ventes",
+      "parent": "catalog_any_silver_d1.ventes",
+      "statut": "table_completee",
+      "statut_agrege": {
+        "inchangee": 3,
+        "colonne_corrigee": 1,
+        "colonne_ajoutee": 1
+      }
+    },
+    {
+      "niveau": "colonne",
+      "objet": "catalog_any_silver_d1.ventes.ventes.id_commande",
+      "parent": "catalog_any_silver_d1.ventes.ventes",
+      "statut": "inchangee",
+      "statut_agrege": null
+    },
+    {
+      "niveau": "colonne",
+      "objet": "catalog_any_silver_d1.ventes.ventes.id_client",
+      "parent": "catalog_any_silver_d1.ventes.ventes",
+      "statut": "inchangee",
+      "statut_agrege": null
+    },
+    {
+      "niveau": "colonne",
+      "objet": "catalog_any_silver_d1.ventes.ventes.montant",
+      "parent": "catalog_any_silver_d1.ventes.ventes",
+      "statut": "colonne_corrigee",
+      "statut_agrege": null
+    },
+    {
+      "niveau": "colonne",
+      "objet": "catalog_any_silver_d1.ventes.ventes.pays",
+      "parent": "catalog_any_silver_d1.ventes.ventes",
+      "statut": "inchangee",
+      "statut_agrege": null
+    },
+    {
+      "niveau": "colonne",
+      "objet": "catalog_any_silver_d1.ventes.ventes.date_maj",
+      "parent": "catalog_any_silver_d1.ventes.ventes",
+      "statut": "colonne_ajoutee",
+      "statut_agrege": null
+    },
+    {
+      "niveau": "table",
+      "objet": "catalog_any_silver_d1.ventes.clients",
+      "parent": "catalog_any_silver_d1.ventes",
+      "statut": "table_deplacee",
+      "statut_agrege": {
+        "inchangee": 3,
+        "colonne_ajoutee": 1
+      }
+    },
+    {
+      "niveau": "colonne",
+      "objet": "catalog_any_silver_d1.ventes.clients.id_client",
+      "parent": "catalog_any_silver_d1.ventes.clients",
+      "statut": "inchangee",
+      "statut_agrege": null
+    },
+    {
+      "niveau": "colonne",
+      "objet": "catalog_any_silver_d1.ventes.clients.statut",
+      "parent": "catalog_any_silver_d1.ventes.clients",
+      "statut": "inchangee",
+      "statut_agrege": null
+    },
+    {
+      "niveau": "colonne",
+      "objet": "catalog_any_silver_d1.ventes.clients.remise",
+      "parent": "catalog_any_silver_d1.ventes.clients",
+      "statut": "inchangee",
+      "statut_agrege": null
+    },
+    {
+      "niveau": "colonne",
+      "objet": "catalog_any_silver_d1.ventes.clients.actif",
+      "parent": "catalog_any_silver_d1.ventes.clients",
+      "statut": "colonne_ajoutee",
+      "statut_agrege": null
+    },
+    {
+      "niveau": "schema",
+      "objet": "servi",
+      "parent": null,
+      "statut": "schema_cree",
+      "statut_agrege": {
+        "table_creee": 1
+      }
+    },
+    {
+      "niveau": "table",
+      "objet": "servi.ventes_mensuelles",
+      "parent": "servi",
+      "statut": "table_creee",
+      "statut_agrege": {
+        "colonne_ajoutee": 3
+      }
+    },
+    {
+      "niveau": "colonne",
+      "objet": "servi.ventes_mensuelles.mois",
+      "parent": "servi.ventes_mensuelles",
+      "statut": "colonne_ajoutee",
+      "statut_agrege": null
+    },
+    {
+      "niveau": "colonne",
+      "objet": "servi.ventes_mensuelles.pays",
+      "parent": "servi.ventes_mensuelles",
+      "statut": "colonne_ajoutee",
+      "statut_agrege": null
+    },
+    {
+      "niveau": "colonne",
+      "objet": "servi.ventes_mensuelles.total_ht",
+      "parent": "servi.ventes_mensuelles",
+      "statut": "colonne_ajoutee",
+      "statut_agrege": null
     }
   ],
   "lignes": [

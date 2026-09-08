@@ -29,6 +29,14 @@
 // projection rendue en Markdown / CSV pour le chapitre de restitution — mêmes lignes, même
 // ordre, jamais un rendu qui recompte.
 //
+// TROIS NIVEAUX, PAS UNE LISTE PLATE (TF-0942, 08/09). La projection porte aussi un `arbre` :
+// un nœud par SCHÉMA, par TABLE et par COLONNE — { niveau, parent, objet, statut, statut_agrege } —
+// où chaque niveau a son propre statut et chaque parent le RECOMPTE des statuts de ses enfants.
+// Sans lui, le statut n'existait qu'à la ligne la plus fine et un schéma n'apparaissait nulle part
+// comme objet : 119 lignes Silver et 278 lignes Gold répétant le nom de leur table, et aucun
+// agrégat « 3 tables dont 2 créées ». Le rendu Markdown en fait un tableau à trois niveaux dont
+// la colonne « Niveau » est la clé de filtrage.
+//
 // Usage : node scripts/projeter-evolutions.mjs --couche silver --cible <ddl.sql>
 //         [--existant <ddl.sql>] [--lineage <lineage.json>] [--format json|md|csv]
 //         [--sortie <fichier>] [--sortie-dir <dossier>] [--date AAAA-MM-JJ] [--json-only]
@@ -166,6 +174,45 @@ for (const t of cible.values()) {
     colonnes: { total: t.colonnes.length, ajoutees, corrigees, inchangees } });
 }
 
+// ---------- Arbre schéma › table › colonne (TF-0942, retour du 08/09) --------------------------
+// Une projection PLATE — une ligne par colonne, répétant le nom de sa table — perd la hiérarchie
+// que le lecteur cherche : le schéma n'y apparaît nulle part comme OBJET, et le statut n'existe
+// qu'au niveau le plus fin. Mesuré sur la version livrée : 119 lignes Silver et 278 lignes Gold,
+// aucun agrégat « 3 tables dont 2 créées ». L'arbre rend les trois niveaux, chacun avec SON
+// statut, et chaque parent avec le recompte des statuts de ses enfants — recompté ici, jamais
+// recopié : c'est l'agrégat qui se périme en premier quand une ligne bouge.
+const SCHEMA_SANS = "(hors schéma)";
+const compter = xs => xs.reduce((acc, s) => { acc[s] = (acc[s] || 0) + 1; return acc; }, {});
+// Statut d'un schéma : dérivé de ses tables, par une règle DÉCLARÉE et non par un vote. Un schéma
+// dont toutes les tables sont créées est un schéma neuf ; dès qu'une seule table bouge sans que
+// tout soit neuf, le schéma est complété ; sinon il est inchangé.
+const statutSchema = statutsTables =>
+  statutsTables.every(s => s === EVOLUTIONS_TABLE.creee) ? "schema_cree"
+  : statutsTables.some(s => s !== EVOLUTIONS_TABLE.inchangee) ? "schema_complete"
+  : EVOLUTIONS_TABLE.inchangee;
+
+const parSchema = new Map();
+for (const t of tablesProjetees) {
+  const seg = t.table.split(".");
+  const sch = seg.length > 1 ? seg.slice(0, -1).join(".") : SCHEMA_SANS;
+  if (!parSchema.has(sch)) parSchema.set(sch, []);
+  parSchema.get(sch).push(t);
+}
+const arbre = [];
+for (const [sch, tablesDuSchema] of parSchema) {
+  arbre.push({ niveau: "schema", objet: sch, parent: null,
+    statut: statutSchema(tablesDuSchema.map(t => t.evolution)),
+    statut_agrege: compter(tablesDuSchema.map(t => t.evolution)) });
+  for (const t of tablesDuSchema) {
+    const colonnesDeLaTable = lignes.filter(l => l.table === t.table);
+    arbre.push({ niveau: "table", objet: t.table, parent: sch, statut: t.evolution,
+      statut_agrege: compter(colonnesDeLaTable.map(c => c.evolution)) });
+    for (const c of colonnesDeLaTable)
+      arbre.push({ niveau: "colonne", objet: `${t.table}.${c.colonne}`, parent: t.table,
+        statut: c.evolution, statut_agrege: null });
+  }
+}
+
 // ---------- Comptes : recalculés ici, jamais recopiés d'une synthèse ---------------------------
 const compteParEvolution = obj => obj.reduce((acc, x) => { acc[x.evolution] = (acc[x.evolution] || 0) + 1; return acc; }, {});
 const indeterminees = lignes.filter(l => l.provenance.type === "indeterminee").length;
@@ -185,8 +232,10 @@ const projection = {
   comptes: { tables: tablesProjetees.length, colonnes: lignes.length,
              par_evolution: compteParEvolution(lignes),
              tables_par_evolution: compteParEvolution(tablesProjetees),
-             provenance_indeterminee: indeterminees },
+             provenance_indeterminee: indeterminees,
+             arbre_par_niveau: compter(arbre.map(n => n.niveau)) },
   tables: tablesProjetees,
+  arbre,
   lignes,
 };
 
@@ -196,11 +245,21 @@ const echapCsv = v => { const s = String(v ?? ""); return /[",;\n]/.test(s) ? `"
 const provenanceTexte = p => p.type === "indeterminee" ? `indeterminee (${p.motif})` : `${p.type} : ${p.detail}`;
 const rendreCsv = () => ["table;colonne;type;evolution;provenance",
   ...lignes.map(l => [l.table, l.colonne, l.type, l.evolution, provenanceTexte(l.provenance)].map(echapCsv).join(";"))].join("\n") + "\n";
+const agregeTexte = a => a && Object.keys(a).length ? Object.entries(a).map(([k, v]) => `${v} ${k}`).join(", ") : "—";
 const rendreMd = () => {
   const ent = Object.entries(projection.comptes.tables_par_evolution).map(([k, v]) => `${v} ${k}`).join(", ");
+  const n = projection.comptes.arbre_par_niveau;
   return [`## Évolutions ${coucheArg} (${dateProjection})`, "",
     `${projection.comptes.colonnes} colonne(s) sur ${projection.comptes.tables} table(s) — ${ent || "aucune évolution"}.`,
     `Provenance indéterminée : ${indeterminees}.`, "",
+    // TF-0942 : les trois niveaux d'abord, chacun avec son statut. La colonne « Niveau » est la
+    // clé de filtrage du tableau ; sans elle, le lecteur ne voit que la ligne la plus fine et le
+    // schéma n'existe nulle part comme objet.
+    `### Arborescence (schéma › table › colonne) — ${n.schema || 0} schéma(s), ${n.table || 0} table(s), ${n.colonne || 0} colonne(s)`, "",
+    "Filtrer sur la colonne « Niveau » pour ne lire qu'un étage.", "",
+    "| Niveau | Objet | Parent | Statut | Statuts des enfants |", "|---|---|---|---|---|",
+    ...arbre.map(x => `| ${x.niveau} | ${x.objet} | ${x.parent || "—"} | ${x.statut} | ${agregeTexte(x.statut_agrege)} |`), "",
+    "### Détail colonne par colonne", "",
     "| Table | Colonne | Type | Évolution | Provenance |", "|---|---|---|---|---|",
     ...lignes.map(l => `| ${l.table} | ${l.colonne} | ${l.type} | ${l.evolution} | ${provenanceTexte(l.provenance).replace(/\|/g, "\\|")} |`)].join("\n") + "\n";
 };

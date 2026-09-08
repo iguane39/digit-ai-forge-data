@@ -29,7 +29,13 @@
 //        motivée est un état légitime d'une reprise, l'ignorer ne l'est pas ;
 //   EV5  les COMPTES affichés (`comptes.colonnes`, `comptes.par_evolution`,
 //        `comptes.provenance_indeterminee`) sont RECALCULÉS et confrontés — un compte recopié
-//        d'une synthèse précédente est ce qui a laissé passer trois PASS (TF-0911).
+//        d'une synthèse précédente est ce qui a laissé passer trois PASS (TF-0911) ;
+//   EV6  (TF-0942) l'ARBRE schéma › table › colonne existe, ses TROIS niveaux sont peuplés,
+//        chaque nœud porte un statut du jeu fermé DE SON NIVEAU, chaque parent cité existe au
+//        niveau au-dessus, l'agrégat d'un parent est RECOMPTÉ et confronté aux statuts de ses
+//        enfants, et les nœuds « colonne » sont en bijection avec les `lignes`. Une projection
+//        plate perd la hiérarchie que le lecteur cherche : le statut n'y existe qu'à la ligne la
+//        plus fine et un schéma n'y apparaît nulle part comme objet.
 //
 // non_juge : la JUSTESSE de chaque provenance (l'oracle vérifie qu'elle est typée et motivée,
 // jamais qu'elle est vraie) ; l'EXHAUSTIVITÉ de la projection contre le DDL réel — c'est
@@ -38,14 +44,22 @@
 // Usage : node oracle-evoluer.mjs <evolutions.json> [--json-only]
 import fs from "node:fs";
 
-const DOM = "Projection des évolutions d'une couche : complétude ligne à ligne, provenance typée, comptes recalculés (EV1-EV5)";
+const DOM = "Projection des évolutions d'une couche : complétude ligne à ligne, provenance typée, comptes recalculés, arbre schéma › table › colonne (EV1-EV6)";
 const NON_JUGE = [
   "la JUSTESSE d'une provenance — cet oracle vérifie qu'elle est TYPÉE et, si elle est indéterminée, MOTIVÉE ; il ne sait pas si « couche_existante » dit vrai",
   "l'EXHAUSTIVITÉ de la projection contre le DDL réel de la couche : une colonne que le DDL fourni ne portait pas n'est manquante pour personne ici. Cette question exige une SECONDE source et appartient à `oracles/oracle-couvrir.mjs` de ce dépôt",
   "la forme de la déclaration de lineage citée en origine — `oracles/oracle-tracer.mjs` de ce dépôt",
   "la pertinence métier d'une évolution retenue (créée plutôt que déplacée, par exemple) : l'oracle exige un type du jeu fermé, il ne l'arbitre pas",
+  "la RÈGLE de dérivation du statut d'un parent (« schema_cree » plutôt que « schema_complete ») : EV6 exige un statut du jeu fermé de son niveau et un agrégat COHÉRENT avec ses enfants, jamais que la règle de dérivation soit la bonne",
 ];
 const EVOLUTIONS = ["table_creee", "table_completee", "table_deplacee", "colonne_ajoutee", "colonne_corrigee", "inchangee"];
+// EV6 : un statut par NIVEAU, et le jeu fermé n'est pas le même d'un niveau à l'autre — un
+// « table_creee » posé sur une colonne, ou un « colonne_ajoutee » sur un schéma, dit que
+// l'arbre a été rempli en recopiant la ligne du dessous.
+const STATUTS = { schema: ["schema_cree", "schema_complete", "inchangee"],
+                  table: ["table_creee", "table_completee", "table_deplacee", "inchangee"],
+                  colonne: ["colonne_ajoutee", "colonne_corrigee", "inchangee"] };
+const NIVEAUX = ["schema", "table", "colonne"];
 const PROVENANCES = ["mapping", "couche_existante", "cle_substitution", "technique", "commentaire_ddl", "indeterminee"];
 const DATE_ISO = /^\d{4}-\d{2}-\d{2}/;
 
@@ -57,7 +71,7 @@ const add = (sev, regle, msg, where) => F.push({ sev, regle, msg, where });
 let projection = null;
 const out = (verdict, code) => {
   process.stdout.write(JSON.stringify({ oracle: "oracle-evoluer", domaine: DOM, artefact: file || null,
-    verdict, projection, findings: F.length ? F : [{ sev: "info", regle: "—", msg: "EV1-EV5 sans écart", where: file }],
+    verdict, projection, findings: F.length ? F : [{ sev: "info", regle: "—", msg: "EV1-EV6 sans écart", where: file }],
     non_juge: NON_JUGE }, null, jsonOnly ? 0 : 2));
   process.exit(code);
 };
@@ -138,5 +152,71 @@ if (c) {
         add("bloquant", "EV5", `comptes.par_evolution['${k}'] annonce ${c.par_evolution[k] || 0}, recalculé ${parEvolution[k] || 0} — ce sont ces cartes de comptage que le lecteur lit avant le tableau`, file);
   }
 } else add("avertissement", "EV5", "aucun bloc « comptes » — la projection se lit alors ligne à ligne, sans les cartes de comptage qui en disent l'ampleur", file);
+
+// ---- EV6 · l'arbre schéma › table › colonne (TF-0942) -----------------------------------------
+// Une liste plate ne se relit pas : le statut n'y existe qu'à la ligne la plus fine, et le schéma
+// n'y est jamais un objet. L'arbre le rend — donc il se juge, sinon il se remplirait au jugé.
+const arbre = Array.isArray(d.arbre) ? d.arbre : [];
+if (!arbre.length)
+  add("bloquant", "EV6", "bloc « arbre » absent — une projection PLATE perd la hiérarchie schéma › table › colonne : le statut n'existe qu'à la ligne la plus fine et aucun schéma n'apparaît comme objet (produit par `scripts/projeter-evolutions.mjs`)", file);
+else {
+  const parNiveau = { schema: new Map(), table: new Map(), colonne: new Map() };
+  const noeuds = [];
+  arbre.forEach((n, i) => {
+    const ou = `arbre #${i + 1}`;
+    const niveau = n && typeof n.niveau === "string" ? n.niveau.trim() : "";
+    const objet = n && typeof n.objet === "string" ? n.objet.trim() : "";
+    if (!NIVEAUX.includes(niveau)) { add("bloquant", "EV6", `nœud de niveau « ${n && n.niveau} » hors du jeu fermé {${NIVEAUX.join(" › ")}}`, ou); return; }
+    if (!objet) { add("bloquant", "EV6", `nœud de niveau « ${niveau} » sans objet nommé — un nœud anonyme ne se rattache à rien`, ou); return; }
+    if (parNiveau[niveau].has(objet.toLowerCase()))
+      { add("bloquant", "EV6", `« ${objet} » déclaré deux fois au niveau ${niveau} — un nœud dupliqué fausse l'agrégat de son parent`, ou); return; }
+    if (!STATUTS[niveau].includes(n.statut))
+      add("bloquant", "EV6", `« ${objet} » (${niveau}) : statut « ${n.statut} » hors du jeu fermé de son niveau {${STATUTS[niveau].join(", ")}} — le statut doit exister À CHAQUE niveau, pas seulement à la ligne la plus fine`, ou);
+    parNiveau[niveau].set(objet.toLowerCase(), { objet, niveau, statut: n.statut, parent: n.parent, agrege: n.statut_agrege, ou });
+    noeuds.push({ objet, niveau, statut: n.statut, parent: n.parent, agrege: n.statut_agrege, ou });
+  });
+  for (const niv of NIVEAUX) if (!parNiveau[niv].size)
+    add("bloquant", "EV6", `aucun nœud de niveau « ${niv} » — c'est exactement la hiérarchie perdue : « ${niv} » n'apparaît nulle part comme objet`, "arbre");
+
+  // Rattachement : le parent d'un nœud est un objet DÉCLARÉ au niveau juste au-dessus.
+  const enfants = new Map();  // clé « niveau|objet » du parent -> statuts de ses enfants
+  for (const n of noeuds) {
+    const rang = NIVEAUX.indexOf(n.niveau);
+    const parent = typeof n.parent === "string" ? n.parent.trim() : "";
+    if (rang === 0) {
+      if (parent) add("bloquant", "EV6", `« ${n.objet} » est un schéma et cite pourtant un parent « ${parent} » — la racine de l'arbre n'a pas de parent`, n.ou);
+      continue;
+    }
+    if (!parent) { add("bloquant", "EV6", `« ${n.objet} » (${n.niveau}) sans parent — un nœud sans parent est une liste plate déguisée en arbre`, n.ou); continue; }
+    const nivParent = NIVEAUX[rang - 1];
+    if (!parNiveau[nivParent].has(parent.toLowerCase()))
+      { add("bloquant", "EV6", `« ${n.objet} » (${n.niveau}) cite le parent « ${parent} », absent du niveau ${nivParent} — le rattachement pointe dans le vide`, n.ou); continue; }
+    const cle = `${nivParent}|${parent.toLowerCase()}`;
+    if (!enfants.has(cle)) enfants.set(cle, []);
+    enfants.get(cle).push(n.statut);
+  }
+
+  // L'agrégat d'un parent se RECOMPTE : c'est le premier chiffre à mentir quand une ligne bouge.
+  for (const n of noeuds) {
+    if (n.niveau === "colonne") continue;
+    const attendu = (enfants.get(`${n.niveau}|${n.objet.toLowerCase()}`) || [])
+      .reduce((acc, s) => { acc[s] = (acc[s] || 0) + 1; return acc; }, {});
+    const declare = n.agrege && typeof n.agrege === "object" ? n.agrege : null;
+    if (!declare) { add("bloquant", "EV6", `« ${n.objet} » (${n.niveau}) sans « statut_agrege » — c'est l'agrégat « 3 tables dont 2 créées » que le lecteur cherche avant le détail`, n.ou); continue; }
+    for (const k of new Set([...Object.keys(declare), ...Object.keys(attendu)]))
+      if (Number(declare[k] || 0) !== (attendu[k] || 0))
+        add("bloquant", "EV6", `« ${n.objet} » (${n.niveau}) : statut_agrege['${k}'] annonce ${declare[k] || 0}, recompté ${attendu[k] || 0} chez ses enfants — un agrégat incohérent avec ses enfants fait lire un périmètre qui n'existe pas`, n.ou);
+  }
+
+  // Bijection arbre ⇄ lignes au niveau colonne : une colonne projetée hors de l'arbre est
+  // invisible dans la lecture par niveaux, et l'inverse gonfle l'arbre sans preuve.
+  const feuilles = new Set([...parNiveau.colonne.keys()]);
+  const attenduesFeuilles = new Set(retenues.map(l => `${l.table}.${l.colonne}`.toLowerCase()));
+  for (const f of attenduesFeuilles) if (!feuilles.has(f))
+    add("bloquant", "EV6", `« ${f} » est projetée en ligne mais absente de l'arbre — la lecture par niveaux la manque`, "arbre");
+  for (const f of feuilles) if (!attenduesFeuilles.has(f))
+    add("bloquant", "EV6", `l'arbre porte la colonne « ${f} », qu'aucune ligne ne projette — l'arbre et le détail ne disent pas la même chose`, "arbre");
+  if (projection) projection.arbre_par_niveau = { schema: parNiveau.schema.size, table: parNiveau.table.size, colonne: parNiveau.colonne.size };
+}
 
 out(F.some(f => f.sev === "bloquant") ? "FAIL" : "PASS", F.some(f => f.sev === "bloquant") ? 1 : 0);
