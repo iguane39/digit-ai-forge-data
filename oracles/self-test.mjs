@@ -57,8 +57,10 @@ const CAS = [
   // motif, et des cartes de comptage qui annoncent 8 colonnes là où on en recompte 6. EV6 (TF-0942)
   // s'ajoute le 08/09 : son arbre porte un statut de table recopié du niveau du dessous, un agrégat
   // de schéma incohérent avec ses enfants, un parent qui pointe dans le vide, et deux colonnes
-  // projetées en ligne qu'aucun nœud ne porte.
-  { oracle: "oracle-evoluer.mjs", verte: "evolutions-verte.json", rouge: "evolutions-rouge.json", regles: ["EV2", "EV3", "EV4", "EV5", "EV6"] },
+  // projetées en ligne qu'aucun nœud ne porte. EV7 (TF-0943) aussi : un objet de provenance sans
+  // couche, sans rôle du champ employé et de source hors jeu, un « objets_resolus » sans aucun
+  // objet, et un objet expliqué par un dictionnaire que le document ne déclare pas.
+  { oracle: "oracle-evoluer.mjs", verte: "evolutions-verte.json", rouge: "evolutions-rouge.json", regles: ["EV2", "EV3", "EV4", "EV5", "EV6", "EV7"] },
   // restituer R7 : un rapport de mapping qui pointe une mesure de couverture existante PASSE ;
   // celui qui se dit exhaustif en pointant le vide ÉCHOUE — sur R7 et sur R7 seulement.
   { oracle: "oracle-restituer.mjs", verte: "rapport-couverture-verte.md", rouge: "rapport-couverture-rouge.md", regles: ["R7"] },
@@ -508,19 +510,38 @@ try {
   const ligne = (t, c) => doc.lignes.find(l => l.table.endsWith(t) && l.colonne === c);
   ok(ligne("ventes.ventes", "montant").evolution === "colonne_corrigee" && ligne("ventes.ventes", "montant").type === "DECIMAL(10,2)",
     "projeter-evolutions · un TYPE qui change est lu comme corrigé — c'est ce que l'équipe data cherche en premier, et une lecture par nom seul le raterait");
-  ok(ligne("ventes.clients", "id_client").provenance.type === "couche_existante" &&
-     ligne("ventes.clients", "id_client").provenance.detail === "catalog_any_bronze_d1.brut.clients.id_client",
-    "projeter-evolutions · la provenance d'une colonne déplacée NOMME son emplacement d'origine");
-  ok(ligne("servi.ventes_mensuelles", "total_ht").provenance.type === "mapping" &&
-     /brut\.exports_pgi/.test(ligne("servi.ventes_mensuelles", "total_ht").provenance.detail),
-    "projeter-evolutions · une table déclarée en sortie du lineage tire sa provenance de ses ENTRÉES déclarées");
-  ok(ligne("ventes.ventes", "id_commande").provenance.type === "commentaire_ddl",
-    "projeter-evolutions · le commentaire DDL prime : c'est la source la plus proche du producteur (8 des 33 emplois du retour venaient de là)");
-  const indet = doc.lignes.filter(l => l.provenance.type === "indeterminee");
-  ok(indet.length === 2 && indet.every(l => (l.provenance.motif || "").split(/\s+/).length >= 4),
-    `projeter-evolutions · sans commentaire, sans existant et sans lineage, la provenance reste INDÉTERMINÉE avec son motif — une provenance vraisemblable ferait passer la projection pour complète (obtenu ${indet.length})`);
+  // TF-0943 : la provenance n'est plus une CHAÎNE DE TEXTE. Chaque objet cité est RÉSOLU — sa
+  // couche, son chemin catalogue.schéma.table.colonne, le RÔLE du champ employé et d'où vient
+  // cette explication. « clients Date_Debut, DUREE » ne disait rien de tout cela.
+  const objet1 = (t, c) => ligne(t, c).provenance.objets[0];
+  ok(ligne("ventes.clients", "id_client").provenance.type === "objets_resolus" &&
+     objet1("ventes.clients", "id_client").catalogue === "catalog_any_bronze_d1" &&
+     objet1("ventes.clients", "id_client").schema === "brut" &&
+     objet1("ventes.clients", "id_client").table === "clients" &&
+     objet1("ventes.clients", "id_client").colonne === "id_client" &&
+     objet1("ventes.clients", "id_client").source_de_l_explication === "couche_existante",
+    `projeter-evolutions · la provenance d'une colonne déplacée RÉSOUT son objet d'origine en catalogue, schéma, table et colonne — obtenu ${JSON.stringify(objet1("ventes.clients", "id_client"))}`);
+  ok(ligne("servi.ventes_mensuelles", "total_ht").provenance.type === "objets_resolus" &&
+     ligne("servi.ventes_mensuelles", "total_ht").provenance.objets.some(o => o.table === "exports_pgi" && o.schema === "brut" && o.source_de_l_explication === "mapping"),
+    "projeter-evolutions · une table déclarée en sortie du lineage RÉSOUT ses ENTRÉES déclarées en objets (grain table : la colonne reste null, jamais inventée)");
+  ok(objet1("ventes.ventes", "id_commande").source_de_l_explication === "commentaire_ddl" &&
+     /caisse/.test(objet1("ventes.ventes", "id_commande").explication),
+    "projeter-evolutions · le commentaire DDL reste la source la plus proche du producteur : il EXPLIQUE le rôle de l'objet résolu (8 des 33 emplois du retour venaient de là)");
+  ok(objet1("ventes.clients", "id_client").couche === "amont" &&
+     (p.r.avertissements || []).some(x => /--couche-amont/.test(x)),
+    "projeter-evolutions · sans --couche-amont déclarée, la couche d'origine porte la RELATION « amont » et le verbe le DIT — écrire « bronze » serait une affirmation qu'aucun DDL ne porte");
+
+  // TF-0955 : le jeu fermé ne prévoyait que le cas heureux — 255 colonnes sur 396 ne citaient
+  // aucun objet résolu et n'avaient rien à dire d'autre que leur propre cellule. Une colonne sans
+  // objet nommable dit désormais LEQUEL des quatre cas s'applique, avec sa phrase.
+  const nonDoc = doc.lignes.filter(l => l.provenance.type === "non_documentee");
+  ok(nonDoc.length === 2 && nonDoc.every(l => (l.provenance.explication || "").split(/\s+/).filter(Boolean).length >= 4),
+    `projeter-evolutions · sans commentaire, sans existant et sans lineage, la provenance est NON DOCUMENTÉE avec sa phrase — comptée comme dette, jamais comblée par une provenance vraisemblable (obtenu ${nonDoc.length})`);
   const re = lance("oracle-evoluer.mjs", pJson);
   ok(re.exit === 0 && re.r.verdict === "PASS", "projeter-evolutions → oracle-evoluer.mjs sur la projection produite : PASS (round-trip)");
+  ok(JSON.stringify(p.r.comptes.par_provenance) === JSON.stringify({ objets_resolus: 10, non_documentee: 2 }) &&
+     re.r.projection.dette.non_documentee === 2 && re.r.projection.dette.part === 16.7,
+    `projeter-evolutions → oracle-evoluer · les non_documentee sont comptées et REMONTÉES COMME DETTE (2 sur 12, soit 16,7 %) au lieu d'être laissées passer — obtenu ${JSON.stringify(re.r.projection.dette)}`);
 
   // Sans --existant, l'état antérieur n'existe pas : tout est lu comme créé, et le verbe le DIT.
   // Un verbe qui se tairait ferait lire une reprise entière comme une construction neuve.
@@ -528,6 +549,21 @@ try {
   const se = lanceScript("projeter-evolutions.mjs", ["--couche", "silver", "--cible", fx("evolutions-cible.sql"), "--date", "2026-09-08", "--sortie", pSansExistant]);
   ok(se.exit === 0 && se.r.comptes.tables_par_evolution.table_creee === 3 && (se.r.avertissements || []).some(x => /état existant/.test(x)),
     "projeter-evolutions · sans --existant, toute table est lue comme CRÉÉE et le verbe l'avertit — vrai d'une couche neuve, faux d'une reprise");
+  // Et sans existant ni lineage, un commentaire DDL n'est plus un objet à résoudre : c'est une
+  // RÈGLE EN CLAIR, et le type le dit au lieu de la faire passer pour une provenance résolue.
+  const docSE = JSON.parse(fs.readFileSync(pSansExistant, "utf8"));
+  const rc = docSE.lignes.find(l => l.colonne === "id_commande");
+  ok(rc.provenance.type === "regle_en_clair" && rc.provenance.source_de_l_explication === "commentaire_ddl" &&
+     docSE.comptes.par_provenance.regle_en_clair > 0 && !docSE.comptes.par_provenance.objets_resolus,
+    `projeter-evolutions · sans objet nommable, un commentaire DDL devient une « regle_en_clair » — pas un objet_resolu sans objet (obtenu ${JSON.stringify(docSE.comptes.par_provenance)})`);
+  // La couche d'origine DÉCLARÉE remplace la relation « amont », et l'avertissement se tait.
+  const pAmont = path.join(tmp5, "amont.json");
+  const am = lanceScript("projeter-evolutions.mjs", ["--couche", "silver", "--cible", fx("evolutions-cible.sql"),
+    "--existant", fx("evolutions-existant.sql"), "--couche-amont", "bronze", "--date", "2026-09-08", "--sortie", pAmont]);
+  const docAmont = JSON.parse(fs.readFileSync(pAmont, "utf8"));
+  ok(am.exit === 0 && docAmont.lignes.find(l => l.colonne === "remise").provenance.objets[0].couche === "bronze" &&
+     !(am.r.avertissements || []).some(x => /--couche-amont/.test(x)),
+    "projeter-evolutions · --couche-amont déclarée : les objets d'origine portent la couche NOMMÉE et l'avertissement se tait — le verbe ne réclame que ce qu'il ne peut pas lire");
 
   // Le rendu de restitution porte les MÊMES lignes que le JSON jugé : un rendu qui recompterait
   // serait une seconde source de vérité, donc une divergence en attente.
@@ -597,6 +633,85 @@ try {
   ok(sansCouche.exit === 2, "projeter-evolutions · rouge : sans --couche, refus — deux projections sans couche nommée se confondent");
 } finally {
   fs.rmSync(tmp5, { recursive: true, force: true });
+}
+
+// ---- EV4 / EV7 : les CINQ types de provenance, et l'existence des objets cités ----
+// TF-0955 : le jeu fermé ne prévoyait que le cas heureux. Sur 396 colonnes mesurées, 255 ne
+// citaient AUCUN objet résolu — colonne technique de convention, clé construite sur la table
+// elle-même, règle en clair, ou rien du tout — et n'avaient rien à dire d'autre que leur propre
+// cellule. TF-0943 : quand des objets sont citables, ils sont RÉSOLUS, pas recopiés en prose.
+// Le verbe ne produit que trois des cinq types (il ne devine pas une colonne technique à la forme
+// de son nom) : sans cette fixture dédiée, `colonne_technique` et `cle_de_la_table` ne seraient
+// jamais joués, ni dans leur sens vert ni dans leur sens rouge.
+console.log(String.fromCharCode(10) + "provenance typée et résolue (TF-0955 + TF-0943) — cinq types, objets résolus, catalogue joint" + String.fromCharCode(10));
+const tmp6 = fs.mkdtempSync(path.join(os.tmpdir(), "forge-data-provenance-"));
+try {
+  const pv = fx("evolutions-provenance-verte.json");
+  const docP = JSON.parse(fs.readFileSync(pv, "utf8"));
+  const v = lance("oracle-evoluer.mjs", pv);
+  ok(v.exit === 0 && v.r.verdict === "PASS",
+    "provenance · verte : les CINQ types cohabitent dans un même document et PASSENT — une règle qui mordrait sur les quatre cas sans objet serait désactivée le jour même");
+  ok(JSON.stringify(v.r.projection.par_provenance) === JSON.stringify({ cle_de_la_table: 1, colonne_technique: 1, objets_resolus: 2, regle_en_clair: 1, non_documentee: 1 }),
+    `provenance · les cinq types sont comptés séparément — obtenu ${JSON.stringify(v.r.projection.par_provenance)}`);
+  ok(v.r.projection.dette.non_documentee === 1 && (v.r.findings || []).some(f => f.regle === "EV4" && /DETTE/.test(f.msg)),
+    "provenance · la seule `non_documentee` est remontée comme DETTE nommée, pas laissée passer en silence");
+
+  // Rouge EV4 : la phrase déclarée est ce qui distingue « aucun objet nommable, et voici pourquoi »
+  // de « rien à signaler ». Sans elle, les quatre types sans objet redeviennent une case vide.
+  const sansPhrase = JSON.parse(JSON.stringify(docP));
+  sansPhrase.lignes.find(l => l.provenance.type === "colonne_technique").explication = undefined;
+  delete sansPhrase.lignes.find(l => l.provenance.type === "colonne_technique").provenance.explication;
+  const pSansPhrase = path.join(tmp6, "sans-phrase.json");
+  fs.writeFileSync(pSansPhrase, JSON.stringify(sansPhrase));
+  const rSansPhrase = lance("oracle-evoluer.mjs", pSansPhrase);
+  const reglesSansPhrase = [...new Set((rSansPhrase.r.findings || []).filter(f => f.sev === "bloquant").map(f => f.regle))];
+  ok(rSansPhrase.exit === 1 && JSON.stringify(reglesSansPhrase) === JSON.stringify(["EV4"]),
+    `provenance · rouge EV4 : une « colonne_technique » sans phrase déclarée échoue, et sur EV4 seulement — obtenu ${JSON.stringify(reglesSansPhrase)}`);
+
+  // Rouge EV7 : un objet cité qui ne dit pas le RÔLE du champ employé est une chaîne de texte
+  // déguisée en objet — c'est exactement la provenance que le retour du 08/09 refusait.
+  const sansRole = JSON.parse(JSON.stringify(docP));
+  delete sansRole.lignes.find(l => l.provenance.type === "objets_resolus").provenance.objets[0].explication;
+  const pSansRole = path.join(tmp6, "sans-role.json");
+  fs.writeFileSync(pSansRole, JSON.stringify(sansRole));
+  const rSansRole = lance("oracle-evoluer.mjs", pSansRole);
+  const reglesSansRole = [...new Set((rSansRole.r.findings || []).filter(f => f.sev === "bloquant").map(f => f.regle))];
+  ok(rSansRole.exit === 1 && JSON.stringify(reglesSansRole) === JSON.stringify(["EV7"]),
+    `provenance · rouge EV7 : un objet cité sans l'explication du RÔLE du champ employé échoue, et sur EV7 seulement — obtenu ${JSON.stringify(reglesSansRole)}`);
+
+  // Rouge EV7 : un dictionnaire cité mais NON DÉCLARÉ au document n'est pas opposable — le
+  // lecteur ne peut pas remonter à la définition, et l'explication redevient une affirmation.
+  const sansDico = JSON.parse(JSON.stringify(docP));
+  delete sansDico.dictionnaires;
+  const pSansDico = path.join(tmp6, "sans-dictionnaire.json");
+  fs.writeFileSync(pSansDico, JSON.stringify(sansDico));
+  const rSansDico = lance("oracle-evoluer.mjs", pSansDico);
+  ok(rSansDico.exit === 1 && (rSansDico.r.findings || []).some(f => f.regle === "EV7" && /pas déclaré/.test(f.msg)),
+    "provenance · rouge EV7 : un objet expliqué par un dictionnaire que le document ne DÉCLARE pas est refusé — un dictionnaire non déclaré n'est pas opposable");
+
+  // Catalogue joint, deux sens. Vert : tous les objets cités y existent, EV7 se tait sur
+  // l'existence. Rouge : un objet absent du catalogue — soit la provenance nomme un objet qui
+  // n'existe pas, soit le catalogue est périmé ; dans les deux cas la provenance ment.
+  const cat = path.join(tmp6, "catalogue.json");
+  fs.writeFileSync(cat, JSON.stringify({ objets: ["catalog_any_silver_d1.gestion_contrats.contrat.montant_mensuel"] }));
+  const lanceCat = (cible, catalogue) => {
+    try { return { exit: 0, r: JSON.parse(execFileSync(process.execPath, [path.join(ici, "oracle-evoluer.mjs"), cible, "--catalogue", catalogue, "--json-only"], { encoding: "utf8" })) }; }
+    catch (e) { return { exit: e.status, r: JSON.parse(String(e.stdout || "{}")) }; }
+  };
+  const vCat = lanceCat(pv, cat);
+  ok(vCat.exit === 0 && vCat.r.verdict === "PASS" && !(vCat.r.findings || []).some(f => f.regle === "EV7" && f.sev === "bloquant"),
+    "provenance · vert EV7 : catalogue joint où tous les objets cités existent — PASS, et l'objet expliqué par un dictionnaire déclaré n'est pas réclamé au catalogue");
+  const catFaux = path.join(tmp6, "catalogue-perime.json");
+  fs.writeFileSync(catFaux, JSON.stringify({ objets: ["catalog_any_silver_d1.gestion_contrats.contrat.autre_colonne"] }));
+  const rCat = lanceCat(pv, catFaux);
+  const reglesCat = [...new Set((rCat.r.findings || []).filter(f => f.sev === "bloquant").map(f => f.regle))];
+  ok(rCat.exit === 1 && JSON.stringify(reglesCat) === JSON.stringify(["EV7"]) &&
+     (rCat.r.findings || []).some(f => /absent du catalogue joint/.test(f.msg)),
+    `provenance · rouge EV7 : le MÊME document échoue dès que le catalogue joint ne porte pas l'objet cité — obtenu ${JSON.stringify(reglesCat)}`);
+  ok((v.r.findings || []).some(f => f.regle === "EV7" && f.sev === "info" && /non jugée/.test(f.msg)),
+    "provenance · sans catalogue joint, l'EXISTENCE des objets reste non jugée et l'oracle le DIT — une existence supposée est ce qui a laissé passer trois PASS (TF-0911)");
+} finally {
+  fs.rmSync(tmp6, { recursive: true, force: true });
 }
 
 // ---- TF-0917 : la chaîne TMDL → couverture@1 se ferme SANS transcription ----

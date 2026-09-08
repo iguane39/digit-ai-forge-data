@@ -23,10 +23,12 @@
 //   EV3  COMPLÉTUDE INTERNE : toute table déclarée au bloc `tables` a au moins une ligne, et
 //        toute table citée par une ligne est déclarée au bloc `tables`. Une table annoncée sans
 //        colonne projetée est le trou exact que la reconstitution à la main laissait ;
-//   EV4  toute provenance `indeterminee` porte un motif d'au moins 4 mots — une provenance vide
-//        est un trou, une provenance vraisemblable posée au jugé est pire : elle fait passer la
-//        projection pour complète. Constatée en AVERTISSEMENT et comptée : l'indétermination
-//        motivée est un état légitime d'une reprise, l'ignorer ne l'est pas ;
+//   EV4  (TF-0955) toute provenance SANS objet — `colonne_technique`, `cle_de_la_table`,
+//        `regle_en_clair`, `non_documentee` — porte une PHRASE déclarée d'au moins 4 mots. Le jeu
+//        fermé ne prévoyait que le cas heureux : sur 396 colonnes mesurées, 255 ne citaient aucun
+//        objet résolu et n'avaient rien à dire d'autre que leur propre cellule. Les
+//        `non_documentee` sont comptées et remontées comme DETTE (avertissement + `dette`),
+//        jamais laissées passer et jamais comblées par une provenance vraisemblable ;
 //   EV5  les COMPTES affichés (`comptes.colonnes`, `comptes.par_evolution`,
 //        `comptes.provenance_indeterminee`) sont RECALCULÉS et confrontés — un compte recopié
 //        d'une synthèse précédente est ce qui a laissé passer trois PASS (TF-0911) ;
@@ -35,18 +37,26 @@
 //        niveau au-dessus, l'agrégat d'un parent est RECOMPTÉ et confronté aux statuts de ses
 //        enfants, et les nœuds « colonne » sont en bijection avec les `lignes`. Une projection
 //        plate perd la hiérarchie que le lecteur cherche : le statut n'y existe qu'à la ligne la
-//        plus fine et un schéma n'y apparaît nulle part comme objet.
+//        plus fine et un schéma n'y apparaît nulle part comme objet ;
+//   EV7  (TF-0943) une provenance `objets_resolus` porte une LISTE d'objets RÉSOLUS, jamais une
+//        chaîne de texte : chacun avec sa `couche`, son chemin (`catalogue`, `schema`, `table`,
+//        `colonne`), l'`explication` du RÔLE du champ employé et la `source_de_l_explication` du
+//        jeu fermé. Un objet expliqué par un dictionnaire exige que ce dictionnaire soit DÉCLARÉ
+//        au document. Avec `--catalogue <fichier>` joint, chaque objet doit y EXISTER — sans lui,
+//        l'existence reste non jugée et le dit.
 //
 // non_juge : la JUSTESSE de chaque provenance (l'oracle vérifie qu'elle est typée et motivée,
 // jamais qu'elle est vraie) ; l'EXHAUSTIVITÉ de la projection contre le DDL réel — c'est
 // `oracles/oracle-couvrir.mjs` de ce dépôt, sur une seconde source ; la forme du lineage pointé
 // (`oracles/oracle-tracer.mjs` de ce dépôt).
-// Usage : node oracle-evoluer.mjs <evolutions.json> [--json-only]
+// Usage : node oracle-evoluer.mjs <evolutions.json> [--catalogue <catalogue.json>] [--json-only]
 import fs from "node:fs";
 
-const DOM = "Projection des évolutions d'une couche : complétude ligne à ligne, provenance typée, comptes recalculés, arbre schéma › table › colonne (EV1-EV6)";
+const DOM = "Projection des évolutions d'une couche : complétude ligne à ligne, provenance typée et résolue en objets, comptes recalculés, arbre schéma › table › colonne (EV1-EV7)";
 const NON_JUGE = [
-  "la JUSTESSE d'une provenance — cet oracle vérifie qu'elle est TYPÉE et, si elle est indéterminée, MOTIVÉE ; il ne sait pas si « couche_existante » dit vrai",
+  "la JUSTESSE d'une provenance — cet oracle vérifie qu'elle est TYPÉE, expliquée et, quand elle cite des objets, RÉSOLUE ; il ne sait pas si l'explication dit vrai",
+  "l'EXISTENCE des objets cités en provenance quand AUCUN catalogue n'est joint (`--catalogue`) : la forme est jugée, l'existence non — et l'oracle le dit en clair au lieu de la supposer",
+  "le CONTENU d'un dictionnaire déclaré : l'oracle exige qu'il soit déclaré et cité, jamais qu'il soit exact ou à jour",
   "l'EXHAUSTIVITÉ de la projection contre le DDL réel de la couche : une colonne que le DDL fourni ne portait pas n'est manquante pour personne ici. Cette question exige une SECONDE source et appartient à `oracles/oracle-couvrir.mjs` de ce dépôt",
   "la forme de la déclaration de lineage citée en origine — `oracles/oracle-tracer.mjs` de ce dépôt",
   "la pertinence métier d'une évolution retenue (créée plutôt que déplacée, par exemple) : l'oracle exige un type du jeu fermé, il ne l'arbitre pas",
@@ -60,18 +70,31 @@ const STATUTS = { schema: ["schema_cree", "schema_complete", "inchangee"],
                   table: ["table_creee", "table_completee", "table_deplacee", "inchangee"],
                   colonne: ["colonne_ajoutee", "colonne_corrigee", "inchangee"] };
 const NIVEAUX = ["schema", "table", "colonne"];
-const PROVENANCES = ["mapping", "couche_existante", "cle_substitution", "technique", "commentaire_ddl", "indeterminee"];
+// TF-0955 : le jeu fermé des provenances ne prévoyait que le cas heureux. Mesuré sur 396 colonnes :
+// 141 citaient un objet résolu, 255 n'en citaient AUCUN et n'avaient rien à dire d'autre que leur
+// propre cellule. Les quatre types sans objet nomment chacun une situation réelle, et chacun exige
+// sa phrase — sans quoi « pas d'objet » se relit comme « rien à signaler ».
+const PROVENANCES = ["objets_resolus", "colonne_technique", "cle_de_la_table", "regle_en_clair", "non_documentee"];
+// D'où vient l'explication d'un objet ou d'une règle : un commentaire au DDL, le catalogue, la
+// couche amont, le mapping, un dictionnaire DÉCLARÉ au document, une déclaration humaine — ou
+// rien, et alors la provenance est `non_documentee` et rien d'autre.
+const SOURCES = ["commentaire_ddl", "catalogue", "couche_existante", "mapping", "dictionnaire_declare", "declaration_humaine", "aucune"];
+const MOTS = t => String(t || "").trim().split(/\s+/).filter(Boolean).length;
 const DATE_ISO = /^\d{4}-\d{2}-\d{2}/;
 
 const args = process.argv.slice(2);
 const file = args.find(a => !a.startsWith("--"));
+// TF-0943 : le catalogue JOINT est facultatif — sans lui, l'EXISTENCE des objets cités reste
+// `non_juge` et le dit, plutôt que d'être supposée. Accepte une liste de noms, un
+// { objets: [...] } ou un `forge-data/couverture@1` (bloc source.inventaire).
+const catalogueArg = (() => { const i = args.indexOf("--catalogue"); return i >= 0 ? args[i + 1] : null; })();
 const jsonOnly = args.includes("--json-only");
 const F = [];
 const add = (sev, regle, msg, where) => F.push({ sev, regle, msg, where });
 let projection = null;
 const out = (verdict, code) => {
   process.stdout.write(JSON.stringify({ oracle: "oracle-evoluer", domaine: DOM, artefact: file || null,
-    verdict, projection, findings: F.length ? F : [{ sev: "info", regle: "—", msg: "EV1-EV6 sans écart", where: file }],
+    verdict, projection, findings: F.length ? F : [{ sev: "info", regle: "—", msg: "EV1-EV7 sans écart", where: file }],
     non_juge: NON_JUGE }, null, jsonOnly ? 0 : 2));
   process.exit(code);
 };
@@ -121,31 +144,42 @@ for (const t of tablesDeclarees) {
 for (const nom of nomsProjetes) if (!nomsDeclares.has(nom))
   add("bloquant", "EV3", `des lignes citent « ${nom} », absente du bloc « tables » — soit la projection déborde de son périmètre, soit le périmètre est faux`, "lignes");
 
-// ---- EV4 · une provenance indéterminée se MOTIVE ----------------------------------------------
-const indeterminees = retenues.filter(l => l.provenance && l.provenance.type === "indeterminee");
-for (const l of indeterminees) {
-  const motif = typeof l.provenance.motif === "string" ? l.provenance.motif.trim() : "";
-  if (motif.split(/\s+/).filter(Boolean).length < 4)
-    add("bloquant", "EV4", `« ${l.table}.${l.colonne} » : provenance indéterminée SANS motif écrit (au moins 4 mots) — un trou non motivé se lit comme une décision`, l.ou);
+// ---- EV4 · toute provenance SANS objet porte sa phrase, et la dette se compte -----------------
+// Les quatre types sans objet ne sont pas des synonymes de « rien » : chacun dit POURQUOI aucun
+// objet du catalogue n'est nommable. Sans phrase déclarée, la restitution retombe sur la recopie
+// de la règle — c'est-à-dire sur la cellule elle-même.
+const sansObjet = retenues.filter(l => l.provenance && PROVENANCES.includes(l.provenance.type) && l.provenance.type !== "objets_resolus");
+for (const l of sansObjet) {
+  if (MOTS(l.provenance.explication) < 4)
+    add("bloquant", "EV4", `« ${l.table}.${l.colonne} » : provenance « ${l.provenance.type} » SANS explication écrite (au moins 4 mots) — les quatre types sans objet EXIGENT leur phrase, sinon « aucun objet nommable » se relit « rien à signaler »`, l.ou);
 }
-if (indeterminees.length)
+const nonDocumentees = retenues.filter(l => l.provenance && l.provenance.type === "non_documentee");
+if (nonDocumentees.length)
   add("avertissement", "EV4",
-    `${indeterminees.length} provenance(s) INDÉTERMINÉE(S) sur ${retenues.length} ligne(s) — état légitime d'une reprise tant qu'il est motivé et compté, ` +
-    `jamais tant qu'il est comblé par une provenance vraisemblable : ${indeterminees.slice(0, 8).map(l => `« ${l.table}.${l.colonne} »`).join(" · ")}${indeterminees.length > 8 ? ` (+${indeterminees.length - 8} autres)` : ""}`,
+    `DETTE : ${nonDocumentees.length} provenance(s) NON DOCUMENTÉE(S) sur ${retenues.length} ligne(s) — remontée comme dette, jamais laissée passer, et jamais comblée par une provenance vraisemblable : ` +
+    `${nonDocumentees.slice(0, 8).map(l => `« ${l.table}.${l.colonne} »`).join(" · ")}${nonDocumentees.length > 8 ? ` (+${nonDocumentees.length - 8} autres)` : ""}`,
     "lignes");
 
 // ---- EV5 · les comptes se RECALCULENT, ils ne se recopient pas --------------------------------
 const parEvolution = retenues.reduce((acc, l) => { acc[l.evolution] = (acc[l.evolution] || 0) + 1; return acc; }, {});
+const parProvenance = retenues.reduce((acc, l) => { const t = l.provenance && l.provenance.type; if (t) acc[t] = (acc[t] || 0) + 1; return acc; }, {});
 projection = { tables: tablesDeclarees.length, colonnes: retenues.length, par_evolution: parEvolution,
-               provenance_indeterminee: indeterminees.length };
+               par_provenance: parProvenance, provenance_non_documentee: nonDocumentees.length,
+               dette: { non_documentee: nonDocumentees.length,
+                        part: retenues.length ? Math.round(nonDocumentees.length * 1000 / retenues.length) / 10 : 0 } };
 const c = d.comptes && typeof d.comptes === "object" ? d.comptes : null;
 if (c) {
   if (c.colonnes !== undefined && Number(c.colonnes) !== retenues.length)
     add("bloquant", "EV5", `comptes.colonnes annonce ${c.colonnes}, recalculé ${retenues.length} — un compte recopié d'une synthèse précédente est ce qui a laissé passer trois PASS`, file);
   if (c.tables !== undefined && Number(c.tables) !== tablesDeclarees.length)
     add("bloquant", "EV5", `comptes.tables annonce ${c.tables}, recalculé ${tablesDeclarees.length}`, file);
-  if (c.provenance_indeterminee !== undefined && Number(c.provenance_indeterminee) !== indeterminees.length)
-    add("bloquant", "EV5", `comptes.provenance_indeterminee annonce ${c.provenance_indeterminee}, recalculé ${indeterminees.length} — c'est le chiffre qui dit ce qui reste à faire`, file);
+  if (c.provenance_non_documentee !== undefined && Number(c.provenance_non_documentee) !== nonDocumentees.length)
+    add("bloquant", "EV5", `comptes.provenance_non_documentee annonce ${c.provenance_non_documentee}, recalculé ${nonDocumentees.length} — c'est le chiffre de la DETTE, celui qui dit ce qui reste à faire`, file);
+  if (c.par_provenance && typeof c.par_provenance === "object") {
+    for (const k of new Set([...Object.keys(c.par_provenance), ...Object.keys(parProvenance)]))
+      if (Number(c.par_provenance[k] || 0) !== (parProvenance[k] || 0))
+        add("bloquant", "EV5", `comptes.par_provenance['${k}'] annonce ${c.par_provenance[k] || 0}, recalculé ${parProvenance[k] || 0}`, file);
+  }
   if (c.par_evolution && typeof c.par_evolution === "object") {
     for (const k of new Set([...Object.keys(c.par_evolution), ...Object.keys(parEvolution)]))
       if (Number(c.par_evolution[k] || 0) !== (parEvolution[k] || 0))
@@ -218,5 +252,49 @@ else {
     add("bloquant", "EV6", `l'arbre porte la colonne « ${f} », qu'aucune ligne ne projette — l'arbre et le détail ne disent pas la même chose`, "arbre");
   if (projection) projection.arbre_par_niveau = { schema: parNiveau.schema.size, table: parNiveau.table.size, colonne: parNiveau.colonne.size };
 }
+
+// ---- EV7 · les objets cités sont RÉSOLUS, pas une chaîne de texte (TF-0943) -------------------
+// « clients Date_Debut (Type_Avenant 0), Date_Entree, DUREE » ne disait ni où vivent ces
+// objets ni à quoi sert chaque champ. Un objet résolu porte sa couche, son chemin et le RÔLE du
+// champ employé, avec la source de cette explication — sinon la provenance se relit à la main.
+let catalogue = null;
+if (catalogueArg) {
+  try {
+    const brut = JSON.parse(fs.readFileSync(catalogueArg, "utf8"));
+    const liste = Array.isArray(brut) ? brut
+      : Array.isArray(brut.objets) ? brut.objets
+      : (brut.source && brut.source.inventaire && Array.isArray(brut.source.inventaire.objets)) ? brut.source.inventaire.objets
+      : null;
+    if (!liste) add("bloquant", "EV7", `catalogue joint « ${catalogueArg} » sans liste d'objets (attendu un tableau, un { objets: [...] } ou un forge-data/couverture@1)`, catalogueArg);
+    else catalogue = new Set(liste.map(o => String(typeof o === "string" ? o : (o && (o.nom || o.objet)) || "").toLowerCase()).filter(Boolean));
+  } catch (e) { add("bloquant", "EV7", `catalogue joint illisible : ${e.message}`, String(catalogueArg)); }
+}
+const dictionnaires = new Map((Array.isArray(d.dictionnaires) ? d.dictionnaires : [])
+  .filter(x => x && x.nom).map(x => [String(x.nom).toLowerCase(), x]));
+for (const l of retenues) {
+  const p = l.provenance;
+  if (!p || p.type !== "objets_resolus") continue;
+  const objets = Array.isArray(p.objets) ? p.objets : null;
+  if (!objets || !objets.length) {
+    add("bloquant", "EV7", `« ${l.table}.${l.colonne} » : provenance « objets_resolus » sans AUCUN objet — c'est le cas heureux revendiqué sans sa preuve ; à défaut d'objet nommable, le type dit lequel des quatre autres cas s'applique`, l.ou);
+    continue;
+  }
+  objets.forEach((o, j) => {
+    const ou = `${l.ou} · provenance.objets #${j + 1}`;
+    if (!o || typeof o !== "object") { add("bloquant", "EV7", `« ${l.table}.${l.colonne} » : objet de provenance non structuré — la provenance est une LISTE d'objets, plus une chaîne de texte`, ou); return; }
+    if (!String(o.table || "").trim()) add("bloquant", "EV7", `« ${l.table}.${l.colonne} » : objet de provenance sans « table » — un objet sans table n'est nommé nulle part`, ou);
+    if (!String(o.couche || "").trim()) add("bloquant", "EV7", `« ${l.table}.${l.colonne} » : objet « ${o.table || "?"} » sans « couche » — l'emplacement est la moitié de ce que le lecteur cherche`, ou);
+    if (MOTS(o.explication) < 4) add("bloquant", "EV7", `« ${l.table}.${l.colonne} » : objet « ${o.table || "?"} » sans explication du RÔLE du champ employé (au moins 4 mots) — citer un objet sans dire à quoi il sert, c'est recopier la règle`, ou);
+    if (!SOURCES.includes(o.source_de_l_explication)) add("bloquant", "EV7", `« ${l.table}.${l.colonne} » : objet « ${o.table || "?"} » dont la source de l'explication « ${o.source_de_l_explication} » est hors du jeu fermé {${SOURCES.join(", ")}}`, ou);
+    if (o.source_de_l_explication === "dictionnaire_declare" && !dictionnaires.has(String(o.dictionnaire || "").toLowerCase()))
+      add("bloquant", "EV7", `« ${l.table}.${l.colonne} » : objet « ${o.table || "?"} » explique par le dictionnaire « ${o.dictionnaire || "(non cité)"} », qui n'est pas déclaré au bloc « dictionnaires » — un dictionnaire non déclaré n'est pas opposable`, ou);
+    if (catalogue) {
+      const chemin = [o.catalogue, o.schema, o.table, o.colonne].filter(Boolean).join(".").toLowerCase();
+      if (chemin && !catalogue.has(chemin) && o.source_de_l_explication !== "dictionnaire_declare")
+        add("bloquant", "EV7", `« ${l.table}.${l.colonne} » : objet « ${chemin} » absent du catalogue joint — soit la provenance nomme un objet qui n'existe pas, soit le catalogue est périmé ; dans les deux cas la provenance ment`, ou);
+    }
+  });
+}
+if (!catalogueArg) add("info", "EV7", "aucun catalogue joint (--catalogue) : EV7 juge la FORME des objets cités (chemin, couche, rôle, source), jamais leur EXISTENCE — celle-ci reste non jugée et le dit", file);
 
 out(F.some(f => f.sev === "bloquant") ? "FAIL" : "PASS", F.some(f => f.sev === "bloquant") ? 1 : 0);

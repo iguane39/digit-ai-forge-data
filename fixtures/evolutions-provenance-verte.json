@@ -1,0 +1,141 @@
+{
+  "format": "forge-data/evolutions@1",
+  "id": "evolutions_gold_provenance_2026-09-08",
+  "couche": "gold",
+  "date": "2026-09-08",
+  "origine": {
+    "verbe": "projeter-evolutions",
+    "cible": "(projection complétée à la main : les cinq types de provenance en un seul document)",
+    "existant": null,
+    "lineage": null
+  },
+  "dictionnaires": [
+    {
+      "nom": "dictionnaire de l'entrepôt hérité",
+      "source": "classeur de définitions remis par l'équipe décisionnelle, version 3, daté du 12/02/2026",
+      "date": "2026-02-12"
+    }
+  ],
+  "comptes": {
+    "tables": 1,
+    "colonnes": 6,
+    "par_evolution": { "colonne_ajoutee": 6 },
+    "tables_par_evolution": { "table_creee": 1 },
+    "provenance_non_documentee": 1,
+    "par_provenance": {
+      "objets_resolus": 2,
+      "cle_de_la_table": 1,
+      "colonne_technique": 1,
+      "regle_en_clair": 1,
+      "non_documentee": 1
+    },
+    "arbre_par_niveau": { "schema": 1, "table": 1, "colonne": 6 }
+  },
+  "tables": [
+    {
+      "table": "catalog_any_gold_d1.contrats.dim_contrat",
+      "evolution": "table_creee",
+      "origine": null,
+      "colonnes": { "total": 6, "ajoutees": 6, "corrigees": 0, "inchangees": 0 }
+    }
+  ],
+  "arbre": [
+    { "niveau": "schema", "objet": "catalog_any_gold_d1.contrats", "parent": null, "statut": "schema_cree",
+      "statut_agrege": { "table_creee": 1 } },
+    { "niveau": "table", "objet": "catalog_any_gold_d1.contrats.dim_contrat", "parent": "catalog_any_gold_d1.contrats",
+      "statut": "table_creee", "statut_agrege": { "colonne_ajoutee": 6 } },
+    { "niveau": "colonne", "objet": "catalog_any_gold_d1.contrats.dim_contrat.contrat_pkey", "parent": "catalog_any_gold_d1.contrats.dim_contrat", "statut": "colonne_ajoutee", "statut_agrege": null },
+    { "niveau": "colonne", "objet": "catalog_any_gold_d1.contrats.dim_contrat.date_chargement", "parent": "catalog_any_gold_d1.contrats.dim_contrat", "statut": "colonne_ajoutee", "statut_agrege": null },
+    { "niveau": "colonne", "objet": "catalog_any_gold_d1.contrats.dim_contrat.montant_mensuel_ht", "parent": "catalog_any_gold_d1.contrats.dim_contrat", "statut": "colonne_ajoutee", "statut_agrege": null },
+    { "niveau": "colonne", "objet": "catalog_any_gold_d1.contrats.dim_contrat.taux_revision", "parent": "catalog_any_gold_d1.contrats.dim_contrat", "statut": "colonne_ajoutee", "statut_agrege": null },
+    { "niveau": "colonne", "objet": "catalog_any_gold_d1.contrats.dim_contrat.code_ancien", "parent": "catalog_any_gold_d1.contrats.dim_contrat", "statut": "colonne_ajoutee", "statut_agrege": null },
+    { "niveau": "colonne", "objet": "catalog_any_gold_d1.contrats.dim_contrat.surface_m2", "parent": "catalog_any_gold_d1.contrats.dim_contrat", "statut": "colonne_ajoutee", "statut_agrege": null }
+  ],
+  "lignes": [
+    {
+      "table": "catalog_any_gold_d1.contrats.dim_contrat",
+      "colonne": "contrat_pkey",
+      "type": "BIGINT",
+      "evolution": "colonne_ajoutee",
+      "provenance": {
+        "type": "cle_de_la_table",
+        "explication": "clé de substitution construite sur la table elle-même, sans équivalent dans aucune source amont",
+        "source_de_l_explication": "declaration_humaine"
+      }
+    },
+    {
+      "table": "catalog_any_gold_d1.contrats.dim_contrat",
+      "colonne": "date_chargement",
+      "type": "TIMESTAMP_NTZ",
+      "evolution": "colonne_ajoutee",
+      "provenance": {
+        "type": "colonne_technique",
+        "explication": "colonne technique de convention, posée par le cadre d'ingestion à chaque écriture",
+        "source_de_l_explication": "declaration_humaine"
+      }
+    },
+    {
+      "table": "catalog_any_gold_d1.contrats.dim_contrat",
+      "colonne": "montant_mensuel_ht",
+      "type": "DECIMAL(12,2)",
+      "evolution": "colonne_ajoutee",
+      "provenance": {
+        "type": "objets_resolus",
+        "objets": [
+          {
+            "couche": "silver",
+            "catalogue": "catalog_any_silver_d1",
+            "schema": "gestion_contrats",
+            "table": "contrat",
+            "colonne": "montant_mensuel",
+            "explication": "loyer contractuel mensuel hors taxes, servant de base au calcul de l'indexation",
+            "source_de_l_explication": "commentaire_ddl"
+          }
+        ]
+      }
+    },
+    {
+      "table": "catalog_any_gold_d1.contrats.dim_contrat",
+      "colonne": "taux_revision",
+      "type": "DECIMAL(6,4)",
+      "evolution": "colonne_ajoutee",
+      "provenance": {
+        "type": "regle_en_clair",
+        "explication": "saisi par la gestion locative, aucune source amont : la règle est écrite au contrat",
+        "source_de_l_explication": "declaration_humaine"
+      }
+    },
+    {
+      "table": "catalog_any_gold_d1.contrats.dim_contrat",
+      "colonne": "code_ancien",
+      "type": "STRING",
+      "evolution": "colonne_ajoutee",
+      "provenance": {
+        "type": "objets_resolus",
+        "objets": [
+          {
+            "couche": "entrepôt hérité",
+            "catalogue": null,
+            "schema": null,
+            "table": "TAB_ANC_FACT_MOIS",
+            "colonne": "CODE_ARTICLE",
+            "explication": "code article de l'entrepôt hérité, conservé pour la réconciliation des historiques",
+            "source_de_l_explication": "dictionnaire_declare",
+            "dictionnaire": "dictionnaire de l'entrepôt hérité"
+          }
+        ]
+      }
+    },
+    {
+      "table": "catalog_any_gold_d1.contrats.dim_contrat",
+      "colonne": "surface_m2",
+      "type": "DECIMAL(10,2)",
+      "evolution": "colonne_ajoutee",
+      "provenance": {
+        "type": "non_documentee",
+        "explication": "aucune règle écrite dans le fichier de définition et aucun objet amont nommable à ce jour",
+        "source_de_l_explication": "aucune"
+      }
+    }
+  ]
+}

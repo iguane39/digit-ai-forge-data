@@ -21,13 +21,28 @@
 // CE QU'IL NE DEVINE PAS. Sans `--existant`, l'état antérieur n'existe pas : toute table est lue
 // comme CRÉÉE — ce qui est vrai d'une couche neuve et faux d'une reprise, donc le verbe l'AVERTIT
 // au lieu de le taire. Une colonne sans commentaire DDL, absente de l'existant et sans lineage
-// déclaré reçoit la provenance `indeterminee` AVEC son motif : une provenance vraisemblable
+// déclaré reçoit la provenance `non_documentee` AVEC sa phrase : une provenance vraisemblable
 // posée au jugé ferait passer la projection pour complète alors qu'elle ne l'est pas — c'est
 // exactement le défaut que TF-0911 a coûté.
 //
 // Sortie : `forge-data/evolutions@1` (JSON, jugé par `oracles/oracle-evoluer.mjs`), ou la même
 // projection rendue en Markdown / CSV pour le chapitre de restitution — mêmes lignes, même
 // ordre, jamais un rendu qui recompte.
+//
+// UNE PROVENANCE TYPÉE, ET RÉSOLUE QUAND ELLE PEUT L'ÊTRE (TF-0955 + TF-0943, 08/09). Le champ
+// `provenance` porte un TYPE du jeu fermé { objets_resolus, colonne_technique, cle_de_la_table,
+// regle_en_clair, non_documentee } : la première version ne prévoyait que le cas heureux, et les
+// 255 colonnes sur 396 dont aucun objet du catalogue n'était nommable n'avaient rien à dire
+// d'autre que leur propre cellule. Les quatre types sans objet exigent une PHRASE déclarée ;
+// `objets_resolus` porte une LISTE d'objets RÉSOLUS — { couche, catalogue, schema, table, colonne,
+// explication, source_de_l_explication } — au lieu d'une chaîne de texte où ni l'emplacement des
+// objets ni le rôle de chaque champ n'apparaissaient. Le rendu COMPOSE son texte depuis la liste :
+// une seule source de vérité. Le verbe ne produit que les trois types qu'il peut LIRE dans les
+// artefacts (`objets_resolus`, `regle_en_clair`, `non_documentee`) ; `colonne_technique` et
+// `cle_de_la_table` sont des valeurs légitimes du format, DÉCLARÉES par un humain ou par l'outil
+// amont — les deviner par la forme d'un nom de colonne serait l'heuristique que ce verbe refuse.
+// `--couche-amont <nom>` nomme la couche d'origine des objets repris hors de la couche projetée ;
+// sans elle le verbe écrit la relation (« amont ») au lieu d'inventer un nom de couche, et le dit.
 //
 // TROIS NIVEAUX, PAS UNE LISTE PLATE (TF-0942, 08/09). La projection porte aussi un `arbre` :
 // un nœud par SCHÉMA, par TABLE et par COLONNE — { niveau, parent, objet, statut, statut_agrege } —
@@ -38,7 +53,8 @@
 // la colonne « Niveau » est la clé de filtrage.
 //
 // Usage : node scripts/projeter-evolutions.mjs --couche silver --cible <ddl.sql>
-//         [--existant <ddl.sql>] [--lineage <lineage.json>] [--format json|md|csv]
+//         [--existant <ddl.sql>] [--lineage <lineage.json>] [--couche-amont <nom>]
+//         [--format json|md|csv]
 //         [--sortie <fichier>] [--sortie-dir <dossier>] [--date AAAA-MM-JJ] [--json-only]
 // Codes : 0 projection produite ; 1 échec d'écriture ; 2 entrée absente/illisible (aucune table
 // lue) — jamais une projection inventée.
@@ -56,6 +72,7 @@ const coucheArg = opt("--couche");
 const cibleArg = opt("--cible") || args.find(a => !a.startsWith("--"));
 const existantArg = opt("--existant");
 const lineageArg = opt("--lineage");
+const coucheAmontArg = opt("--couche-amont");
 const formatArg = (opt("--format") || "json").toLowerCase();
 const sortieArg = opt("--sortie");
 const sortieDirArg = opt("--sortie-dir");
@@ -130,6 +147,25 @@ for (const t of existant.values()) {
   if (!parNomCourt.has(t.nomCourt)) parNomCourt.set(t.nomCourt, []);
   parNomCourt.get(t.nomCourt).push(t);
 }
+// ---------- Résolution d'un objet cité en provenance (TF-0943) --------------------------------
+// Une provenance qui reste une CHAÎNE DE TEXTE ne dit ni où vit l'objet cité ni à quoi sert le
+// champ employé : « clients Date_Debut, DUREE » se relisait sans son emplacement.
+// Le chemin qualifié se DÉCOUPE (il est lu dans le DDL, il ne s'invente pas) ; ce qui manque
+// reste null plutôt que d'être comblé.
+const decouper = (nomComplet, couche) => {
+  const seg = String(nomComplet).split(".");
+  return { couche, catalogue: seg.length >= 3 ? seg.slice(0, -2).join(".") : null,
+           schema: seg.length >= 2 ? seg[seg.length - 2] : null, table: seg[seg.length - 1] };
+};
+// Une explication de moins de quatre mots n'explique rien : le commentaire trop court est alors
+// CITÉ dans une phrase, jamais rallongé par une paraphrase inventée.
+const phrase = txt => String(txt).trim().split(/\s+/).filter(Boolean).length >= 4
+  ? String(txt).trim() : `commentaire DDL rattaché à la colonne : « ${String(txt).trim()} »`;
+// La couche d'origine des objets repris ailleurs : déclarée, ou nommée par sa RELATION (« amont »)
+// — un nom de couche inventé (« bronze ») serait une affirmation que rien dans les DDL ne porte.
+const coucheAmont = coucheAmontArg || "amont";
+let amontEmploye = false;
+
 const EVOLUTIONS_TABLE = { creee: "table_creee", completee: "table_completee", deplacee: "table_deplacee", inchangee: "inchangee" };
 const lignes = [];
 const tablesProjetees = [];
@@ -151,15 +187,34 @@ for (const t of cible.values()) {
     else if (avant.type !== c.type) { evolution = "colonne_corrigee"; corrigees++; }
     else { evolution = "inchangee"; inchangees++; }
 
-    // Provenance : lue dans les artefacts, dans cet ordre — le commentaire DDL est la source la
-    // plus proche du producteur, l'état existant vient ensuite, le lineage déclaré en dernier.
+    // Provenance : un objet NOMMABLE prime sur une règle en clair, et une règle en clair sur
+    // l'absence de documentation. Un objet nommable, c'est la colonne d'origine lue dans l'état
+    // existant, ou les tables amont déclarées en entrée du lineage — dans les deux cas un chemin
+    // catalogue.schéma.table(.colonne), pas une chaîne de texte. À défaut d'objet, la lecture
+    // s'ancre sur ce qui est écrit ; à défaut d'écrit, elle DIT qu'il n'y a rien.
     let provenance;
-    if (c.commentaire) provenance = { type: "commentaire_ddl", detail: c.commentaire };
-    else if (avant) provenance = { type: "couche_existante", detail: `${source.nomComplet}.${avant.nom}` };
-    else if (sortiesLineage.has(t.nomComplet.toLowerCase()))
-      provenance = { type: "mapping", detail: `lineage@1 : ${(sortiesLineage.get(t.nomComplet.toLowerCase()) || []).join(", ") || "entrées non déclarées"}` };
-    else provenance = { type: "indeterminee",
-      motif: "aucun commentaire DDL sur cette colonne, absente de l'état existant, et aucune sortie de lineage déclarée pour cette table" };
+    const entreesLineage = sortiesLineage.get(t.nomComplet.toLowerCase()) || null;
+    if (avant) {
+      provenance = { type: "objets_resolus", objets: [{
+        ...decouper(source.nomComplet, memeChemin ? coucheArg : coucheAmont), colonne: avant.nom,
+        explication: c.commentaire ? phrase(c.commentaire)
+          : avant.type !== c.type ? `colonne reprise de ${source.nomComplet}, type porté de ${avant.type} à ${c.type}`
+          : `colonne reprise telle quelle de ${source.nomComplet}, même nom et même type`,
+        source_de_l_explication: c.commentaire ? "commentaire_ddl" : "couche_existante" }] };
+      if (!memeChemin) amontEmploye = true;
+    } else if (entreesLineage && entreesLineage.length) {
+      provenance = { type: "objets_resolus", objets: entreesLineage.map(e => ({
+        ...decouper(e, coucheAmont), colonne: null,
+        explication: c.commentaire ? phrase(c.commentaire)
+          : `table déclarée en entrée du lineage dont ${t.nomComplet} est une sortie`,
+        source_de_l_explication: c.commentaire ? "commentaire_ddl" : "mapping" })) };
+      amontEmploye = true;
+    } else if (c.commentaire) {
+      provenance = { type: "regle_en_clair", explication: phrase(c.commentaire),
+        source_de_l_explication: "commentaire_ddl" };
+    } else provenance = { type: "non_documentee",
+      explication: "aucun commentaire DDL sur cette colonne, absente de l'état existant, et aucune sortie de lineage déclarée pour cette table",
+      source_de_l_explication: "aucune" };
 
     lignes.push({ table: t.nomComplet, colonne: c.nom, type: c.type, evolution, provenance });
   }
@@ -215,9 +270,11 @@ for (const [sch, tablesDuSchema] of parSchema) {
 
 // ---------- Comptes : recalculés ici, jamais recopiés d'une synthèse ---------------------------
 const compteParEvolution = obj => obj.reduce((acc, x) => { acc[x.evolution] = (acc[x.evolution] || 0) + 1; return acc; }, {});
-const indeterminees = lignes.filter(l => l.provenance.type === "indeterminee").length;
-if (indeterminees)
-  avert(`${indeterminees} ligne(s) de provenance INDÉTERMINÉE — chacune porte son motif ; poser une provenance vraisemblable ferait passer la projection pour complète alors qu'elle ne l'est pas`);
+const nonDocumentees = lignes.filter(l => l.provenance.type === "non_documentee").length;
+if (nonDocumentees)
+  avert(`${nonDocumentees} ligne(s) de provenance NON DOCUMENTÉE — chacune porte sa phrase ; c'est une DETTE nommée, pas un silence : poser une provenance vraisemblable ferait passer la projection pour complète alors qu'elle ne l'est pas`);
+if (amontEmploye && !coucheAmontArg)
+  avert(`des objets de provenance vivent hors de la couche « ${coucheArg} » et aucune --couche-amont n'est déclarée : leur champ « couche » porte la RELATION « amont » — la nommer (bronze, silver, entrepôt hérité…) rend la provenance relisible sans le DDL`);
 
 const dateProjection = opt("--date") || new Date().toISOString().slice(0, 10);
 const projection = {
@@ -232,7 +289,8 @@ const projection = {
   comptes: { tables: tablesProjetees.length, colonnes: lignes.length,
              par_evolution: compteParEvolution(lignes),
              tables_par_evolution: compteParEvolution(tablesProjetees),
-             provenance_indeterminee: indeterminees,
+             provenance_non_documentee: nonDocumentees,
+             par_provenance: compter(lignes.map(l => l.provenance.type)),
              arbre_par_niveau: compter(arbre.map(n => n.niveau)) },
   tables: tablesProjetees,
   arbre,
@@ -242,7 +300,13 @@ const projection = {
 // ---------- Rendus : les MÊMES lignes, dans le MÊME ordre --------------------------------------
 // Un rendu qui recompterait serait une seconde source de vérité, donc une divergence en attente.
 const echapCsv = v => { const s = String(v ?? ""); return /[",;\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
-const provenanceTexte = p => p.type === "indeterminee" ? `indeterminee (${p.motif})` : `${p.type} : ${p.detail}`;
+// TF-0943 : le rendu COMPOSE le texte depuis la liste d'objets — une seule source de vérité, et
+// chaque objet cité rend son emplacement, le rôle de son champ et d'où vient cette explication.
+const objetTexte = o => `${[o.catalogue, o.schema, o.table, o.colonne].filter(Boolean).join(".")}`
+  + ` (${o.couche || "couche non déclarée"} — ${o.explication} ; source : ${o.source_de_l_explication})`;
+const provenanceTexte = p => p.type === "objets_resolus"
+  ? `objets_resolus : ${(p.objets || []).map(objetTexte).join(" · ")}`
+  : `${p.type} : ${p.explication}`;
 const rendreCsv = () => ["table;colonne;type;evolution;provenance",
   ...lignes.map(l => [l.table, l.colonne, l.type, l.evolution, provenanceTexte(l.provenance)].map(echapCsv).join(";"))].join("\n") + "\n";
 const agregeTexte = a => a && Object.keys(a).length ? Object.entries(a).map(([k, v]) => `${v} ${k}`).join(", ") : "—";
@@ -251,7 +315,7 @@ const rendreMd = () => {
   const n = projection.comptes.arbre_par_niveau;
   return [`## Évolutions ${coucheArg} (${dateProjection})`, "",
     `${projection.comptes.colonnes} colonne(s) sur ${projection.comptes.tables} table(s) — ${ent || "aucune évolution"}.`,
-    `Provenance indéterminée : ${indeterminees}.`, "",
+    `Provenance non documentée : ${nonDocumentees} (dette).`, "",
     // TF-0942 : les trois niveaux d'abord, chacun avec son statut. La colonne « Niveau » est la
     // clé de filtrage du tableau ; sans elle, le lecteur ne voit que la ligne la plus fine et le
     // schéma n'existe nulle part comme objet.

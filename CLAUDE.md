@@ -37,7 +37,7 @@ node oracles/oracle-restituer.mjs <rapport.md> [--strict]  # R1-R5 : chiffres an
                                                           # R8 vocabulaire du destinataire (glossaire)
 node oracles/oracle-contractualiser.mjs <contrat.json>    # C1-C5 : schéma + SLA + propriétaire + version
 node oracles/oracle-couvrir.mjs <couverture.json>         # CV1-CV6 : mapping mesuré contre l'inventaire de sa source
-node oracles/oracle-evoluer.mjs <evolutions.json>         # EV1-EV6 : projection des évolutions d'une couche, provenance typée,
+node oracles/oracle-evoluer.mjs <evolutions.json>         # EV1-EV7 : projection des évolutions d'une couche, provenance typée,
                                                           # comptes recalculés, arbre schéma › table › colonne
 node oracles/self-test.mjs                                 # double sens — à rejouer après toute modification
 ```
@@ -236,25 +236,45 @@ devant une reprise, et celle qui se reconstituait à la main depuis les DDL, le 
 catalogue : **397 lignes de provenance** relevées chez le produit demandeur (119 Silver, 278 Gold).
 
 `scripts/projeter-evolutions.mjs --couche <nom> --cible <ddl.sql> [--existant <ddl.sql>]
-[--lineage <lineage.json>] [--format json|md|csv]` PRODUIT (il ne juge pas) une projection
+[--lineage <lineage.json>] [--couche-amont <nom>] [--format json|md|csv]` PRODUIT (il ne juge pas) une projection
 `forge-data/evolutions@1` : une ligne par colonne, **{ table, colonne, type, évolution, provenance }**,
 plus les cartes de comptage. Les quatre évolutions de table (`table_creee`, `table_completee`,
 `table_deplacee`, `inchangee`) se **déduisent de la comparaison des deux DDL**, jamais d'une
 heuristique de nom : une table déplacée (même nom court, autre catalogue) lue comme créée ferait
-croire à une construction là où il y a un transfert. La provenance vient des artefacts fournis,
-dans cet ordre : `commentaire_ddl` (le plus proche du producteur), `couche_existante`, `mapping`
-(entrées déclarées du lineage). Sans aucun des trois, elle reste **`indeterminee` avec son motif** —
-une provenance vraisemblable ferait passer la projection pour complète (défaut de TF-0911). Sans
-`--existant`, toute table est lue comme créée et le verbe l'**avertit** : vrai d'une couche neuve,
-faux d'une reprise. Les rendus `md` et `csv` portent **les mêmes lignes dans le même ordre** que le
-JSON jugé : le rendu `md` EST le chapitre « Évolutions <couche> » de la restitution.
+croire à une construction là où il y a un transfert. Sans `--existant`, toute table est lue comme
+créée et le verbe l'**avertit** : vrai d'une couche neuve, faux d'une reprise. Les rendus `md` et
+`csv` portent **les mêmes lignes dans le même ordre** que le JSON jugé : le rendu `md` EST le
+chapitre « Évolutions <couche> » de la restitution.
 
-`oracles/oracle-evoluer.mjs` juge la **complétude interne** de la projection (EV1-EV6) : cinq champs
+`oracles/oracle-evoluer.mjs` juge la **complétude interne** de la projection (EV1-EV7) : cinq champs
 par ligne, jeux fermés d'évolution et de provenance, aucun couple table+colonne projeté deux fois,
 bijection `tables` ⇄ `lignes` (une table annoncée sans colonne projetée est le trou exact que la
-reconstitution à la main laissait), indétermination motivée, et **comptes recalculés** — jamais
+reconstitution à la main laissait), provenance expliquée, et **comptes recalculés** — jamais
 recopiés. Frontière tenue : l'exhaustivité contre le DDL réel exige une SECONDE source et reste à
 `oracle-couvrir` ; les confondre rendrait les deux fausses.
+
+**Une provenance typée, et résolue quand elle peut l'être (TF-0955 + TF-0943, 08/09/2026)** — la
+première version ne prévoyait que le cas heureux, et laissait la provenance en **chaîne de texte** :
+« clients Date_Debut (Type_Avenant 0), Date_Entree, DUREE » ne disait ni où vivent ces objets ni
+à quoi sert chaque champ. Mesure sur 396 colonnes : 141 citaient un objet résolu, **255 n'en
+citaient aucun** et n'avaient rien à dire d'autre que leur propre cellule. Le champ `provenance`
+porte donc un **type du jeu fermé** — `objets_resolus`, `colonne_technique`, `cle_de_la_table`,
+`regle_en_clair`, `non_documentee` — où les **quatre derniers exigent une phrase déclarée** (EV4)
+et où `objets_resolus` porte une **LISTE d'objets résolus** `{ couche, catalogue, schema, table,
+colonne, explication, source_de_l_explication }` (EV7) : l'emplacement, le **rôle du champ employé**
+et d'où vient cette explication. Le rendu **compose** son texte depuis la liste — une seule source
+de vérité. Les `non_documentee` sont **comptées et remontées comme DETTE** (`dette.non_documentee`
+et sa part), jamais laissées passer. Un objet expliqué par un **dictionnaire** exige que ce
+dictionnaire soit déclaré au document ; avec `--catalogue <fichier>` joint (liste de noms,
+`{ objets: [...] }` ou un `couverture@1`), chaque objet doit y **exister** — sans lui, l'existence
+reste **non jugée et le dit**, jamais supposée. Le verbe ne produit que les trois types qu'il peut
+LIRE dans les artefacts (`objets_resolus`, `regle_en_clair`, `non_documentee`) ; `colonne_technique`
+et `cle_de_la_table` sont déclarés par un humain ou l'outil amont — les deviner à la forme d'un nom
+de colonne serait l'heuristique que ce verbe refuse. `--couche-amont <nom>` nomme la couche
+d'origine des objets repris ailleurs ; sans elle le verbe écrit la **relation** (« amont ») au lieu
+d'inventer un nom de couche, et l'avertit. Fixture dédiée `evolutions-provenance-verte.json` : les
+cinq types dans un même document, PASS — sans elle, `colonne_technique` et `cle_de_la_table` ne
+seraient jamais joués.
 
 **Trois niveaux, pas une liste plate (TF-0942, 08/09/2026 — retour du même lot)** — la première
 version rendait 119 lignes Silver et 278 lignes Gold, une par colonne, répétant le nom de leur
@@ -277,6 +297,7 @@ sous un schéma qui n'en porte aucune — échouent sur EV6 et sur EV6 seulement
 node scripts/projeter-evolutions.mjs --couche silver --cible fixtures/evolutions-cible.sql      --existant fixtures/evolutions-existant.sql --lineage fixtures/lineage-verte.json --sortie <f.json>
 node scripts/projeter-evolutions.mjs --couche silver --cible fixtures/evolutions-cible.sql      --existant fixtures/evolutions-existant.sql --format md --sortie <chapitre.md>
 node oracles/oracle-evoluer.mjs fixtures/evolutions-verte.json
+node oracles/oracle-evoluer.mjs fixtures/evolutions-provenance-verte.json --catalogue <catalogue.json>
 ```
 
 ## Profils-moteur (TF-0140, `references\profils-moteur\`)
