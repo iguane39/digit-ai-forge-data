@@ -1,0 +1,19 @@
+table Client
+	lineageTag: 0d2f1c00-0000-4000-8000-000000000020
+
+	column client_sk
+		dataType: int64
+		isHidden
+
+	column statut
+		dataType: string
+
+	column segment
+		dataType: string
+
+	column pays_facturation
+		dataType: string
+
+	partition Client = m
+		mode: import
+		source = "gold.dim_client"

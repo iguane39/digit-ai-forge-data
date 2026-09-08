@@ -1,0 +1,18 @@
+table Ventes
+	lineageTag: 0d2f1c00-0000-4000-8000-000000000101
+
+	measure 'Montant HT' = SUM(Ventes[montant_ht])
+		formatString: #,0.00
+
+	column id_commande
+		dataType: int64
+
+	column client_sk
+		dataType: int64
+
+	column montant_ht
+		dataType: decimal
+
+	partition Ventes = m
+		mode: import
+		source = "silver.ventes"

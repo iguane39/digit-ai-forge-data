@@ -354,5 +354,83 @@ try {
   fs.rmSync(tmp2, { recursive: true, force: true });
 }
 
+// ---- verbe traduire-modele-semantique (TF-0894) : le brouillon dit ce qu'il ne sait pas ----
+// L'enjeu de ce verbe n'est pas de produire un modèle : c'est de produire un modèle qui ne
+// MENT PAS sur ce que TMDL ne porte pas. Un brouillon qui aurait rempli le grain, la clé
+// naturelle et la matrice en bus de valeurs vraisemblables PASSERAIT oracle-modeliser — et
+// c'est très exactement le défaut que TF-0911 vient de coûter (trois PASS sur un livrable
+// incomplet). Les deux sens sont donc : sans complément, l'oracle réclame EXACTEMENT les
+// champs que le verbe a déclarés manquants (ni plus, ni moins) ; avec le complément humain,
+// le round-trip PASSE sans retouche.
+console.log("\ntraduire-modele-semantique.mjs (verbe, TF-0894) — TMDL → brouillon modele-dimensionnel@1\n");
+const tmp3 = fs.mkdtempSync(path.join(os.tmpdir(), "forge-data-tmdl-"));
+try {
+  const pBrouillon = path.join(tmp3, "brouillon.json");
+  const b = lanceScript("traduire-modele-semantique.mjs", ["--modele", fx("modele-semantique-verte"), "--sortie", pBrouillon]);
+  ok(b.exit === 0 && b.r.sortie === "OK", "traduire-modele-semantique · fixture verte (dossier TMDL) produit un brouillon (exit 0)");
+  ok(b.r.statut === "brouillon" && (b.r.a_completer || []).length > 0,
+    "traduire-modele-semantique · sans complément, le statut est « brouillon » et les manques sont ÉNUMÉRÉS — jamais un modèle qui se présente comme fini");
+  ok(b.r.compte && b.r.compte.faits === 1 && b.r.compte.dimensions === 3,
+    `traduire-modele-semantique · fait et dimensions déduits de l'ORIENTATION des relations (1 fait, 3 dimensions attendus) — obtenu ${JSON.stringify(b.r.compte)}`);
+  if (fs.existsSync(pBrouillon)) {
+    const m = JSON.parse(fs.readFileSync(pBrouillon, "utf8"));
+    const dimCal = m.dimensions.find(d => d.nom === "Calendrier");
+    ok(!!dimCal && dimCal.role === "temps" && dimCal.cle_substitution === "date_sk",
+      "traduire-modele-semantique · `dataCategory: Time` → rôle temps, et la colonne visée par la relation → clé de SUBSTITUTION (les deux sont LUS)");
+    const mes = (m.faits[0].mesures || []);
+    ok(mes.find(x => x.nom === "Montant HT").agregation === "somme" && mes.find(x => x.nom === "Commandes").agregation === "compte_distinct",
+      "traduire-modele-semantique · l'agrégation se lit à la tête du DAX (SUM → somme, DISTINCTCOUNT → compte_distinct, jamais l'inverse)");
+    ok(mes.find(x => x.nom === "Panier moyen").agregation === undefined,
+      "traduire-modele-semantique · une mesure dont le DAX ne commence pas par une agrégation reste SANS agrégation — deviner « somme » sur un DIVIDE serait faux et invérifiable");
+    ok(dimCal.cle_naturelle === undefined && m.matrice_bus === undefined && m.faits[0].grain === undefined,
+      "traduire-modele-semantique · clé naturelle, grain et matrice en bus restent ABSENTS — TMDL ne les porte pas, et un placeholder vraisemblable ferait PASSER l'oracle en mentant");
+    // Le point qui compte : l'oracle réclame EXACTEMENT ce que le verbe a annoncé manquant.
+    const r = lance("oracle-modeliser.mjs", pBrouillon);
+    const durs = [...new Set((r.r.findings || []).filter(f => f.sev === "bloquant").map(f => f.regle))].sort();
+    ok(r.exit === 1 && JSON.stringify(durs) === JSON.stringify(["M2", "M4", "M5", "M6"]),
+      `traduire-modele-semantique → oracle-modeliser : FAIL sur M2, M4, M5, M6 et RIEN d'autre — la liste des règles rouges est celle des champs déclarés « à compléter » (obtenu ${JSON.stringify(durs)})`);
+    const annonces = (b.r.a_completer || []).join(" ");
+    ok(["M2", "M4", "M5", "M6"].every(x => annonces.includes(`(${x})`)),
+      "traduire-modele-semantique · chaque règle rouge est nommée dans `a_completer` — le lecteur du brouillon sait quoi faire sans exécuter l'oracle");
+  }
+  // Sens 2 — avec le complément humain, le round-trip PASSE sans retouche (patron d'importer).
+  const pComplet = path.join(tmp3, "complet.json");
+  const c = lanceScript("traduire-modele-semantique.mjs", ["--modele", fx("modele-semantique-verte"), "--complement", fx("complement-modele-verte.json"), "--sortie", pComplet]);
+  ok(c.exit === 0 && c.r.statut === "complete" && !(c.r.a_completer || []).length,
+    "traduire-modele-semantique · avec le complément humain, plus rien à compléter (statut « complete »)");
+  if (fs.existsSync(pComplet)) {
+    const rc = lance("oracle-modeliser.mjs", pComplet);
+    ok(rc.exit === 0 && rc.r.verdict === "PASS", "traduire-modele-semantique + complément → oracle-modeliser.mjs : PASS (round-trip)");
+    const m = JSON.parse(fs.readFileSync(pComplet, "utf8"));
+    ok((m.faits[0].mesures || []).find(x => x.nom === "Panier moyen").agregation === "non_additive",
+      "traduire-modele-semantique · le complément fournit l'agrégation que le DAX ne donnait pas, et le verbe le DIT en avertissement");
+  }
+  // Un complément qui prétend redéfinir une valeur LUE est ignoré : le modèle livré fait foi.
+  const compDerive = JSON.parse(fs.readFileSync(fx("complement-modele-verte.json"), "utf8"));
+  compDerive.dimensions.Client.cle_substitution = "id_client_technique";
+  const pDerive = path.join(tmp3, "complement-derive.json");
+  fs.writeFileSync(pDerive, JSON.stringify(compDerive));
+  const pSortieDerive = path.join(tmp3, "derive.json");
+  const cd = lanceScript("traduire-modele-semantique.mjs", ["--modele", fx("modele-semantique-verte"), "--complement", pDerive, "--sortie", pSortieDerive]);
+  ok(cd.exit === 0 && (cd.r.avertissements || []).some(x => /redéfinir une valeur LUE/.test(x)),
+    "traduire-modele-semantique · un complément qui contredit le modèle livré est AVERTI (une dérive silencieuse ferait diverger le brouillon de sa source)");
+  ok(JSON.parse(fs.readFileSync(pSortieDerive, "utf8")).dimensions.find(d => d.nom === "Client").cle_substitution === "client_sk",
+    "traduire-modele-semantique · et la valeur LUE l'emporte — le modèle livré fait foi sur ce qu'il porte");
+  // Rouge : un modèle sans relation. L'orientation fait/dimension ne se devine pas, et un modèle
+  // dimensionnel deviné serait faux SANS ÊTRE DÉTECTABLE (il passerait M1-M6 de bout en bout).
+  const rge = lanceScript("traduire-modele-semantique.mjs", ["--modele", fx("modele-semantique-rouge"), "--sortie-dir", tmp3]);
+  ok(rge.exit === 2 && rge.r.sortie === "ECHEC", "traduire-modele-semantique · modèle sans relation active : refus propre (exit 2)");
+  ok(!rge.r.fichier_produit && /orientation|relation active/.test(rge.r.erreur || ""),
+    "traduire-modele-semantique · rouge : aucun modèle inventé, et le refus dit POURQUOI (l'orientation fait/dimension vient des relations)");
+  const abs = lanceScript("traduire-modele-semantique.mjs", ["--modele", path.join(tmp3, "dossier-absent"), "--sortie-dir", tmp3]);
+  ok(abs.exit === 2, "traduire-modele-semantique · dossier de modèle introuvable : refus propre (exit 2)");
+  const cFaux = path.join(tmp3, "complement-faux-format.json");
+  fs.writeFileSync(cFaux, JSON.stringify({ format: "quelque-chose@9" }));
+  const cf = lanceScript("traduire-modele-semantique.mjs", ["--modele", fx("modele-semantique-verte"), "--complement", cFaux, "--sortie-dir", tmp3]);
+  ok(cf.exit === 2, "traduire-modele-semantique · complément au mauvais format : refusé, jamais interprété au jugé");
+} finally {
+  fs.rmSync(tmp3, { recursive: true, force: true });
+}
+
 console.log(`\nSelf-test forge-data : ${pass} PASS, ${echec} FAIL`);
 process.exit(echec ? 1 : 0);

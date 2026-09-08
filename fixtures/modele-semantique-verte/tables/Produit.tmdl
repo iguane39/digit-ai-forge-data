@@ -1,0 +1,19 @@
+table Produit
+	lineageTag: 0d2f1c00-0000-4000-8000-000000000030
+
+	column produit_sk
+		dataType: int64
+		isHidden
+
+	column famille
+		dataType: string
+
+	column marque
+		dataType: string
+
+	column unite
+		dataType: string
+
+	partition Produit = m
+		mode: import
+		source = "gold.dim_produit"

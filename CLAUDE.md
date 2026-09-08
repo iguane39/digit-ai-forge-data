@@ -161,6 +161,47 @@ périmé, dans les deux cas le taux ment.
 node oracles/oracle-couvrir.mjs fixtures/couverture-verte.json
 ```
 
+## Le verbe traduire-modele-semantique (TF-0894, 08/09/2026) — la Pierre de Rosette se lit enfin
+
+`scripts/traduire-modele-semantique.mjs --modele <dossier>` LIT un modèle sémantique Power BI au
+format texte **TMDL** (projet PBIP) et le TRADUIT en brouillon de
+`forge-data/modele-dimensionnel@1`. Générateur, pas un oracle. Le modèle sémantique est l'artefact
+pivot d'un mandat de reconstruction de rapport (doctrine REX §3) et aucun verbe ne le lisait : coût
+constaté sur un rapport réel — 25 requêtes embarquées, 160 mesures, 17 relations, extraction et
+mapping de 47 lignes faits à la main.
+
+**Format d'entrée réemployé, jamais réinventé** : le même `--modele <dossier definition/ ou
+.SemanticModel/>` que `oracles/verifier-modele-semantique.mjs` de **forge-audit**. Un seul artefact
+à produire côté client, deux usages, et la frontière tient : forge-audit **juge** le modèle
+sémantique (MS1-MS6, contrôles AuditCore — cet oracle n'est PAS dupliqué ici), forge-data le
+**traduit** vers son format, et le jugement du résultat appartient à `oracle-modeliser` (M1-M6).
+Jamais de point de terminaison XMLA ni d'appel au service (loi n° 4).
+
+**Ce que TMDL porte** : tables et colonnes ; mesures et leur DAX (agrégation dérivée quand
+l'expression commence par `SUM`/`AVERAGE`/`COUNT`/`DISTINCTCOUNT`/`MIN`/`MAX`) ; relations — donc,
+par leur **orientation**, quelle table est un fait (côté `fromColumn`) et laquelle une dimension
+(côté `toColumn`), et la clé de **substitution** de chaque dimension ; la dimension temps
+(`dataCategory: Time`).
+**Ce que TMDL ne porte pas, et que le verbe REFUSE d'inventer** : le grain d'un fait en une phrase,
+le processus métier, la clé **naturelle**, le type de changement lent, les bornes et la contiguïté
+de la dimension temps (propriétés de la DONNÉE), la matrice en bus (elle PRÉCÈDE le modèle et ne
+se relit pas dans le modèle construit). Ces champs restent **absents**, chacun nommé dans
+`a_completer` avec sa règle (M2/M4/M5/M6), et le brouillon porte `statut: "brouillon"` — un
+placeholder vraisemblable ferait PASSER `oracle-modeliser` en mentant, ce qui est exactement le
+défaut que TF-0911 vient de coûter. La complétion humaine est donc **mécanique** : un fichier
+`--complement` (format `forge-data/complement-modele@1`) les fournit, et alors — et alors
+seulement — le round-trip PASSE `oracle-modeliser` sans retouche. Un complément qui prétend
+redéfinir une valeur LUE est averti et ignoré : le modèle livré fait foi sur ce qu'il porte.
+Modèle sans relation active : refus propre (exit 2) — l'orientation fait/dimension ne se devine
+pas, et un modèle deviné serait faux sans être détectable. Preuve en boucle (deux sens) sur
+`fixtures/modele-semantique-{verte,rouge}/` et `fixtures/complement-modele-verte.json`.
+
+```bash
+node scripts/traduire-modele-semantique.mjs --modele fixtures/modele-semantique-verte --sortie <f.json>
+node scripts/traduire-modele-semantique.mjs --modele fixtures/modele-semantique-verte \
+     --complement fixtures/complement-modele-verte.json --sortie <f.json>   # PASSE oracle-modeliser
+```
+
 ## Profils-moteur (TF-0140, `references\profils-moteur\`)
 
 Référentiels versionnés (loi n° 4, jamais du code) : dialecte de contraintes, mapping de

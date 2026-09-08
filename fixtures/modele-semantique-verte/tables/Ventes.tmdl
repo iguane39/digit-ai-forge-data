@@ -1,0 +1,40 @@
+table Ventes
+	lineageTag: 0d2f1c00-0000-4000-8000-000000000001
+
+	measure 'Montant HT' = SUM(Ventes[montant_ht])
+		formatString: #,0.00
+
+	measure Commandes = DISTINCTCOUNT(Ventes[id_commande])
+		formatString: #,0
+
+	measure 'Panier moyen' = DIVIDE([Montant HT], [Commandes])
+		formatString: #,0.00
+
+	column id_commande
+		dataType: int64
+		isHidden
+		summarizeBy: none
+
+	column date_sk
+		dataType: int64
+		isHidden
+
+	column client_sk
+		dataType: int64
+		isHidden
+
+	column produit_sk
+		dataType: int64
+		isHidden
+
+	column montant_ht
+		dataType: decimal
+		summarizeBy: sum
+
+	column quantite
+		dataType: int64
+		summarizeBy: sum
+
+	partition Ventes = m
+		mode: import
+		source = "gold.fait_ventes"

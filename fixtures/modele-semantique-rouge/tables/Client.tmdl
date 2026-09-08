@@ -1,0 +1,12 @@
+table Client
+	lineageTag: 0d2f1c00-0000-4000-8000-000000000102
+
+	column client_sk
+		dataType: int64
+
+	column statut
+		dataType: string
+
+	partition Client = m
+		mode: import
+		source = "silver.clients"
