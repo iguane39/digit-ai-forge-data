@@ -263,6 +263,35 @@ node scripts/traduire-modele-semantique.mjs --modele fixtures/modele-semantique-
      --inventaire --namespace <uri de l'instance> --sortie <couverture.json>   # bloc source.inventaire
 ```
 
+## Mode --usage-restitution de traduire-modele-semantique (TF-0971, 14/09/2026)
+
+`oracle-couvrir` mesure un mapping contre l'INVENTAIRE de sa source (jusqu'à 342 colonnes d'un
+modèle réel) — jamais contre ce qui est réellement À L'ÉCRAN. Relevé manuel (Produit-62, RD-9) :
+66 colonnes seulement mobilisées par 83 champs de 16 visuels porteurs de données (21 projetées
+telles quelles, 45 lues par 54 mesures DAX affichées), 276 jamais lues, 10 tables sur 27
+entièrement inutilisées. Conséquence directe : des 38 colonnes sans ligne de mapping, 20 sont
+réellement mobilisées et 18 ne le sont pas — la dette bloquante réelle est deux fois plus
+petite que celle que la couverture seule annonce.
+
+`node scripts/traduire-modele-semantique.mjs --modele <dossier> --usage-restitution
+--mise-en-page <fichier> [--orphelins <fichier>] [--sortie <fichier>]` — le LECTEUR DE MISE
+EN PAGE, à côté du lecteur de modèle : entrée `forge-data/mise-en-page@1` (pages → visuels →
+projections, nomenclature `Table.colonne` / `Table[Mesure]` déjà celle de `--inventaire`).
+Rend TROIS POPULATIONS, jamais une seule mesure — `affichee` (projetée telle quelle),
+`lue_par_mesure` (atteinte par FERMETURE TRANSITIVE depuis une mesure affichée, moteur de
+TF-0972 réemployé) et `jamais_lue` — plus les `champs_inconnus` (une projection qui ne résout
+à rien du modèle, avertie, jamais ignorée) et les tables entièrement inutilisées. **Règle
+opposable** : avec `--orphelins <fichier>` (la liste que rend `oracle-couvrir` sur ses
+colonnes sans ligne de mapping), le croisement dit combien sont réellement MOBILISÉES —
+celles-là seules justifient la dette, les autres se déclarent en exclusion motivée
+(`oracle-couvrir`, règle `exclusion`) au lieu de la gonfler. Preuve en boucle sur
+`fixtures/mise-en-page-{verte,rouge}.json` + `fixtures/orphelins-usage-verte.json`.
+
+```bash
+node scripts/traduire-modele-semantique.mjs --modele fixtures/modele-semantique-verte \
+     --usage-restitution --mise-en-page fixtures/mise-en-page-verte.json --orphelins fixtures/orphelins-usage-verte.json
+```
+
 ## Mode --resolution-references de traduire-modele-semantique (TF-0972, 14/09/2026)
 
 Mesure sur 160 mesures DAX d'un modèle réel (Produit-62, RD-10) : une comparaison SENSIBLE À

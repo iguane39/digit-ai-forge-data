@@ -47,6 +47,9 @@ node scripts/traduire-modele-semantique.mjs --modele fixtures/modele-semantique-
      --complement fixtures/complement-modele-verte.json --sortie <fichier.json>   # TMDL Power BI → modele-dimensionnel@1 (TF-0894)
 node scripts/traduire-modele-semantique.mjs --modele fixtures/modele-resolution-verte \
      --resolution-references   # casse, ordre de résolution, fermeture transitive sur les mesures DAX (TF-0972)
+node scripts/traduire-modele-semantique.mjs --modele fixtures/modele-semantique-verte \
+     --usage-restitution --mise-en-page fixtures/mise-en-page-verte.json \
+     --orphelins fixtures/orphelins-usage-verte.json   # 3 populations + croisement couverture (TF-0971)
 node oracles/oracle-rapprocher.mjs fixtures/rapprochement-verte.json        # RA1-RA4, rapprochement modèle ↔ extrait externe (TF-0975)
 node scripts/isoler-lignes-non-donnees.mjs fixtures/extrait-pied-verte.csv   # TF-0976 : pied « Filtres appliqués » isolé, deux sorties
 node oracles/self-test.mjs   # double sens : vertes PASS, rouges FAIL localisants + round-trips importer/traducteur

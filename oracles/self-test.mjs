@@ -889,5 +889,38 @@ console.log(String.fromCharCode(10) + "traduire-modele-semantique --resolution-r
   fs.rmSync(videResol, { recursive: true, force: true });
 }
 
+// ---- traduire-modele-semantique --usage-restitution (TF-0971, 14/09/2026) : trois populations,
+// jamais une seule mesure — la couverture se mesure D'ABORD sur ce qui est mobilisé ----
+// Mesure réelle (Produit-62, RD-9) : 66 colonnes seulement mobilisées sur 342 (21 projetées,
+// 45 lues par mesure), 276 jamais lues, 10 tables sur 27 inutilisées. Des 38 orphelines du
+// mapping, 20 sont réellement mobilisées et 18 ne le sont pas — la dette réelle est deux fois
+// plus petite que celle qu'`oracle-couvrir` seul annonce.
+console.log(String.fromCharCode(10) + "traduire-modele-semantique --usage-restitution (TF-0971) — trois populations + croisement couverture" + String.fromCharCode(10));
+{
+  const u = lanceScript("traduire-modele-semantique.mjs", ["--modele", fx("modele-semantique-verte"), "--usage-restitution", "--mise-en-page", fx("mise-en-page-verte.json"), "--orphelins", fx("orphelins-usage-verte.json")]);
+  ok(u.exit === 0 && u.r.sortie === "OK", "--usage-restitution · fixture verte produit un relevé (exit 0)");
+  ok(u.r.compte.colonnes_modele === 19 && u.r.compte.affichee === 4 && u.r.compte.lue_par_mesure === 2 && u.r.compte.jamais_lue === 13,
+    `--usage-restitution · les 19 colonnes du modèle se répartissent en TROIS populations sans reste (4 affichées, 2 lues par mesure, 13 jamais lues) — obtenu ${JSON.stringify(u.r.compte)}`);
+  const pop = u.r.document.populations;
+  ok(pop.affichee.includes("Calendrier.annee") && pop.affichee.includes("Client.segment"),
+    "--usage-restitution · AFFICHEE : une colonne projetée telle quelle par un visuel (Calendrier.annee, Client.segment) — nommée, pas seulement comptée");
+  ok(pop.lue_par_mesure.includes("Ventes.montant_ht") && pop.lue_par_mesure.includes("Ventes.id_commande") && !pop.affichee.includes("Ventes.montant_ht"),
+    "--usage-restitution · LUE_PAR_MESURE : « Ventes[Panier moyen] » n'est JAMAIS projetée en colonne, et pourtant ses DEUX colonnes de base (via DIVIDE sur deux autres mesures, fermeture transitive TF-0972) sont comptées lues");
+  ok(!pop.jamais_lue.includes("Ventes.montant_ht") && pop.jamais_lue.includes("Ventes.quantite"),
+    "--usage-restitution · JAMAIS_LUE : une colonne ni projetée ni atteinte par une mesure affichée (Ventes.quantite) — trois populations disjointes, jamais confondues");
+  ok(u.r.champs_inconnus.length === 1 && u.r.champs_inconnus[0].champ === "Ventes.champ_invente" && u.r.champs_inconnus[0].visuel === "Widget casse",
+    `--usage-restitution · un champ projeté qui ne résout à RIEN du modèle est nommé « champ_inconnu », jamais silencieusement ignoré — obtenu ${JSON.stringify(u.r.champs_inconnus)}`);
+  ok(!u.r.champs_inconnus.some(c => c.visuel === "Logo"),
+    "--usage-restitution · un visuel déclaré `porte_donnees: false` (Logo) ne projette RIEN — sa projection invalide n'est même pas signalée, elle est ignorée par construction");
+  const cc = u.r.document.croisement_couverture;
+  ok(cc.orphelins_declares === 3 && cc.orphelins_mobilises === 1 && cc.orphelins_non_mobilises === 2 && cc.detail.mobilises[0] === "Ventes.montant_ht",
+    `--usage-restitution · CROISEMENT COUVERTURE (règle opposable, TF-0971) : sur 3 orphelines déclarées par oracle-couvrir, 1 est réellement MOBILISÉE (lue_par_mesure) et 2 ne le sont pas — la dette bloquante n'est pas la dette annoncée — obtenu ${JSON.stringify(cc)}`);
+
+  // Rouge : une mise en page dans un format non reconnu → refus propre, aucun usage inventé.
+  const ur = lanceScript("traduire-modele-semantique.mjs", ["--modele", fx("modele-semantique-verte"), "--usage-restitution", "--mise-en-page", fx("mise-en-page-rouge.json")]);
+  ok(ur.exit === 2 && ur.r.sortie === "ECHEC" && !ur.r.document,
+    `--usage-restitution · rouge : mise en page au format non reconnu → refus propre (exit 2), aucun usage inventé — obtenu ${ur.r.erreur}`);
+}
+
 console.log(`\nSelf-test forge-data : ${pass} PASS, ${echec} FAIL`);
 process.exit(echec ? 1 : 0);

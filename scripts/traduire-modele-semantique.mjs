@@ -66,6 +66,9 @@
 //         [--namespace <uri de l'instance>] [--date AAAA-MM-JJ] [--sortie <fichier>]
 //         node scripts/traduire-modele-semantique.mjs --modele <dossier> --resolution-references
 //         [--sortie <fichier>]   # TF-0972 : résolution NOMMÉE des références DAX
+//         node scripts/traduire-modele-semantique.mjs --modele <dossier> --usage-restitution
+//         --mise-en-page <fichier> [--orphelins <fichier>] [--sortie <fichier>]
+//         # TF-0971 : trois populations (affichee, lue_par_mesure, jamais_lue) + croisement couverture
 // Codes : 0 brouillon produit ; 1 échec d'écriture disque ; 2 entrée absente/illisible/
 // incohérente (aucune table, aucune relation, orientation indécidable) — jamais un modèle inventé.
 import fs from "node:fs";
@@ -169,6 +172,66 @@ if (!tables.size) sortir("ECHEC", 2, { erreur: "aucune table lue dans les fichie
 
 const idModele = path.basename(path.resolve(modeleArg)).replace(/\.SemanticModel$/i, "");
 
+// ---------- Moteur de résolution des références DAX (TF-0972) — CALCULÉ UNE FOIS, consommé par
+// --resolution-references (qui le RENDLE) et --usage-restitution (qui s'en sert pour suivre une
+// mesure affichée jusqu'à ses colonnes de base). Contrat détaillé au commentaire du premier mode.
+const tableParNomBas = new Map();
+for (const nom of tables.keys()) tableParNomBas.set(nom.toLowerCase(), nom);
+const REF_DAX = /(?:'([^']+)'|([A-Za-z_]\w*))?\[([^\]]+)\]/g;
+
+const resoudreDans = (nomTable, refBas) => {
+  const t = tables.get(nomTable);
+  if (!t) return null;
+  const col = t.colonnes.find(c => c.nom.toLowerCase() === refBas);
+  if (col) return { table: nomTable, objet: col.nom, type: "colonne" };
+  const mes = t.mesures.find(m => m.nom.toLowerCase() === refBas);
+  if (mes) return { table: nomTable, objet: mes.nom, type: "mesure" };
+  return null;
+};
+
+const resoudreReferenceDax = (tableQualifiee, refBrut, tablePorteuse) => {
+  const refBas = refBrut.toLowerCase();
+  if (tableQualifiee) {
+    const nomReel = tableParNomBas.get(tableQualifiee.toLowerCase());
+    if (!nomReel) return { statut: "non_resolue", motif: `table « ${tableQualifiee} » inconnue du modèle` };
+    const r = resoudreDans(nomReel, refBas);
+    return r ? { statut: "resolue", ...r } : { statut: "non_resolue", motif: `« ${refBrut} » absente de la table « ${nomReel} »` };
+  }
+  const local = resoudreDans(tablePorteuse, refBas);
+  if (local) return { statut: "resolue", ...local };
+  const candidats = [...tables.keys()].filter(n => n !== tablePorteuse).map(n => resoudreDans(n, refBas)).filter(Boolean);
+  if (candidats.length === 1) return { statut: "resolue", ...candidats[0] };
+  if (candidats.length > 1) return { statut: "ambigue", motif: `« ${refBrut} » trouvée dans ${candidats.length} tables : ${candidats.map(c => c.table).join(", ")}`, candidats };
+  return { statut: "non_resolue", motif: `« ${refBrut} » absente de la table porteuse « ${tablePorteuse} » et du reste du modèle` };
+};
+
+const mesuresParCle = new Map();
+for (const [nomTable, t] of tables) for (const m of t.mesures) {
+  const refs = [];
+  let match;
+  const re = new RegExp(REF_DAX.source, "g");
+  while ((match = re.exec(m.dax || "")) !== null) {
+    const tableQualifiee = match[1] || match[2] || null;
+    const refBrut = match[3];
+    refs.push({ brut: `${tableQualifiee || ""}[${refBrut}]`, resolution: resoudreReferenceDax(tableQualifiee, refBrut, nomTable) });
+  }
+  mesuresParCle.set(`${nomTable}[${m.nom}]`, { table: nomTable, nom: m.nom, dax: m.dax || "", references: refs });
+}
+
+const colonnesAtteintes = (cle, vus = new Set()) => {
+  if (vus.has(cle)) return [];
+  vus.add(cle);
+  const m = mesuresParCle.get(cle);
+  if (!m) return [];
+  const out = [];
+  for (const r of m.references) {
+    if (r.resolution.statut !== "resolue") continue;
+    if (r.resolution.type === "colonne") out.push(`${r.resolution.table}.${r.resolution.objet}`);
+    else out.push(...colonnesAtteintes(`${r.resolution.table}[${r.resolution.objet}]`, vus));
+  }
+  return [...new Set(out)];
+};
+
 // ---------- Mode --inventaire (TF-0917) : le bloc source.inventaire de forge-data/couverture@1 ----
 // `oracle-couvrir` (TF-0911) attend un inventaire DÉJÀ relevé, et ce verbe lit précisément la
 // source qui le contient. Entre les deux, il n'y avait qu'une transcription à la main : sur le
@@ -253,63 +316,6 @@ if (args.includes("--inventaire") || args.includes("--couverture")) {
 // lue (comme pour l'agrégation dérivée, cf. en-tête de ce verbe) — une expression repliée sur
 // plusieurs lignes n'est pas résolue au-delà de sa première ligne.
 if (args.includes("--resolution-references")) {
-  const tableParNomBas = new Map();
-  for (const nom of tables.keys()) tableParNomBas.set(nom.toLowerCase(), nom);
-  const REF = /(?:'([^']+)'|([A-Za-z_]\w*))?\[([^\]]+)\]/g;
-
-  const resoudreDans = (nomTable, refBas) => {
-    const t = tables.get(nomTable);
-    if (!t) return null;
-    const col = t.colonnes.find(c => c.nom.toLowerCase() === refBas);
-    if (col) return { table: nomTable, objet: col.nom, type: "colonne" };
-    const mes = t.mesures.find(m => m.nom.toLowerCase() === refBas);
-    if (mes) return { table: nomTable, objet: mes.nom, type: "mesure" };
-    return null;
-  };
-
-  const resoudreReference = (tableQualifiee, refBrut, tablePorteuse) => {
-    const refBas = refBrut.toLowerCase();
-    if (tableQualifiee) {
-      const nomReel = tableParNomBas.get(tableQualifiee.toLowerCase());
-      if (!nomReel) return { statut: "non_resolue", motif: `table « ${tableQualifiee} » inconnue du modèle` };
-      const r = resoudreDans(nomReel, refBas);
-      return r ? { statut: "resolue", ...r } : { statut: "non_resolue", motif: `« ${refBrut} » absente de la table « ${nomReel} »` };
-    }
-    const local = resoudreDans(tablePorteuse, refBas);
-    if (local) return { statut: "resolue", ...local };
-    const candidats = [...tables.keys()].filter(n => n !== tablePorteuse).map(n => resoudreDans(n, refBas)).filter(Boolean);
-    if (candidats.length === 1) return { statut: "resolue", ...candidats[0] };
-    if (candidats.length > 1) return { statut: "ambigue", motif: `« ${refBrut} » trouvée dans ${candidats.length} tables : ${candidats.map(c => c.table).join(", ")}`, candidats };
-    return { statut: "non_resolue", motif: `« ${refBrut} » absente de la table porteuse « ${tablePorteuse} » et du reste du modèle` };
-  };
-
-  const mesuresParCle = new Map();
-  for (const [nomTable, t] of tables) for (const m of t.mesures) {
-    const refs = [];
-    let match;
-    const re = new RegExp(REF.source, "g");
-    while ((match = re.exec(m.dax || "")) !== null) {
-      const tableQualifiee = match[1] || match[2] || null;
-      const refBrut = match[3];
-      refs.push({ brut: `${tableQualifiee || ""}[${refBrut}]`, resolution: resoudreReference(tableQualifiee, refBrut, nomTable) });
-    }
-    mesuresParCle.set(`${nomTable}[${m.nom}]`, { table: nomTable, nom: m.nom, dax: m.dax || "", references: refs });
-  }
-
-  const colonnesAtteintes = (cle, vus = new Set()) => {
-    if (vus.has(cle)) return [];
-    vus.add(cle);
-    const m = mesuresParCle.get(cle);
-    if (!m) return [];
-    const out = [];
-    for (const r of m.references) {
-      if (r.resolution.statut !== "resolue") continue;
-      if (r.resolution.type === "colonne") out.push(`${r.resolution.table}.${r.resolution.objet}`);
-      else out.push(...colonnesAtteintes(`${r.resolution.table}[${r.resolution.objet}]`, vus));
-    }
-    return [...new Set(out)];
-  };
-
   const mesures = [];
   const nonResolues = [], ambigues = [];
   let totalRefs = 0, totalResolues = 0;
@@ -334,6 +340,113 @@ if (args.includes("--resolution-references")) {
   let cible = sortieArg;
   if (cible) { try { fs.writeFileSync(cible, JSON.stringify(doc, null, 2) + "\n"); } catch (e) { sortir("ECHEC", 1, { erreur: `écriture impossible : ${e.message}` }); } }
   sortir("OK", 0, { compte: doc.compte, fichier_produit: cible || null, document: cible ? undefined : doc });
+}
+
+// ---------- Mode --usage-restitution (TF-0971) : trois populations, jamais une seule mesure --
+// FAIT MESURÉ (Produit-62, RD-9, ledger seq 63-65) : `oracle-couvrir` compare un mapping à
+// L'INVENTAIRE DE SA SOURCE (342 colonnes du modèle) — jamais à ce qui est réellement À
+// L'ÉCRAN. Relevé manuel : 66 colonnes seulement mobilisées par 83 champs de 16 visuels
+// porteurs de données (21 projetées telles quelles, 45 lues par 54 mesures DAX affichées),
+// 276 jamais lues, 10 tables sur 27 entièrement inutilisées. Conséquence directe sur la
+// priorité : des 38 colonnes sans ligne de mapping, 20 sont réellement mobilisées et 18 ne le
+// sont pas — la dette bloquante mesurée est deux fois plus petite que celle que la couverture
+// seule annonce, et sans ce croisement rien ne peut le dire.
+//
+// LECTEUR DE MISE EN PAGE, à côté du lecteur de modèle : entrée `--mise-en-page <fichier>`,
+// format `forge-data/mise-en-page@1` — { rapport, pages: [ { page, visuels: [ { visuel,
+// porte_donnees?, projections: [ { champ } ] } ] } ] }, `champ` dans la MÊME nomenclature que
+// `--inventaire` (`Table.colonne` pour une projection directe, `Table[Mesure]` pour une mesure
+// affichée). Un visuel décoratif (image, forme, texte libre) se déclare `porte_donnees: false`
+// et ne projette rien — jamais deviné à la forme du nom.
+//
+// TROIS POPULATIONS, JAMAIS UNE SEULE : `affichee` (colonne projetée telle quelle par un
+// visuel), `lue_par_mesure` (colonne atteinte par FERMETURE TRANSITIVE depuis une mesure
+// affichée — le moteur de résolution de TF-0972, réemployé, jamais réécrit), `jamais_lue` (ni
+// l'une ni l'autre). Un champ projeté qui ne résout à AUCUNE colonne ni mesure du modèle est
+// un `champ_inconnu`, averti, jamais silencieusement ignoré.
+//
+// CROISEMENT AVEC LA COUVERTURE (optionnel, `--orphelins <fichier.json>`, `{ orphelins:
+// ["Table.colonne", …] }` — la liste que rend `oracle-couvrir.mjs` sur ses colonnes sans ligne
+// de mapping) : RÈGLE OPPOSABLE, une couverture de reconstruction se mesure D'ABORD sur les
+// colonnes MOBILISÉES (`affichee` ∪ `lue_par_mesure`) — un orphelin `jamais_lue` se déclare en
+// EXCLUSION MOTIVÉE (`oracle-couvrir`, règle `exclusion`) au lieu de gonfler la dette.
+if (args.includes("--usage-restitution")) {
+  const miseEnPageArg = opt("--mise-en-page");
+  if (!miseEnPageArg || !fs.existsSync(miseEnPageArg))
+    sortir("ECHEC", 2, { erreur: `mise en page introuvable : ${miseEnPageArg} — --mise-en-page <fichier.json> est requis` });
+  let mep;
+  try { mep = JSON.parse(fs.readFileSync(miseEnPageArg, "utf8")); }
+  catch (e) { sortir("ECHEC", 2, { erreur: `mise en page illisible (JSON attendu) : ${e.message}` }); }
+  if (mep.format !== "forge-data/mise-en-page@1")
+    sortir("ECHEC", 2, { erreur: `mise en page au format « ${mep.format} » (attendu forge-data/mise-en-page@1)` });
+
+  const toutesColonnes = new Set();
+  for (const [nomTable, t] of tables) for (const c of t.colonnes) toutesColonnes.add(`${nomTable}.${c.nom}`);
+
+  const affichee = new Set();
+  const lueParMesure = new Set();
+  const champsInconnus = [];
+  for (const page of (Array.isArray(mep.pages) ? mep.pages : [])) {
+    for (const v of (Array.isArray(page.visuels) ? page.visuels : [])) {
+      if (v.porte_donnees === false) continue; // un visuel décoratif ne projette rien — déclaré, jamais deviné
+      for (const p of (Array.isArray(v.projections) ? v.projections : [])) {
+        const champ = String(p?.champ || "");
+        const mMesure = champ.match(/^(.+)\[(.+)\]$/);
+        if (mMesure) {
+          const [, nomTable, nomMesure] = mMesure;
+          const t = tables.get(nomTable);
+          const mesure = t && t.mesures.find(m => m.nom.toLowerCase() === nomMesure.toLowerCase());
+          if (!mesure) { champsInconnus.push({ page: page.page, visuel: v.visuel, champ }); continue; }
+          for (const c of colonnesAtteintes(`${nomTable}[${mesure.nom}]`)) lueParMesure.add(c);
+        } else if (toutesColonnes.has(champ)) {
+          affichee.add(champ);
+        } else {
+          champsInconnus.push({ page: page.page, visuel: v.visuel, champ });
+        }
+      }
+    }
+  }
+  const jamaisLue = [...toutesColonnes].filter(c => !affichee.has(c) && !lueParMesure.has(c));
+  const tablesJamaisLues = [...tables.keys()].filter(nomTable => {
+    const colsTable = [...toutesColonnes].filter(c => c.startsWith(`${nomTable}.`));
+    return colsTable.length > 0 && colsTable.every(c => jamaisLue.includes(c));
+  });
+
+  let croisementCouverture = null;
+  const orphelinsArg = opt("--orphelins");
+  if (orphelinsArg) {
+    if (!fs.existsSync(orphelinsArg)) sortir("ECHEC", 2, { erreur: `fichier d'orphelins introuvable : ${orphelinsArg}` });
+    let orph;
+    try { orph = JSON.parse(fs.readFileSync(orphelinsArg, "utf8")); }
+    catch (e) { sortir("ECHEC", 2, { erreur: `fichier d'orphelins illisible (JSON attendu) : ${e.message}` }); }
+    const listeOrphelins = Array.isArray(orph?.orphelins) ? orph.orphelins : [];
+    const mobilises = listeOrphelins.filter(o => affichee.has(o) || lueParMesure.has(o));
+    const nonMobilises = listeOrphelins.filter(o => !affichee.has(o) && !lueParMesure.has(o));
+    croisementCouverture = {
+      source: path.relative(process.cwd(), orphelinsArg).replace(/\\/g, "/") || orphelinsArg,
+      orphelins_declares: listeOrphelins.length,
+      orphelins_mobilises: mobilises.length,
+      orphelins_non_mobilises: nonMobilises.length,
+      detail: { mobilises, non_mobilises: nonMobilises },
+    };
+  }
+
+  const doc = {
+    format: "forge-data/usage-restitution@1",
+    id: `usage_${idModele}`,
+    modele: idModele,
+    rapport: mep.rapport || null,
+    populations: { affichee: [...affichee], lue_par_mesure: [...lueParMesure], jamais_lue: jamaisLue },
+    champs_inconnus: champsInconnus,
+    croisement_couverture: croisementCouverture,
+    compte: {
+      colonnes_modele: toutesColonnes.size, affichee: affichee.size, lue_par_mesure: lueParMesure.size,
+      jamais_lue: jamaisLue.length, tables_jamais_lues: tablesJamaisLues,
+    },
+  };
+  let cible = sortieArg;
+  if (cible) { try { fs.writeFileSync(cible, JSON.stringify(doc, null, 2) + "\n"); } catch (e) { sortir("ECHEC", 1, { erreur: `écriture impossible : ${e.message}` }); } }
+  sortir("OK", 0, { compte: doc.compte, champs_inconnus: champsInconnus, fichier_produit: cible || null, document: cible ? undefined : doc });
 }
 
 const refDe = ref => { const m = String(ref || "").match(/^('([^']+)'|[^.]+)\.(.+)$/); return m ? { table: nomDe(m[1]), colonne: nomDe(m[3]) } : null; };
