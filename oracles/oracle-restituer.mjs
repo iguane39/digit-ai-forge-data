@@ -19,11 +19,14 @@
 //   R7  (optionnel) `couverture_ref:` pointe une mesure `forge-data/couverture@1` existante
 //       (TF-0911) — un rapport de mapping chaîne ainsi la question de la COMPLÉTUDE, celle
 //       qu'aucune règle de forme ne pose ; présent et faux : bloquant.
-//   R8  VOCABULAIRE DU DESTINATAIRE (TF-0936) : un terme déclaré « machine » au glossaire
-//       `references/glossaire-restitution.json` employé dans la prose d'un livrable humain
-//       est constaté, compté et rendu par son équivalent de restitution. Avertissement
-//       toujours — le terme reste admis dans les schémas et le code, d'où le retrait
-//       préalable des spans et blocs de code, qui est la frontière entre les deux registres.
+//   R8  VOCABULAIRE DU DESTINATAIRE (TF-0936, portée resserrée TF-1044) : un terme déclaré
+//       « machine » au glossaire `references/glossaire-restitution.json` employé dans la
+//       prose d'un livrable humain est constaté, compté et rendu par son équivalent de
+//       restitution. Avertissement par défaut — le terme reste admis dans les schémas et le
+//       code, d'où le retrait préalable des spans et blocs de code, frontière entre les deux
+//       registres — et BLOQUANT si le terme porte `"bloquant": true` au glossaire : le
+//       produit qui déclare son propre lexique en durcit l'application, celui de la forge
+//       reste à `false` (un mot reste par défaut un arbitrage de rédaction).
 //
 // R5 (TF-0378, lot Produit-10 20260818b) — R1-R4 jugeaient la BIJECTION marqueur ↔ déclaration :
 // tout [c:id] du corps est déclaré, toute déclaration est utilisée. Aucune règle ne demandait
@@ -42,7 +45,7 @@
 // non_juge : justesse des valeurs (oracle-calculs, chemin résolvable en NON_JUGE — TF-0379) ;
 // montants commerciaux (oracle-claims) ;
 // complétude du lineage pointé (oracle-tracer, à exécuter sur lineage_ref).
-// Usage : node oracle-restituer.mjs <rapport.md> [--json-only] [--strict]
+// Usage : node oracle-restituer.mjs <rapport.md> [--json-only] [--strict] [--glossaire <chemin>]
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -71,6 +74,10 @@ const NON_JUGE = [
 const args = process.argv.slice(2);
 const file = args.find(a => !a.startsWith("--"));
 const jsonOnly = args.includes("--json-only");
+// TF-1044 — un produit peut déclarer SON PROPRE lexique (au lieu de celui de la forge) : utile
+// notamment pour y porter des termes `"bloquant": true` sans toucher au glossaire de ce dépôt.
+const iGlossaire = args.indexOf("--glossaire");
+const argGlossaire = iGlossaire !== -1 ? args[iGlossaire + 1] : null;
 // R5 avertit par défaut et BLOQUE sous --strict. Le défaut n'est pas une indulgence : sur un
 // corpus existant, 788 constats bloquants d'un coup feraient désactiver l'oracle entier — et
 // un contrôle qu'on désactive ne protège rien (R-33 bis). Le compte, lui, est exact dès le
@@ -223,7 +230,8 @@ for (const par of paragraphes) {
 // `references/glossaire-restitution.json`. Avertissement, jamais bloquant — un mot est un
 // arbitrage de rédaction, et une règle de vocabulaire qui bloque une livraison se désactive.
 {
-  const pGlossaire = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "references", "glossaire-restitution.json");
+  const pGlossaire = argGlossaire ? path.resolve(argGlossaire)
+    : path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "references", "glossaire-restitution.json");
   let glossaire = null;
   if (fs.existsSync(pGlossaire)) { try { glossaire = JSON.parse(fs.readFileSync(pGlossaire, "utf8")); } catch { /* glossaire illisible : signalé ci-dessous */ } }
   if (!glossaire || !Array.isArray(glossaire.termes))
@@ -235,11 +243,15 @@ for (const par of paragraphes) {
       const motif = new RegExp(`\\b(${variantes.map(v => v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})\\b`, "gi");
       const trouves = [...corpsJugeable.matchAll(motif)];
       if (!trouves.length) continue;
-      add("avertissement", "R8",
+      // TF-1044 (14/09/2026) — un mot reste par défaut un arbitrage de rédaction (avertissement),
+      // mais le PRODUIT qui déclare son propre lexique peut durcir un terme précis avec
+      // `"bloquant": true` : le glossaire de la forge ne le fait pas lui-même.
+      add(t.bloquant === true ? "bloquant" : "avertissement", "R8",
         `${trouves.length} emploi(s) du terme MACHINE « ${t.machine} » dans le corps lu par un humain — ` +
         `le glossaire (${glossaire.date}) rend ce terme « ${t.rendu} » à la restitution. ` +
         `Le terme machine reste admis dans les schémas et le code (${t.portee_machine || "formats et sorties d'oracles"}), ` +
-        `d'où son retrait des spans et blocs de code avant ce constat. Motif : ${t.motif || "arbitrage du destinataire"}`,
+        `d'où son retrait des spans et blocs de code avant ce constat. Motif : ${t.motif || "arbitrage du destinataire"}` +
+        (t.bloquant === true ? " — terme déclaré BLOQUANT par le glossaire du produit." : ""),
         "corps");
     }
   }

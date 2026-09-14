@@ -30,11 +30,15 @@ porte sa source et sa fraîcheur.
 ```bash
 node oracles/oracle-profiler.mjs <assertions.json>        # P1-P3 (+P4 optionnel) : forme exécutable + pont lineage
 node oracles/oracle-tracer.mjs <lineage.json>             # T1-T5 (+T6 optionnel, T7 environnement) : lineage complet, grain colonne, instance de chaque dataset
-node oracles/oracle-restituer.mjs <rapport.md> [--strict]  # R1-R5 : chiffres ancrés, lineage_ref,
+node oracles/oracle-restituer.mjs <rapport.md> [--strict] [--glossaire <chemin>]
+                                                          # R1-R5 : chiffres ancrés, lineage_ref,
                                                           # et COUVERTURE des nombres de prose (R5,
                                                           # avertie par défaut, bloquante en strict) ;
                                                           # R6 reconciliation_ref, R7 couverture_ref,
-                                                          # R8 vocabulaire du destinataire (glossaire)
+                                                          # R8 vocabulaire du destinataire (glossaire de la
+                                                          # forge par défaut, ou celui du produit via
+                                                          # --glossaire — bloquant si un terme y porte
+                                                          # "bloquant": true, TF-1044)
 node oracles/oracle-contractualiser.mjs <contrat.json>    # C1-C5 : schéma + SLA + propriétaire + version
 node oracles/oracle-couvrir.mjs <couverture.json>         # CV1-CV6 : mapping mesuré contre l'inventaire de sa source
 node oracles/oracle-evoluer.mjs <evolutions.json>         # EV1-EV7 : projection des évolutions d'une couche, provenance typée,
@@ -42,14 +46,24 @@ node oracles/oracle-evoluer.mjs <evolutions.json>         # EV1-EV7 : projection
 node oracles/self-test.mjs                                 # double sens — à rejouer après toute modification
 ```
 
-**Glossaire de restitution (TF-0936, 08/09/2026)** — `references/glossaire-restitution.json`,
-donnée éditable, datée et sourcée (loi n° 4) : chaque terme y porte sa forme MACHINE (celle des
-formats, des commentaires DDL et des sorties d'oracles, qui ne bouge pas) et sa forme de
-RESTITUTION (celle que le destinataire lit). Premier terme : « grain » machine, rendu
-« granularité ». `oracle-restituer` **R8** constate en avertissement tout terme machine employé
-dans la prose d'un livrable humain ; le même terme cité en span ou bloc de code n'est jamais
-compté, et c'est la frontière exacte entre les deux registres. Retour du 08/09 : 33 emplois sur
-une seule page livrée, dont 8 recopiés des commentaires DDL.
+**Glossaire de restitution (TF-0936, 08/09/2026 — portée resserrée par TF-1044, 14/09/2026)** —
+`references/glossaire-restitution.json`, donnée éditable, datée et sourcée (loi n° 4) : chaque
+terme y porte sa forme MACHINE et sa forme de RESTITUTION (celle que le destinataire lit).
+Premier terme : « grain » machine, rendu « granularité ». **Portée machine resserrée** à la
+seule clé JSON `grain` de `forge-data/modele-dimensionnel@1` — alias `granularite`, clé
+NOMINALE d'un `modele-dimensionnel@2`, les deux acceptées et jugées par `oracle-modeliser`
+(M2, M5) — commentaires DDL et sorties d'oracles ne sont PLUS exemptés : un second retour du
+10/09 (Produit-62, RD-14) a retrouvé le terme dans un DDL, un mapping et un chargement déjà
+publiés, la première portée (trop large) les couvrant à tort. `oracle-restituer` **R8** constate
+tout terme machine employé dans la prose d'un livrable humain — le même terme cité en span ou
+bloc de code n'est jamais compté, frontière exacte entre les deux registres — en avertissement
+par défaut, et en **bloquant** dès que le terme porte `"bloquant": true` au glossaire : le
+produit qui déclare son propre lexique en durcit l'application ; celui de la forge reste à
+`false`, un mot restant par défaut un arbitrage de rédaction. Retour du 08/09 : 33 emplois sur
+une seule page livrée, dont 8 recopiés des commentaires DDL. **Reste à l'étude (TF-0155, R-31,
+objet durable neuf)** : un contrôle `oracle-vocabulaire` jouable directement sur un DDL, un CSV
+ou un Markdown hors rapport — R8 ne juge aujourd'hui que le corps d'un rapport passé à
+`oracle-restituer`, jamais un DDL ou un CSV lus directement.
 
 Formats maison : `forge-data/assertions@1`, `forge-data/lineage@1`, `forge-data/contrat@1`
 (spécifiés en tête des oracles ; exemples = fixtures vertes). Un rapport porte un
@@ -149,7 +163,7 @@ puis rapports Power BI), sur mandat humain, chacun contre une barre validée le 
 
 | Verbe | Discipline exigée | Barre | Oracle |
 |---|---|---|---|
-| **modéliser** (TF-0860) | la couche Gold EST le modèle dimensionnel, déclaré AVANT construction : grain en une phrase par fait, dimensions conformes définies une fois, clé de substitution distincte de la clé naturelle, type de changement lent 0-3, dimension temps unique au grain jour et contiguë, matrice en bus qui précède le modèle | Kimball — Dimensional Modeling Techniques | `oracle-modeliser.mjs <modele.json>` — M1-M6, format `forge-data/modele-dimensionnel@1` |
+| **modéliser** (TF-0860) | la couche Gold EST le modèle dimensionnel, déclaré AVANT construction : granularité en une phrase par fait (clé `grain`, alias `granularite` — TF-1044), dimensions conformes définies une fois, clé de substitution distincte de la clé naturelle, type de changement lent 0-3, dimension temps unique à la granularité jour et contiguë, matrice en bus qui précède le modèle | Kimball — Dimensional Modeling Techniques | `oracle-modeliser.mjs <modele.json>` — M1-M6, format `forge-data/modele-dimensionnel@1` (ou `@2`, clé `granularite` nominale) |
 | **transformer** (TF-0861) | un projet de transformation déclare ses dépendances (ref/source), décrit et teste chaque modèle, rejoue ses tests, GÉNÈRE sa documentation ; l'oracle lit les artefacts de l'outil (`manifest.json`, `run_results.json`, `catalog.json`), jamais un YAML réinterprété | dbt-core | `oracle-transformer.mjs <dossier-target>` — TR1-TR6 |
 | **réconcilier** (TF-0864) | toute mesure exposée par un modèle sémantique vaut ce que Gold dit : deux lots de mesures identifiées (Gold archivé par `mesurer_base.py`, export du modèle), chacun avec son instance (T7), sous tolérance DÉCLARÉE, chaque écart nommé | prolonge dbt-core (déclaré → généré) ; défaut n° 18 de l'analyse L99 | `oracle-reconcilier.mjs <reconciliation.json>` — RC1-RC6, format `forge-data/reconciliation@1` ; `oracle-restituer` **R6** : un rapport peut pointer un lot par `reconciliation_ref:` |
 
@@ -160,6 +174,7 @@ du modèle sémantique aval à forge-audit (`verifier-modele-semantique.mjs`).
 
 ```bash
 node oracles/oracle-modeliser.mjs fixtures/modele-dimensionnel-verte.json
+node oracles/oracle-modeliser.mjs fixtures/modele-dimensionnel-granularite-verte.json   # @2, clé `granularite` (TF-1044)
 node oracles/oracle-transformer.mjs fixtures/transformation-verte
 node oracles/oracle-reconcilier.mjs fixtures/reconciliation-verte.json
 ```

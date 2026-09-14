@@ -148,6 +148,40 @@ console.log(String.fromCharCode(10) + "R8 (TF-0936) — terme machine du glossai
   ok(g.format === "forge-data/glossaire-restitution@1" && /^\d{4}-\d{2}-\d{2}$/.test(g.date) && g.source &&
      g.termes.some(t => t.machine === "grain" && t.rendu === "granularité" && t.motif),
     "R8 · le glossaire est une donnée éditable, DATÉE et SOURCÉE, dont chaque terme porte son motif (loi n° 4)");
+  // TF-1044 (14/09/2026) — la portée_machine est resserrée à la seule clé JSON `grain`, et R8
+  // devient BLOQUANT quand le PRODUIT déclare son propre lexique (--glossaire) avec
+  // "bloquant": true sur un terme précis. Le glossaire de la forge, lui, reste à false.
+  ok(g.termes.some(t => t.machine === "grain" && t.bloquant === false) &&
+     /la seule clé JSON `grain`/.test(g.termes[0].portee_machine || ""),
+    "R8 · portée_machine resserrée à la seule clé JSON `grain` (TF-1044) ; `bloquant` explicite à false côté forge");
+  const lanceGlossaire = (cible, glossaire) => {
+    try { return { exit: 0, r: JSON.parse(execFileSync(process.execPath, [path.join(ici, "oracle-restituer.mjs"), cible, "--json-only", "--glossaire", glossaire], { encoding: "utf8" })) }; }
+    catch (e) { return { exit: e.status, r: JSON.parse(String(e.stdout || "{}")) }; }
+  };
+  const rBloquant = lanceGlossaire(fx("rapport-rouge.md"), fx("glossaire-restitution-bloquant.json"));
+  const rb8 = r8de(rBloquant.r);
+  ok(rBloquant.exit === 1 && rBloquant.r.verdict === "FAIL" && rb8.length === 1 && rb8[0].sev === "bloquant",
+    `R8 · TF-1044 : le MÊME rapport, avec le glossaire d'un produit qui déclare "bloquant": true, ÉCHOUE sur R8 — obtenu exit=${rBloquant.exit} verdict=${rBloquant.r.verdict} sev=${rb8[0]?.sev}`);
+}
+
+// ---- M2/M5 : `granularite` alias de `grain`, clé nominale de modele-dimensionnel@2 (TF-1044) ----
+// Le second retour (10/09) a montré que « grain » fuyait aussi hors des rapports (DDL, mapping,
+// chargement). Le format lui-même reste sur `grain` (@1, rétro-compatibilité), mais `granularite`
+// devient un alias accepté partout, et la clé NOMINALE d'un @2 — jamais un renommage qui casserait
+// les artefacts existants.
+console.log(String.fromCharCode(10) + "M2/M5 (TF-1044) — `granularite` alias de `grain`, clé nominale de modele-dimensionnel@2" + String.fromCharCode(10));
+{
+  const g2 = lance("oracle-modeliser.mjs", fx("modele-dimensionnel-granularite-verte.json"));
+  ok(g2.exit === 0 && g2.r.verdict === "PASS",
+    `M2/M5 · un modele-dimensionnel@2 écrit entièrement en \`granularite\` (fait ET dimension temps) PASSE — obtenu ${g2.r.verdict}`);
+  const gDiv = lance("oracle-modeliser.mjs", fx("modele-dimensionnel-granularite-divergence.json"));
+  const m2div = (gDiv.r.findings || []).filter(f => f.regle === "M2");
+  ok(gDiv.exit === 0 && gDiv.r.verdict === "PASS" && m2div.length === 1 && m2div[0].sev === "avertissement" && /granularite \(clé nominale/.test(m2div[0].msg),
+    `M2/M5 · \`grain\` et \`granularite\` déclarés avec des valeurs DIFFÉRENTES sur le même fait : avertissement nommé, \`granularite\` fait foi, jamais un FAIL — obtenu verdict=${gDiv.r.verdict} findings=${m2div.map(f => f.sev).join(",") || "aucun"}`);
+  // Le format @1 historique (clé `grain` seule) continue de PASSER sans aucune retouche —
+  // c'est la rétro-compatibilité que TF-1044 s'interdit de casser.
+  const v1 = lance("oracle-modeliser.mjs", fx("modele-dimensionnel-verte.json"));
+  ok(v1.exit === 0 && v1.r.verdict === "PASS", "M2/M5 · le format @1 historique (clé `grain` seule) continue de PASSER sans retouche");
 }
 
 // ---- CV5/CV6 : le CHIFFRE de la couverture, deux sens (TF-0911) ----
