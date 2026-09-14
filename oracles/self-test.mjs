@@ -782,5 +782,42 @@ try {
   fs.rmSync(tmp4, { recursive: true, force: true });
 }
 
+// ---- traduire-modele-semantique --resolution-dax (TF-0972, 14/09) ---------------------------
+// La verte porte les TROIS mécanismes du contrat dans un même modèle : une référence QUALIFIÉE
+// dont la casse diffère de la déclaration (Indexation), une référence NON QUALIFIÉE qui désigne
+// une mesure d'une AUTRE table que la porteuse (Certified Turnover → Invoiced_Rent puis
+// Indexation), et la FERMETURE TRANSITIVE qui résout ces deux mesures jusqu'à leurs colonnes.
+// La rouge porte les deux défauts que le contrat DOIT nommer : deux tables qui définissent
+// chacune une mesure « Foo » rendent une référence non qualifiée AMBIGUË, et une référence vers
+// rien de connu est NON RÉSOLUE — jamais silencieuse.
+const tmp7 = fs.mkdtempSync(path.join(os.tmpdir(), "forge-data-resolution-dax-"));
+try {
+  const pVerte = path.join(tmp7, "verte.json");
+  const v = lanceScript("traduire-modele-semantique.mjs", ["--modele", fx("modele-semantique-dax-verte"), "--resolution-dax", "--sortie", pVerte]);
+  ok(v.exit === 0 && v.r.sortie === "OK", "--resolution-dax · verte : exit 0");
+  ok(v.r.compte && v.r.compte.references_totales === 4 && v.r.compte.resolues === 4 && v.r.compte.non_resolues === 0 && v.r.compte.ambigues === 0 && v.r.compte.taux_resolution === 100,
+    `--resolution-dax · verte : 4/4 références résolues, taux 100 — obtenu ${JSON.stringify(v.r.compte)}`);
+  ok((v.r.avertissements || []).length === 0, "--resolution-dax · verte : aucun avertissement (rien à signaler quand tout résout)");
+  const doc = JSON.parse(fs.readFileSync(pVerte, "utf8"));
+  const mAr1 = doc.mesures.find(m => m.mesure === "Certified Turnover[AR1]");
+  ok(!!mAr1 && JSON.stringify(mAr1.colonnes) === JSON.stringify(["Indexation.Val_indice_indexation", "Invoiced_Rent.Amount"]),
+    `--resolution-dax · verte : « [Invoiced Rent N_] » et « [Indexation Indice] », non qualifiées et absentes de la table porteuse Certified Turnover, résolvent par le MODÈLE ENTIER puis se ferment sur leurs colonnes — obtenu ${JSON.stringify(mAr1 && mAr1.colonnes)}`);
+  ok(!!mAr1 && JSON.stringify(mAr1.mesures_traversees) === JSON.stringify(["Indexation[Indexation Indice]", "Invoiced_Rent[Invoiced Rent N_]"]),
+    "--resolution-dax · verte : les mesures traversées par la fermeture transitive sont nommées");
+  const mIndice = doc.mesures.find(m => m.mesure === "Indexation[Indexation Indice]");
+  ok(!!mIndice && JSON.stringify(mIndice.colonnes) === JSON.stringify(["Indexation.Val_indice_indexation"]),
+    "--resolution-dax · verte : « Indexation[VAL_INDICE_INDEXATION] » (référence en MAJUSCULES) résout la colonne déclarée « Val_indice_indexation » — DAX est insensible à la casse, l'index aussi");
+
+  const pRouge = path.join(tmp7, "rouge.json");
+  const r = lanceScript("traduire-modele-semantique.mjs", ["--modele", fx("modele-semantique-dax-rouge"), "--resolution-dax", "--sortie", pRouge]);
+  ok(r.exit === 0 && r.r.sortie === "OK", "--resolution-dax · rouge : un défaut de résolution n'est pas une erreur d'exécution — le générateur rend son verdict, il ne plante pas");
+  ok(r.r.compte && r.r.compte.references_totales === 4 && r.r.compte.resolues === 2 && r.r.compte.non_resolues === 1 && r.r.compte.ambigues === 1 && r.r.compte.taux_resolution === 50,
+    `--resolution-dax · rouge : 2/4 résolues, 1 ambiguë, 1 non résolue, taux 50 — obtenu ${JSON.stringify(r.r.compte)}`);
+  ok((r.r.avertissements || []).some(a => /AMBIGU/.test(a) && /\[Foo\]/.test(a)) && (r.r.avertissements || []).some(a => /NON RÉSOLUE/.test(a) && /NoSuchThing/.test(a)),
+    "--resolution-dax · rouge : les deux défauts sont NOMMÉS en avertissement, pas seulement comptés");
+} finally {
+  fs.rmSync(tmp7, { recursive: true, force: true });
+}
+
 console.log(`\nSelf-test forge-data : ${pass} PASS, ${echec} FAIL`);
 process.exit(echec ? 1 : 0);

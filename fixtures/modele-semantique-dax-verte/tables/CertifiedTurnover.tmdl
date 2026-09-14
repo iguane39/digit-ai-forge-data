@@ -1,0 +1,11 @@
+table 'Certified Turnover'
+	column Id_ct
+		dataType: int64
+		isKey
+
+	measure AR1 = [Invoiced Rent N_] + [Indexation Indice]
+		formatString: #,0.00
+
+	partition 'Certified Turnover' = m
+		mode: import
+		source = "gold.fact_certified_turnover"

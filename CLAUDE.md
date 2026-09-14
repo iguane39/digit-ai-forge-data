@@ -208,6 +208,19 @@ Modèle sans relation active : refus propre (exit 2) — l'orientation fait/dime
 pas, et un modèle deviné serait faux sans être détectable. Preuve en boucle (deux sens) sur
 `fixtures/modele-semantique-{verte,rouge}/` et `fixtures/complement-modele-verte.json`.
 
+**Mode `--resolution-dax` (TF-0972, 14/09/2026)** — le même lecteur TMDL expose une résolution
+NOMMÉE des références DAX d'une mesure vers ses colonnes, avec son contrat écrit et un journal
+rendu AVEC le résultat (`forge-data/resolution-dax@1`). Deux défauts mesurés faisaient perdre des
+colonnes en silence : la CASSE (DAX est insensible à la casse, une comparaison sensible la perd) et
+les RÉFÉRENCES NON QUALIFIÉES (`[Mesure]` peut désigner une mesure d'une AUTRE table que la
+porteuse). Contrat : index insensible à la casse ; une référence qualifiée `Table[Membre]` cherche
+colonnes puis mesures de `Table` ; une référence non qualifiée `[Membre]` cherche d'abord la table
+PORTEUSE puis le MODÈLE ENTIER ; deux candidats au même niveau rendent la référence **ambiguë**,
+jamais tranchée ; une référence résolue vers une mesure est suivie par **fermeture transitive**
+(détection de cycle) jusqu'à ses colonnes terminales. Limite dite : seule la tête d'une expression
+DAX repliée sur plusieurs lignes est lue. Preuve en boucle (deux sens) sur
+`fixtures/modele-semantique-dax-{verte,rouge}/`.
+
 **Mode `--inventaire` (TF-0917, 08/09/2026)** — le même dossier TMDL traduit vers le bloc
 `source.inventaire` de `forge-data/couverture@1`, celui qu'`oracle-couvrir` attendait DÉJÀ RELEVÉ.
 Entre le verbe qui lit la source et l'oracle qui la juge, il n'y avait qu'une **transcription à la
@@ -226,6 +239,8 @@ node scripts/traduire-modele-semantique.mjs --modele fixtures/modele-semantique-
      --complement fixtures/complement-modele-verte.json --sortie <f.json>   # PASSE oracle-modeliser
 node scripts/traduire-modele-semantique.mjs --modele fixtures/modele-semantique-verte \
      --inventaire --namespace <uri de l'instance> --sortie <couverture.json>   # bloc source.inventaire
+node scripts/traduire-modele-semantique.mjs --modele fixtures/modele-semantique-dax-verte \
+     --resolution-dax --sortie <resolution.json>   # forge-data/resolution-dax@1, contrat de résolution nommé
 ```
 
 ## Le verbe projeter-evolutions (TF-0937, 08/09/2026) — la première question d'une équipe data

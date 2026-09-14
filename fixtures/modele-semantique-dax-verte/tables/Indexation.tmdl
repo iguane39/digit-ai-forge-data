@@ -1,0 +1,14 @@
+table Indexation
+	column Id_indexation
+		dataType: int64
+		isKey
+
+	column Val_indice_indexation
+		dataType: decimal
+
+	measure 'Indexation Indice' = SUM(Indexation[VAL_INDICE_INDEXATION])
+		formatString: #,0.00
+
+	partition Indexation = m
+		mode: import
+		source = "gold.dim_indexation"
