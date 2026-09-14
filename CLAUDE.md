@@ -335,6 +335,28 @@ node oracles/oracle-evoluer.mjs fixtures/evolutions-verte.json
 node oracles/oracle-evoluer.mjs fixtures/evolutions-provenance-verte.json --catalogue <catalogue.json>
 ```
 
+## Le verbe rapprocher (TF-0975, 14/09/2026) — la seule preuve EXTERNE qu'une cible vise juste
+
+`oracle-couvrir` compare un mapping à l'inventaire de SA SOURCE (l'amont) ; `oracle-reconcilier`
+compare deux lots de VALEURS déjà identifiées, sous tolérance. Ce qu'un client remet quand on
+lui demande à quoi ressemble le rapport est un EXPORT — des intitulés et des lignes — et rien
+ne rapprochait un modèle de reconstruction de cette pièce EXTERNE. Mesure réelle : 60 en-têtes
+d'un tableau livré et 60 colonnes d'un export correspondent un pour un, au même rang, zéro
+orphelin dans les deux sens ; 60/66 colonnes du modèle portées par l'extrait, 6 motivées.
+
+`oracle-rapprocher.mjs <rapprochement.json>` juge le format `forge-data/rapprochement@1` —
+RA1 (forme) ; **RA2** bijection dans les DEUX SENS (tout intitulé de l'extrait est apparié ou
+déclaré en écart, tout objet du modèle est apparié ou déclaré absent — un défaut sans verdict
+est un OUBLI) ; **RA3** un dictionnaire de concepts déclaré n'invente rien (chaque `cote_modele`
+et `cote_extrait` doit exister dans sa source) ; **RA4** chaque objet du modèle absent de
+l'extrait porte son `motif` (≥ 4 mots, convention CV4) ET le `visuel` qui l'explique. Le
+verbe qui lit l'export lui-même appartient à `scripts/isoler-lignes-non-donnees.mjs` (TF-0976,
+en amont) ; celui qui juge la valeur au grain fin à `oracle-reconcilier`.
+
+```bash
+node oracles/oracle-rapprocher.mjs fixtures/rapprochement-verte.json
+```
+
 ## Le verbe isoler-lignes-non-donnees (TF-0976, 14/09/2026) — le pied d'un export est une DONNÉE
 
 Mesure : sur trois feuilles d'un export, la lecture naïve comptait 21 559/21 719/14 121 lignes
@@ -349,8 +371,8 @@ CSV et ISOLE, en balayant depuis la FIN du fichier, trois types de lignes non-do
 sorties : `lignes` (les données) et `contexte_de_l_extrait` (les prédicats décomposés du pied,
 `null` si aucun pied n'a été trouvé, jamais inventé). Générateur, pas un oracle ; format produit
 `forge-data/extrait-isole@1`. Un extrait dont le contexte n'est pas déclaré est de PORTÉE
-INCONNUE — règle de contrat destinée au futur oracle qui rapprochera un extrait d'un modèle
-(TF-0975) quand cet extrait sert de référence ; ce verbe-ci ne juge rien, il isole et rend.
+INCONNUE — règle de contrat pour `oracle-rapprocher.mjs` (TF-0975, ci-dessus) quand cet extrait
+lui sert de référence ; ce verbe-ci ne juge rien, il isole et rend.
 Preuve en boucle : `oracles/self-test.mjs` sur `fixtures/extrait-pied-{verte,rouge}.csv`.
 
 ```bash

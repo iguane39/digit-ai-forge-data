@@ -67,6 +67,10 @@ const CAS = [
   // restituer R7 : un rapport de mapping qui pointe une mesure de couverture existante PASSE ;
   // celui qui se dit exhaustif en pointant le vide ÉCHOUE — sur R7 et sur R7 seulement.
   { oracle: "oracle-restituer.mjs", verte: "rapport-couverture-verte.md", rouge: "rapport-couverture-rouge.md", regles: ["R7"] },
+  // rapprocher (TF-0975, 14/09) : la rouge porte un intitulé d'extrait ni apparié ni déclaré en
+  // écart (RA2), un concept de dictionnaire qui cite un intitulé absent des deux sources (RA3),
+  // et une absence sans motif écrit ni visuel (RA4, deux findings).
+  { oracle: "oracle-rapprocher.mjs", verte: "rapprochement-verte.json", rouge: "rapprochement-rouge.json", regles: ["RA2", "RA3", "RA4"] },
 ];
 
 console.log("SELF-TEST forge-data — discipline aux niveaux des 4 barres (fixtures synthétiques)\n");

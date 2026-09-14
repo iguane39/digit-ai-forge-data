@@ -1,0 +1,27 @@
+{
+  "format": "forge-data/rapprochement@1",
+  "id": "rapprochement_gold_ventes_extrait_2026_09",
+  "modele": {
+    "nom": "gold_ventes (modele de reconstruction)",
+    "objets": ["vente.montant_ht", "vente.quantite", "vente.marge_brute", "vente.cout_revient"]
+  },
+  "extrait": {
+    "nom": "export_rapport_client_2026_09.csv",
+    "intitules": ["montant_ht", "quantite", "Marge (%)", "Intitule Sans Modele", "Colonne Fantome"]
+  },
+  "dictionnaire": [
+    { "concept": "taux_marge", "cote_modele": "vente.marge_brute", "cote_extrait": "Marge (%)" },
+    { "concept": "concept_invente", "cote_modele": "vente.montant_ht", "cote_extrait": "N'existe Pas Dans Extrait" }
+  ],
+  "correspondances": [
+    { "objet_modele": "vente.montant_ht", "intitule_extrait": "montant_ht", "via": "litteral" },
+    { "objet_modele": "vente.quantite", "intitule_extrait": "quantite", "via": "litteral" },
+    { "objet_modele": "vente.marge_brute", "intitule_extrait": "Marge (%)", "via": "dictionnaire", "concept": "taux_marge" }
+  ],
+  "ecarts_extrait": [
+    { "intitule": "Intitule Sans Modele", "motif": "colonne calculee cote client, absente du modele source" }
+  ],
+  "absents_extrait": [
+    { "objet_modele": "vente.cout_revient", "motif": "trop technique", "visuel": "" }
+  ]
+}
