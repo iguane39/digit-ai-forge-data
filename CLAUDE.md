@@ -55,6 +55,23 @@ Formats maison : `forge-data/assertions@1`, `forge-data/lineage@1`, `forge-data/
 (spécifiés en tête des oracles ; exemples = fixtures vertes). Un rapport porte un
 frontmatter `chiffres:` + `lineage_ref:` et des marqueurs `[c:<id>]` dans le corps.
 
+## Le contrôle verifier-unites-parquet (TF-1065, 14/09/2026) — le type ÉCRIT, jamais relu par le même moteur
+
+Fait mesuré (Produit-62, 11/09/2026) : fastparquet transcrit `datetime64[ns]` en
+`TIMESTAMP(NANOS)`, que Databricks refuse à la lecture (`[PARQUET_TYPE_ILLEGAL]`, SQLSTATE
+42846) — 7/27 tables concernées. Une recette d'export qui relit son fichier avec le MÊME
+moteur d'écriture le trouve toujours lisible et rend PASS : le défaut n'est visible qu'en
+lisant le TYPE PHYSIQUE écrit, jamais par relecture croisée avec le même outil.
+`scripts/verifier_unites_parquet.py <fichier.parquet>` MESURE le moteur disponible
+(pyarrow sinon fastparquet — aucun n'est une dépendance nouvelle payante, R-29) et REFUSE
+toute colonne temporelle en nanoseconde. Table des unités admises par destination :
+`references/REX-DATA.md`, pattern X17 (une seule ligne mesurée à ce jour : Databricks).
+Preuve en boucle, fichiers Parquet générés à la volée (aucune donnée committée) :
+
+```bash
+python scripts/verifier_unites_parquet.py --self-test
+```
+
 ## Le verbe importer (TF-0139) — un générateur, pas un oracle
 
 `scripts/importer.mjs <schema.sql>` PRODUIT (il ne juge pas) un **brouillon** de

@@ -46,6 +46,7 @@ node scripts/traduire-unity-catalog.mjs fixtures/unity-catalog-api-verte.json --
 node scripts/traduire-modele-semantique.mjs --modele fixtures/modele-semantique-verte \
      --complement fixtures/complement-modele-verte.json --sortie <fichier.json>   # TMDL Power BI → modele-dimensionnel@1 (TF-0894)
 node oracles/self-test.mjs   # double sens : vertes PASS, rouges FAIL localisants + round-trips importer/traducteur
+python scripts/verifier_unites_parquet.py --self-test   # TF-1065 : type parquet écrit, refuse la nanoseconde (fixtures à la volée)
 ```
 
 ## Références
@@ -60,4 +61,7 @@ node oracles/self-test.mjs   # double sens : vertes PASS, rouges FAIL localisant
 
 ## Prérequis
 
-Node.js ≥ 18. Aucune dépendance externe. Fixtures synthétiques uniquement.
+Node.js ≥ 18 pour les oracles — aucune dépendance externe. Le contrôle Python
+`scripts/verifier_unites_parquet.py` (TF-1065) requiert, au choix, pyarrow ou fastparquet —
+déjà présents chez le produit visé, jamais installés par la forge ; sans l'un des deux,
+il rend `SKIP` et le dit. Fixtures synthétiques uniquement.
