@@ -1,0 +1,22 @@
+{
+  "format": "forge-data/lineage@1",
+  "artefact": "gold_ventes_perimetre_servi",
+  "entrees": [
+    { "dataset": "brut.exports_pgi", "date": "2026-08-01" }
+  ],
+  "transformations": [
+    { "etape": "reduction_perimetre_servi", "type": "declaratif" }
+  ],
+  "sorties": [
+    { "dataset": "servi.gold_ventes" }
+  ],
+  "horodatage": "2026-08-11T08:00:00Z",
+  "confiance": {
+    "niveau": 1,
+    "methode": "mapping specs recoupé avec le code de transformation (statique)"
+  },
+  "cibles": [
+    { "table": "dim_date", "colonnes": ["annee", "trimestre", "mois", "jour"], "granularite": "jour" },
+    { "table": "dim_pays", "entier": true, "motif": "toutes les colonnes de dim_pays sont mobilisées par les visuels du rapport" }
+  ]
+}
