@@ -263,6 +263,29 @@ node scripts/traduire-modele-semantique.mjs --modele fixtures/modele-semantique-
      --inventaire --namespace <uri de l'instance> --sortie <couverture.json>   # bloc source.inventaire
 ```
 
+## Mode --resolution-references de traduire-modele-semantique (TF-0972, 14/09/2026)
+
+Mesure sur 160 mesures DAX d'un modèle réel (Produit-62, RD-10) : une comparaison SENSIBLE À
+LA CASSE perdait une référence de colonne (DAX est insensible à la casse) ; une résolution
+limitée à la table PORTEUSE ne remontait que 2 colonnes sur 8 pour une mesure qui en
+référençait une AUTRE, vivant dans une autre table. Effet cumulé, sans une seule erreur
+affichée : 42 colonnes lues au lieu de 45, 279 déclarées inutilisées au lieu de 276.
+
+`node scripts/traduire-modele-semantique.mjs --modele <dossier> --resolution-references
+[--sortie <fichier>]` expose une résolution NOMMÉE, contrat écrit : index insensible à la
+casse ; référence qualifiée (`Table[Ref]`) résolue dans SA table ; référence non qualifiée
+(`[Ref]`) cherchée D'ABORD dans la table porteuse, PUIS dans le reste du modèle (plusieurs
+candidats → AMBIGUË, aucun → NON RÉSOLUE) ; FERMETURE TRANSITIVE sur les mesures (une mesure
+qui n'en référence qu'une autre atteint quand même ses colonnes de base) ; un JOURNAL des
+non-résolues et des ambiguës rendu AVEC le résultat, jamais à part. Limite déclarée : seule
+la première ligne de l'expression DAX est lue (comme pour l'agrégation dérivée). Preuve en
+boucle sur `fixtures/modele-resolution-verte/` (casse, référence croisée, fermeture
+transitive, ambiguïté, référence perdue — les cinq cas dans un même modèle).
+
+```bash
+node scripts/traduire-modele-semantique.mjs --modele fixtures/modele-resolution-verte --resolution-references
+```
+
 ## Le verbe projeter-evolutions (TF-0937, 08/09/2026) — la première question d'une équipe data
 
 `lineage@1` porte les sorties proposées et les transformations. Il ne porte pas la vue **colonne

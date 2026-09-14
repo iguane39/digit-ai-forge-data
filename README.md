@@ -45,6 +45,8 @@ node scripts/traduire-unity-catalog.mjs fixtures/unity-catalog-verte.json --sort
 node scripts/traduire-unity-catalog.mjs fixtures/unity-catalog-api-verte.json --sortie <fichier.json>  # voie API lineage-tracking, grain table (TF-0893)
 node scripts/traduire-modele-semantique.mjs --modele fixtures/modele-semantique-verte \
      --complement fixtures/complement-modele-verte.json --sortie <fichier.json>   # TMDL Power BI → modele-dimensionnel@1 (TF-0894)
+node scripts/traduire-modele-semantique.mjs --modele fixtures/modele-resolution-verte \
+     --resolution-references   # casse, ordre de résolution, fermeture transitive sur les mesures DAX (TF-0972)
 node oracles/oracle-rapprocher.mjs fixtures/rapprochement-verte.json        # RA1-RA4, rapprochement modèle ↔ extrait externe (TF-0975)
 node scripts/isoler-lignes-non-donnees.mjs fixtures/extrait-pied-verte.csv   # TF-0976 : pied « Filtres appliqués » isolé, deux sorties
 node oracles/self-test.mjs   # double sens : vertes PASS, rouges FAIL localisants + round-trips importer/traducteur

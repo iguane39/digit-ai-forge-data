@@ -64,6 +64,8 @@
 //         [--sortie <fichier>] [--sortie-dir <dossier>] [--json-only]
 //         node scripts/traduire-modele-semantique.mjs --modele <dossier> --inventaire
 //         [--namespace <uri de l'instance>] [--date AAAA-MM-JJ] [--sortie <fichier>]
+//         node scripts/traduire-modele-semantique.mjs --modele <dossier> --resolution-references
+//         [--sortie <fichier>]   # TF-0972 : résolution NOMMÉE des références DAX
 // Codes : 0 brouillon produit ; 1 échec d'écriture disque ; 2 entrée absente/illisible/
 // incohérente (aucune table, aucune relation, orientation indécidable) — jamais un modèle inventé.
 import fs from "node:fs";
@@ -221,6 +223,117 @@ if (args.includes("--inventaire") || args.includes("--couverture")) {
     statut: "brouillon",
     fichier_produit: cible,
   });
+}
+
+// ---------- Mode --resolution-references (TF-0972) : résolution NOMMÉE des références DAX -------
+// Mesure sur les 160 mesures DAX d'un modèle réel (Produit-62, RD-10, ledger seq 63-65) :
+// (1) LA CASSE — DAX est insensible à la casse ; une comparaison sensible perd la référence
+//     (« Indexation Indice » ne lisait plus aucune colonne d'indice) ;
+// (2) LES RÉFÉRENCES NON QUALIFIÉES — [Ref] cherchée SEULEMENT dans la table porteuse s'arrête
+//     trop tôt quand la mesure visée vit dans une AUTRE table (« EFFORT RATE (AR) » ne
+//     remontait que 2 colonnes sur 8 attendues).
+// Effet cumulé avant correction : 42 colonnes lues au lieu de 45, 279 colonnes déclarées
+// inutilisées au lieu de 276 — un SOUS-COMPTAGE SILENCIEUX, sans une seule erreur affichée.
+//
+// LE CONTRAT (celui que ce mode expose, et qu'aucun outil de la forge ne prononçait) :
+//   - index insensible à la casse sur les noms de table, de colonne et de mesure ;
+//   - une référence QUALIFIÉE (`Table[Ref]` ou `'Table Name'[Ref]`) se résout dans CETTE
+//     table (colonne, puis mesure) ; table inconnue ou référence absente → NON RÉSOLUE ;
+//   - une référence NON QUALIFIÉE (`[Ref]`) se cherche D'ABORD dans la table PORTEUSE de la
+//     mesure (colonne, puis mesure), PUIS dans le reste du modèle si elle n'y est pas ;
+//     trouvée dans plusieurs autres tables → AMBIGUË (candidats nommés) ; nulle part →
+//     NON RÉSOLUE ;
+//   - FERMETURE TRANSITIVE : une référence résolue vers une MESURE fait suivre la résolution
+//     dans les références DE CETTE MESURE, jusqu'à n'obtenir que des colonnes — sans elle,
+//     une mesure qui n'appelle que d'autres mesures seurait comptée comme n'atteignant AUCUNE
+//     colonne (protection anti-cycle : une mesure déjà visitée ne se revisite pas) ;
+//   - un JOURNAL des références non résolues et ambiguës est rendu AVEC le résultat, jamais
+//     à part — c'est ce zéro (ou ce compte) qui rend le relevé opposable.
+// Limite déclarée (non_juge) : seule la PREMIÈRE ligne de l'expression DAX d'une mesure est
+// lue (comme pour l'agrégation dérivée, cf. en-tête de ce verbe) — une expression repliée sur
+// plusieurs lignes n'est pas résolue au-delà de sa première ligne.
+if (args.includes("--resolution-references")) {
+  const tableParNomBas = new Map();
+  for (const nom of tables.keys()) tableParNomBas.set(nom.toLowerCase(), nom);
+  const REF = /(?:'([^']+)'|([A-Za-z_]\w*))?\[([^\]]+)\]/g;
+
+  const resoudreDans = (nomTable, refBas) => {
+    const t = tables.get(nomTable);
+    if (!t) return null;
+    const col = t.colonnes.find(c => c.nom.toLowerCase() === refBas);
+    if (col) return { table: nomTable, objet: col.nom, type: "colonne" };
+    const mes = t.mesures.find(m => m.nom.toLowerCase() === refBas);
+    if (mes) return { table: nomTable, objet: mes.nom, type: "mesure" };
+    return null;
+  };
+
+  const resoudreReference = (tableQualifiee, refBrut, tablePorteuse) => {
+    const refBas = refBrut.toLowerCase();
+    if (tableQualifiee) {
+      const nomReel = tableParNomBas.get(tableQualifiee.toLowerCase());
+      if (!nomReel) return { statut: "non_resolue", motif: `table « ${tableQualifiee} » inconnue du modèle` };
+      const r = resoudreDans(nomReel, refBas);
+      return r ? { statut: "resolue", ...r } : { statut: "non_resolue", motif: `« ${refBrut} » absente de la table « ${nomReel} »` };
+    }
+    const local = resoudreDans(tablePorteuse, refBas);
+    if (local) return { statut: "resolue", ...local };
+    const candidats = [...tables.keys()].filter(n => n !== tablePorteuse).map(n => resoudreDans(n, refBas)).filter(Boolean);
+    if (candidats.length === 1) return { statut: "resolue", ...candidats[0] };
+    if (candidats.length > 1) return { statut: "ambigue", motif: `« ${refBrut} » trouvée dans ${candidats.length} tables : ${candidats.map(c => c.table).join(", ")}`, candidats };
+    return { statut: "non_resolue", motif: `« ${refBrut} » absente de la table porteuse « ${tablePorteuse} » et du reste du modèle` };
+  };
+
+  const mesuresParCle = new Map();
+  for (const [nomTable, t] of tables) for (const m of t.mesures) {
+    const refs = [];
+    let match;
+    const re = new RegExp(REF.source, "g");
+    while ((match = re.exec(m.dax || "")) !== null) {
+      const tableQualifiee = match[1] || match[2] || null;
+      const refBrut = match[3];
+      refs.push({ brut: `${tableQualifiee || ""}[${refBrut}]`, resolution: resoudreReference(tableQualifiee, refBrut, nomTable) });
+    }
+    mesuresParCle.set(`${nomTable}[${m.nom}]`, { table: nomTable, nom: m.nom, dax: m.dax || "", references: refs });
+  }
+
+  const colonnesAtteintes = (cle, vus = new Set()) => {
+    if (vus.has(cle)) return [];
+    vus.add(cle);
+    const m = mesuresParCle.get(cle);
+    if (!m) return [];
+    const out = [];
+    for (const r of m.references) {
+      if (r.resolution.statut !== "resolue") continue;
+      if (r.resolution.type === "colonne") out.push(`${r.resolution.table}.${r.resolution.objet}`);
+      else out.push(...colonnesAtteintes(`${r.resolution.table}[${r.resolution.objet}]`, vus));
+    }
+    return [...new Set(out)];
+  };
+
+  const mesures = [];
+  const nonResolues = [], ambigues = [];
+  let totalRefs = 0, totalResolues = 0;
+  for (const [cle, m] of mesuresParCle) {
+    totalRefs += m.references.length;
+    for (const r of m.references) {
+      if (r.resolution.statut === "resolue") totalResolues++;
+      else if (r.resolution.statut === "ambigue") ambigues.push({ mesure: cle, reference: r.brut, motif: r.resolution.motif });
+      else nonResolues.push({ mesure: cle, reference: r.brut, motif: r.resolution.motif });
+    }
+    mesures.push({ mesure: cle, dax: m.dax, references: m.references.map(r => ({ reference: r.brut, resolution: r.resolution })), colonnes_atteintes: colonnesAtteintes(cle) });
+  }
+  const taux = totalRefs ? Math.round((totalResolues / totalRefs) * 1000) / 10 : 100;
+  const doc = {
+    format: "forge-data/resolution-references@1",
+    id: `resolution_${idModele}`,
+    modele: idModele,
+    mesures,
+    journal: { non_resolues: nonResolues, ambigues },
+    compte: { references: totalRefs, resolues: totalResolues, non_resolues: nonResolues.length, ambigues: ambigues.length, taux_resolution: taux },
+  };
+  let cible = sortieArg;
+  if (cible) { try { fs.writeFileSync(cible, JSON.stringify(doc, null, 2) + "\n"); } catch (e) { sortir("ECHEC", 1, { erreur: `écriture impossible : ${e.message}` }); } }
+  sortir("OK", 0, { compte: doc.compte, fichier_produit: cible || null, document: cible ? undefined : doc });
 }
 
 const refDe = ref => { const m = String(ref || "").match(/^('([^']+)'|[^.]+)\.(.+)$/); return m ? { table: nomDe(m[1]), colonne: nomDe(m[3]) } : null; };

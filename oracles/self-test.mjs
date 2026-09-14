@@ -853,5 +853,41 @@ console.log(String.fromCharCode(10) + "isoler-lignes-non-donnees (TF-0976) — p
     `isoler-lignes-non-donnees · rouge (en-tête seul) : refus propre (exit 2), aucun extrait inventé — obtenu sortie=${r.r.sortie}`);
 }
 
+// ---- traduire-modele-semantique --resolution-references (TF-0972, 14/09/2026) : une resolution
+// NOMMEE, insensible a la casse, table porteuse puis modele entier, fermeture transitive ----
+// Mesure reelle (Produit-62, RD-10) : une comparaison sensible a la casse perdait une reference
+// de colonne d'indice ; une recherche limitee a la table porteuse ne remontait que 2 colonnes
+// sur 8 pour une mesure qui en referencait une autre, VIVANT DANS UNE AUTRE TABLE.
+console.log(String.fromCharCode(10) + "traduire-modele-semantique --resolution-references (TF-0972) — casse, ordre de recherche, fermeture transitive" + String.fromCharCode(10));
+{
+  const r = lanceScript("traduire-modele-semantique.mjs", ["--modele", fx("modele-resolution-verte"), "--resolution-references"]);
+  ok(r.exit === 0 && r.r.sortie === "OK", "--resolution-references · fixture verte produit un relevé (exit 0)");
+  ok(r.r.compte.references === 5 && r.r.compte.resolues === 3 && r.r.compte.non_resolues === 1 && r.r.compte.ambigues === 1,
+    `--resolution-references · les 5 références du modèle sont classées SANS reste (3 résolues, 1 ambiguë, 1 non résolue) — obtenu ${JSON.stringify(r.r.compte)}`);
+  const doc = r.r.document;
+  const mesure = cle => doc.mesures.find(m => m.mesure === cle);
+  ok(mesure("Indexation[Indexation Indice]").references[0].resolution.statut === "resolue" &&
+     mesure("Indexation[Indexation Indice]").references[0].resolution.objet === "Val_indice_indexation",
+    "--resolution-references · CASSE : « Indexation[VAL_INDICE_INDEXATION] » se résout sur la colonne « Val_indice_indexation » — un index sensible à la casse perdait cette référence (RD-10)");
+  ok(mesure("Certified_Turnover[AR1]").references[0].resolution.statut === "resolue" &&
+     mesure("Certified_Turnover[AR1]").references[0].resolution.table === "Invoiced_Rent" &&
+     mesure("Certified_Turnover[AR1]").references[0].resolution.type === "mesure",
+    "--resolution-references · RÉFÉRENCE NON QUALIFIÉE : « [Invoiced Rent N_] », absente de sa table porteuse, est résolue dans le RESTE DU MODÈLE (mesure d'une autre table) — l'ordre de résolution qui manquait au calcul manuel");
+  ok(JSON.stringify(mesure("Certified_Turnover[AR1]").colonnes_atteintes) === JSON.stringify(["Invoiced_Rent.Montant"]),
+    `--resolution-references · FERMETURE TRANSITIVE : AR1 ne référence qu'une MESURE, et atteint pourtant sa colonne de base (Invoiced_Rent.Montant) — obtenu ${JSON.stringify(mesure("Certified_Turnover[AR1]").colonnes_atteintes)}`);
+  ok(mesure("Certified_Turnover[Mesure Ambigue]").references[0].resolution.statut === "ambigue" &&
+     mesure("Certified_Turnover[Mesure Ambigue]").references[0].resolution.candidats.length === 2,
+    "--resolution-references · AMBIGUÏTÉ : « [Devise] », absente de sa table porteuse et présente dans DEUX autres tables, est déclarée AMBIGUË avec ses candidats nommés — jamais résolue au hasard");
+  ok(doc.journal.non_resolues.length === 1 && doc.journal.non_resolues[0].reference === "[Champ_Inexistant]" &&
+     doc.journal.ambigues.length === 1,
+    "--resolution-references · le JOURNAL porte les non-résolues ET les ambiguës, nommées, à côté du résultat — jamais un compte seul");
+
+  const videResol = fs.mkdtempSync(path.join(os.tmpdir(), "forge-data-resolution-vide-"));
+  const rr = lanceScript("traduire-modele-semantique.mjs", ["--modele", videResol, "--resolution-references"]);
+  ok(rr.exit === 2 && rr.r.sortie === "ECHEC" && !rr.r.document,
+    "--resolution-references · rouge : dossier sans fichier TMDL → refus propre (exit 2), aucune résolution inventée");
+  fs.rmSync(videResol, { recursive: true, force: true });
+}
+
 console.log(`\nSelf-test forge-data : ${pass} PASS, ${echec} FAIL`);
 process.exit(echec ? 1 : 0);
