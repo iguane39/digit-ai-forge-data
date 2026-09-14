@@ -1,0 +1,20 @@
+{
+  "format": "forge-data/rapprochement@1",
+  "id": "rapprochement_fixture_rouge",
+  "modele": {
+    "nom": "modele_test",
+    "objets": ["A.x", "A.y", "B[Z]"]
+  },
+  "extrait": {
+    "nom": "export_test.csv",
+    "intitules": ["A.x", "Libellé Y"]
+  },
+  "dictionnaire": [
+    { "intitule_extrait": "Libellé Y", "objet_modele": "A.y", "motif": "correspondance testée par la fixture rouge du contrat écrit" },
+    { "intitule_extrait": "Fantome", "objet_modele": "C.inexistant", "motif": "entrée fictive pour tester le refus des inventions" }
+  ],
+  "absences_modele": [
+    { "objet": "A.x", "motif": "absence declarant a tort un objet deja rapproche par ailleurs", "visuel": "visuel bidon pour le test" }
+  ],
+  "taux_declare": 100
+}

@@ -67,6 +67,10 @@ const CAS = [
   // restituer R7 : un rapport de mapping qui pointe une mesure de couverture existante PASSE ;
   // celui qui se dit exhaustif en pointant le vide ÉCHOUE — sur R7 et sur R7 seulement.
   { oracle: "oracle-restituer.mjs", verte: "rapport-couverture-verte.md", rouge: "rapport-couverture-rouge.md", regles: ["R7"] },
+  // rapprocher (TF-0975, 14/09) : la rouge porte une entrée de dictionnaire qui invente son
+  // intitulé ET son objet, un objet du modèle à la fois rapproché et déclaré absent, un objet
+  // du modèle ni rapproché ni déclaré absent, et un taux déclaré à 100 % qui en vaut 50.
+  { oracle: "oracle-rapprocher.mjs", verte: "rapprochement-verte.json", rouge: "rapprochement-rouge.json", regles: ["RP3", "RP4", "RP7"] },
 ];
 
 console.log("SELF-TEST forge-data — discipline aux niveaux des 4 barres (fixtures synthétiques)\n");
@@ -80,6 +84,24 @@ for (const cas of CAS) {
   ok(!manquantes.length, `${cas.oracle} · règles déclenchées ${cas.regles.join(",")}${manquantes.length ? " — manquantes : " + manquantes.join(",") : ""}`);
   ok((r.r.findings || []).every(f => f.where && f.msg), `${cas.oracle} · findings localisants`);
   ok(Array.isArray(r.r.non_juge) && r.r.non_juge.length > 0, `${cas.oracle} · non_juge déclaré`);
+}
+
+// ---- RP6 : écarts côté extrait, TOUJOURS informationnels (TF-0975) ----
+// RP6 n'apparaît pas dans les règles bloquantes ci-dessus par construction : c'est le sens qui
+// compte, et sans cette branche il ne serait joué par personne. Un intitulé de l'extrait sans
+// équivalent au modèle est une DÉCOUVERTE (« écart de plein droit »), jamais une raison de FAIL —
+// aussi bien sur la verte (1 écart) que sur la rouge (1 écart, pour une raison différente : la
+// contradiction RP4 y retire « A.x » de son statut rapproché).
+console.log(String.fromCharCode(10) + "RP6 (TF-0975) — écarts côté extrait, toujours informationnels" + String.fromCharCode(10));
+{
+  const v = lance("oracle-rapprocher.mjs", fx("rapprochement-verte.json")).r;
+  const rp6v = (v.findings || []).filter(f => f.regle === "RP6");
+  ok(rp6v.length === 1 && rp6v[0].sev === "info" && /Segment client/.test(rp6v[0].msg),
+    `RP6 · verte : 1 écart côté extrait NOMMÉ, en info — obtenu ${JSON.stringify(rp6v)}`);
+  const r = lance("oracle-rapprocher.mjs", fx("rapprochement-rouge.json")).r;
+  const rp6r = (r.findings || []).filter(f => f.regle === "RP6");
+  ok(rp6r.length === 1 && rp6r[0].sev === "info",
+    `RP6 · rouge : l'écart côté extrait reste en INFO même quand le document FAIL par ailleurs (RP3/RP4/RP7) — obtenu ${JSON.stringify(rp6r)}`);
 }
 
 // ---- R5 : couverture des nombres de prose, DEUX SENS (TF-0378) ----

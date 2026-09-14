@@ -39,6 +39,7 @@ node oracles/oracle-contractualiser.mjs <contrat.json>    # C1-C5 : schéma + SL
 node oracles/oracle-couvrir.mjs <couverture.json>         # CV1-CV6 : mapping mesuré contre l'inventaire de sa source
 node oracles/oracle-evoluer.mjs <evolutions.json>         # EV1-EV7 : projection des évolutions d'une couche, provenance typée,
                                                           # comptes recalculés, arbre schéma › table › colonne
+node oracles/oracle-rapprocher.mjs <rapprochement.json>   # RP1-RP7 : modèle rapproché d'un EXTRAIT du rapport client, deux sens, dictionnaire déclaré
 node oracles/self-test.mjs                                 # double sens — à rejouer après toute modification
 ```
 
@@ -171,6 +172,29 @@ périmé, dans les deux cas le taux ment.
 
 ```bash
 node oracles/oracle-couvrir.mjs fixtures/couverture-verte.json
+```
+
+## Le verbe rapprocher (TF-0975, 14/09/2026) — la seule preuve EXTERNE qu'une reconstruction visera juste
+
+`oracle-couvrir` compare un mapping à l'inventaire de SA SOURCE (en amont) ; `oracle-reconcilier`
+compare deux lots de VALEURS sous tolérance (sa structure est en non_juge). Ni l'un ni l'autre ne
+rapproche un modèle de ce qu'un CLIENT remet quand on lui demande à quoi ressemble son rapport :
+un export, des intitulés et des lignes. Sans ce rapprochement, la cible d'une reconstruction reste
+une hypothèse argumentée ; avec lui, elle est prouvée contre une pièce du client (cas réel : 60/60
+en-têtes appariés un pour un, 60/66 colonnes du modèle portées par l'extrait, les 6 restantes
+chacune avec son motif).
+
+| Verbe | Discipline exigée | Barre | Oracle |
+|---|---|---|---|
+| **rapprocher** (TF-0975) | le rapprochement se lit dans les DEUX sens : tout objet du modèle est rapproché (littéral ou par un **dictionnaire de concepts déclaré**, jamais une ressemblance calculée) ou déclaré **absent avec motif et visuel** (sinon absent et oublié sont indiscernables) ; tout intitulé de l'extrait sans équivalent est un écart de plein droit, toujours informationnel | prolonge dbt-core (déclaré → généré) ; contrôle maison du produit demandeur | `oracle-rapprocher.mjs <rapprochement.json>` — RP1-RP7, format `forge-data/rapprochement@1` |
+
+Deux taux, même convention que `couvrir` : `taux.retenu` (rapprochés / objets − absences motivées)
+et `taux.brut` (rapprochés / objets). Un `taux_declare` est RECALCULÉ (RP7). Le dictionnaire est la
+SEULE voie pour une correspondance non littérale (RP3) : une entrée qui invente son intitulé ou son
+objet (absent des deux sources déclarées) est refusée.
+
+```bash
+node oracles/oracle-rapprocher.mjs fixtures/rapprochement-verte.json
 ```
 
 ## Le verbe traduire-modele-semantique (TF-0894, 08/09/2026) — la Pierre de Rosette se lit enfin

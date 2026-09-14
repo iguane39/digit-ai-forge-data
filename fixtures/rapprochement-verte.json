@@ -1,0 +1,20 @@
+{
+  "format": "forge-data/rapprochement@1",
+  "id": "rapprochement_rapport_ventes_2026",
+  "modele": {
+    "nom": "modele_semantique_ventes",
+    "objets": ["Ventes.montant_ht", "Ventes.quantite", "Ventes[Panier moyen]", "Client.segment"]
+  },
+  "extrait": {
+    "nom": "export_rapport_client.csv",
+    "intitules": ["Ventes.montant_ht", "Qté vendue", "Panier moyen (€)", "Segment client (info interne)"]
+  },
+  "dictionnaire": [
+    { "intitule_extrait": "Qté vendue", "objet_modele": "Ventes.quantite", "motif": "libellé commercial du rapport, pas le nom technique" },
+    { "intitule_extrait": "Panier moyen (€)", "objet_modele": "Ventes[Panier moyen]", "motif": "même mesure, la devise est ajoutée par le rapport" }
+  ],
+  "absences_modele": [
+    { "objet": "Client.segment", "motif": "colonne technique interne, jamais exposée dans un visuel du rapport client", "visuel": "aucun visuel — colonne absente de toute la mise en page" }
+  ],
+  "taux_declare": 100
+}
