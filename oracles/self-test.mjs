@@ -816,5 +816,38 @@ try {
   fs.rmSync(tmp4, { recursive: true, force: true });
 }
 
+// ---- isoler-lignes-non-donnees (TF-0976, 14/09/2026) : le pied « Filtres appliqués » est une
+// DONNÉE, pas un déchet — deux sorties (lignes, contexte_de_l_extrait), jamais une seule ----
+// Mesure réelle : lecture naïve 21 559 lignes contre 21 557 réelles (une ligne vide et un pied
+// par feuille), et le pied porte les prédicats qui disent que l'extrait est un instantané FILTRÉ.
+console.log(String.fromCharCode(10) + "isoler-lignes-non-donnees (TF-0976) — pied « Filtres appliqués » lu comme donnée, deux sorties" + String.fromCharCode(10));
+{
+  const v = lanceScript("isoler-lignes-non-donnees.mjs", [fx("extrait-pied-verte.csv")]);
+  ok(v.exit === 0 && v.r.sortie === "OK" && v.r.compte.lignes_lues === 4 && v.r.compte.lignes_donnees === 2,
+    `isoler-lignes-non-donnees · verte : 4 lignes lues, 2 lignes de DONNÉES (la ligne vide et le pied sont exclus) — obtenu ${JSON.stringify(v.r.compte)}`);
+  ok(v.r.compte.par_type.ligne_vide_terminale === 1 && v.r.compte.par_type.pied_filtres_appliques === 1,
+    "isoler-lignes-non-donnees · les DEUX lignes non-données sont typées (ligne_vide_terminale, pied_filtres_appliques), jamais confondues");
+  ok(!!v.r.contexte_de_l_extrait && v.r.contexte_de_l_extrait.predicats.length === 2 &&
+     v.r.contexte_de_l_extrait.predicats.some(p => p.champ === "Period" && p.predicat === "n'est pas nul") &&
+     v.r.contexte_de_l_extrait.predicats.some(p => p.champ === "Country_" && p.predicat === "n'est pas vide"),
+    `isoler-lignes-non-donnees · contexte_de_l_extrait NOMME les prédicats du pied (le champ ET la condition), pas seulement leur texte brut — obtenu ${JSON.stringify(v.r.contexte_de_l_extrait?.predicats)}`);
+  ok(v.r.document.lignes.length === 2 && v.r.document.lignes[0].Period === "202606" && v.r.document.lignes[0].Country_ === "FR",
+    "isoler-lignes-non-donnees · les lignes de données rendues sont bien celles d'AVANT le pied, avec l'en-tête pour clé");
+
+  const tmp5 = fs.mkdtempSync(path.join(os.tmpdir(), "forge-data-isoler-"));
+  const totauxCsv = path.join(tmp5, "totaux.csv");
+  fs.writeFileSync(totauxCsv, "Period,Montant" + String.fromCharCode(10) + "202606,1000" + String.fromCharCode(10) + "202606,2000" + String.fromCharCode(10) + "Total,3000" + String.fromCharCode(10));
+  const t = lanceScript("isoler-lignes-non-donnees.mjs", [totauxCsv]);
+  ok(t.exit === 0 && t.r.compte.lignes_donnees === 2 && t.r.compte.par_type.ligne_totaux === 1 && t.r.contexte_de_l_extrait === null,
+    `isoler-lignes-non-donnees · une ligne « Total » est exclue et TYPÉE ligne_totaux ; sans pied « Filtres appliqués », contexte_de_l_extrait reste null (jamais inventé) — obtenu ${JSON.stringify(t.r.compte)}`);
+  fs.rmSync(tmp5, { recursive: true, force: true });
+
+  // Rouge : un fichier réduit à son en-tête, sans aucune ligne de donnée. Refus propre — un
+  // fichier vide isolé rendrait 100 % de rien, exactement le silence que ce verbe corrige ailleurs.
+  const r = lanceScript("isoler-lignes-non-donnees.mjs", [fx("extrait-pied-rouge.csv")]);
+  ok(r.exit === 2 && r.r.sortie === "ECHEC" && !r.r.document,
+    `isoler-lignes-non-donnees · rouge (en-tête seul) : refus propre (exit 2), aucun extrait inventé — obtenu sortie=${r.r.sortie}`);
+}
+
 console.log(`\nSelf-test forge-data : ${pass} PASS, ${echec} FAIL`);
 process.exit(echec ? 1 : 0);

@@ -335,6 +335,28 @@ node oracles/oracle-evoluer.mjs fixtures/evolutions-verte.json
 node oracles/oracle-evoluer.mjs fixtures/evolutions-provenance-verte.json --catalogue <catalogue.json>
 ```
 
+## Le verbe isoler-lignes-non-donnees (TF-0976, 14/09/2026) — le pied d'un export est une DONNÉE
+
+Mesure : sur trois feuilles d'un export, la lecture naïve comptait 21 559/21 719/14 121 lignes
+contre 21 557/21 716/14 117 réelles — une ligne vide et un pied « Filtres appliqués » de Power
+BI par feuille, celui-ci atterrissant dans la PREMIÈRE colonne (les autres cellules de sa ligne
+restent vides), d'où une modalité fantôme sur tout dénombrement par cette colonne. Second effet,
+le plus coûteux à ignorer : ce pied est la SEULE trace que l'extrait est un instantané FILTRÉ.
+
+`scripts/isoler-lignes-non-donnees.mjs <extrait.csv> [--sortie <fichier.json>]` LIT un export
+CSV et ISOLE, en balayant depuis la FIN du fichier, trois types de lignes non-données —
+`ligne_vide_terminale`, `pied_filtres_appliques`, `ligne_totaux` — et rend TOUJOURS deux
+sorties : `lignes` (les données) et `contexte_de_l_extrait` (les prédicats décomposés du pied,
+`null` si aucun pied n'a été trouvé, jamais inventé). Générateur, pas un oracle ; format produit
+`forge-data/extrait-isole@1`. Un extrait dont le contexte n'est pas déclaré est de PORTÉE
+INCONNUE — règle de contrat destinée au futur oracle qui rapprochera un extrait d'un modèle
+(TF-0975) quand cet extrait sert de référence ; ce verbe-ci ne juge rien, il isole et rend.
+Preuve en boucle : `oracles/self-test.mjs` sur `fixtures/extrait-pied-{verte,rouge}.csv`.
+
+```bash
+node scripts/isoler-lignes-non-donnees.mjs fixtures/extrait-pied-verte.csv
+```
+
 ## Profils-moteur (TF-0140, `references\profils-moteur\`)
 
 Référentiels versionnés (loi n° 4, jamais du code) : dialecte de contraintes, mapping de
