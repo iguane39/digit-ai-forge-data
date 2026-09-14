@@ -1,0 +1,32 @@
+{
+  "format": "forge-data/resolution-dax@1",
+  "id": "modele-usage-test",
+  "mesures": [
+    {
+      "mesure": "Ventes[Panier moyen]",
+      "dax": "DIVIDE([Montant HT], [Commandes])",
+      "colonnes": ["Ventes.montant_ht", "Ventes.id_commande"],
+      "mesures_traversees": ["Ventes[Montant HT]", "Ventes[Commandes]"],
+      "references_non_resolues": [],
+      "references_ambigues": []
+    },
+    {
+      "mesure": "Ventes[Montant HT]",
+      "dax": "SUM(Ventes[montant_ht])",
+      "colonnes": ["Ventes.montant_ht"],
+      "mesures_traversees": [],
+      "references_non_resolues": [],
+      "references_ambigues": []
+    },
+    {
+      "mesure": "Ventes[Commandes]",
+      "dax": "DISTINCTCOUNT(Ventes[id_commande])",
+      "colonnes": ["Ventes.id_commande"],
+      "mesures_traversees": [],
+      "references_non_resolues": [],
+      "references_ambigues": []
+    }
+  ],
+  "compte": { "mesures": 3, "references_totales": 4, "resolues": 4, "non_resolues": 0, "ambigues": 0, "taux_resolution": 100 },
+  "origine": { "verbe": "traduire-modele-semantique", "mode": "resolution-dax", "source": "fixture", "fichiers_tmdl": 1 }
+}

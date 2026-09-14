@@ -40,6 +40,7 @@ node oracles/oracle-couvrir.mjs <couverture.json>         # CV1-CV6 : mapping me
 node oracles/oracle-evoluer.mjs <evolutions.json>         # EV1-EV7 : projection des évolutions d'une couche, provenance typée,
                                                           # comptes recalculés, arbre schéma › table › colonne
 node oracles/oracle-rapprocher.mjs <rapprochement.json>   # RP1-RP7 : modèle rapproché d'un EXTRAIT du rapport client, deux sens, dictionnaire déclaré
+node oracles/oracle-usage-restitution.mjs <usage.json>    # U1-U4 : cohérence structurelle d'un relevé d'usage (affichée/lue_par_mesure/jamais_lue)
 node oracles/self-test.mjs                                 # double sens — à rejouer après toute modification
 ```
 
@@ -195,6 +196,35 @@ objet (absent des deux sources déclarées) est refusée.
 
 ```bash
 node oracles/oracle-rapprocher.mjs fixtures/rapprochement-verte.json
+```
+
+## Le verbe mesurer-usage-restitution (TF-0971, 14/09/2026) — la couverture se mesure aussi contre l'ÉCRAN
+
+`oracle-couvrir` mesure une couverture contre l'INVENTAIRE de la source, jamais contre ce qui est
+effectivement à l'écran. Cas réel : sur 342 colonnes, 66 seulement étaient mobilisées par les 16
+visuels porteurs de données d'un rapport (21 projetées telles quelles, 45 lues par des mesures
+affichées) ; 276 ne l'étaient JAMAIS. Des 38 colonnes sans ligne de mapping, 20 étaient réellement
+mobilisées et 18 ne l'étaient pas — la dette bloquante était deux fois plus petite que celle que
+`oracle-couvrir` annonçait, et cet oracle ne peut structurellement pas le dire.
+
+| Verbe | Discipline exigée | Oracle |
+|---|---|---|
+| **mesurer-usage-restitution** (TF-0971) | trois populations de colonnes, jamais confondues : **affichée** (projetée telle quelle dans un visuel), **lue_par_mesure** (atteinte par la fermeture transitive d'une mesure affichée — compose avec `--resolution-dax`, TF-0972), **jamais_lue** ; le croisement avec `oracle-couvrir` (orphelins ∩ jamais_lue) est une intersection ensembliste laissée au consommateur, jamais dupliquée ici | `oracles/oracle-usage-restitution.mjs <usage.json>` — U1-U4, format `forge-data/usage-restitution@1` |
+
+`scripts/mesurer-usage-restitution.mjs --modele <inventaire.json> --resolution <resolution-dax.json>
+--rapport <dossier PBIR> --sortie <f.json>` COMPOSE deux artefacts déjà produits par cette forge —
+jamais un modèle re-parsé. **Format de mise en page lu, et limite dite** : un projet PBIR (Power BI
+Enhanced Report Format, JSON texte sous `definition/pages/**/visuals/**/visual.json`), scanné pour
+le champ `queryRef` (convention stable : chaque champ projeté dans un visuel le porte). Le binaire
+`.pbix` n'est **pas** lu (aucune dépendance externe dans ce dépôt, loi n° 4) ; un visuel qui
+n'émettrait pas `queryRef` (visuel tiers, format antérieur) échappe à la mesure — nommé en
+avertissement, jamais supposé absent. Une référence de mise en page inconnue du modèle fourni
+(table ou colonne hors périmètre) est NOMMÉE, jamais silencieusement ignorée.
+
+```bash
+node scripts/mesurer-usage-restitution.mjs --modele fixtures/usage-modele-verte.json \
+     --resolution fixtures/usage-resolution-dax-verte.json --rapport fixtures/rapport-pbir-verte --sortie <f.json>
+node oracles/oracle-usage-restitution.mjs fixtures/usage-restitution-verte.json
 ```
 
 ## Le verbe traduire-modele-semantique (TF-0894, 08/09/2026) — la Pierre de Rosette se lit enfin

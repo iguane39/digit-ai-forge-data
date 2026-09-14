@@ -1,0 +1,14 @@
+{
+  "format": "forge-data/usage-restitution@1",
+  "id": "usage_rapport_fixture_rouge",
+  "modele": { "objets_totaux": 9, "colonnes": 6, "mesures": 3 },
+  "rapport": { "source": "fixtures/rapport-pbir-rouge", "fichiers": 1, "references_lues": 2 },
+  "populations": {
+    "affichee": ["Ventes.quantite", "Ventes.date_sk"],
+    "lue_par_mesure": ["Ventes.montant_ht"],
+    "jamais_lue": ["Ventes.date_sk", "Client.segment", "Sans-Separateur"]
+  },
+  "mesures_affichees": ["Ventes[Panier moyen]"],
+  "references_non_resolues": [],
+  "compte": { "affichee": 1, "lue_par_mesure": 2, "jamais_lue": 3, "mesures_affichees": 1, "references_non_resolues": 0 }
+}

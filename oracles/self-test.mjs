@@ -71,6 +71,10 @@ const CAS = [
   // intitulé ET son objet, un objet du modèle à la fois rapproché et déclaré absent, un objet
   // du modèle ni rapproché ni déclaré absent, et un taux déclaré à 100 % qui en vaut 50.
   { oracle: "oracle-rapprocher.mjs", verte: "rapprochement-verte.json", rouge: "rapprochement-rouge.json", regles: ["RP3", "RP4", "RP7"] },
+  // usage-restitution (TF-0971, 14/09) : la rouge porte une colonne à la fois affichée et jamais
+  // lue (partition rompue), une entrée sans séparateur table.membre, et deux comptes qui divergent
+  // de la liste qu'ils prétendent résumer.
+  { oracle: "oracle-usage-restitution.mjs", verte: "usage-restitution-verte.json", rouge: "usage-restitution-rouge.json", regles: ["U2", "U3", "U4"] },
 ];
 
 console.log("SELF-TEST forge-data — discipline aux niveaux des 4 barres (fixtures synthétiques)\n");
@@ -886,6 +890,46 @@ console.log(String.fromCharCode(10) + "isoler-contexte-extrait (TF-0976) — pie
       "isoler-contexte-extrait · sans pied : portée INCONNUE déclarée en avertissement, jamais supposée complète par défaut");
   } finally {
     fs.rmSync(tmp8, { recursive: true, force: true });
+  }
+}
+
+// ---- mesurer-usage-restitution (TF-0971, 14/09) — trois populations, jamais deux à la fois ----
+// La verte compose deux artefacts DÉJÀ produits par cette forge (un inventaire de modèle et une
+// résolution DAX, TF-0972) avec un projet PBIR synthétique à deux visuels : l'un affiche
+// directement « Ventes.quantite », l'autre affiche la mesure « Ventes[Panier moyen] » qui,
+// fermée transitivement, lit « Ventes.montant_ht » et « Ventes.id_commande » SANS les afficher
+// elles-mêmes. Le reste du modèle (3 colonnes) n'est JAMAIS lu. La rouge porte, dans le MÊME
+// projet, une référence vers une table inconnue du modèle fourni (« Fournisseur.nom »).
+console.log(String.fromCharCode(10) + "mesurer-usage-restitution (TF-0971) — trois populations : affichée, lue_par_mesure, jamais_lue" + String.fromCharCode(10));
+{
+  const tmp9 = fs.mkdtempSync(path.join(os.tmpdir(), "forge-data-usage-restitution-"));
+  try {
+    const pVerte = path.join(tmp9, "verte.json");
+    const v = lanceScript("mesurer-usage-restitution.mjs",
+      ["--modele", fx("usage-modele-verte.json"), "--resolution", fx("usage-resolution-dax-verte.json"), "--rapport", fx("rapport-pbir-verte"), "--sortie", pVerte]);
+    ok(v.exit === 0 && v.r.sortie === "OK", "mesurer-usage-restitution · verte : exit 0");
+    ok(v.r.compte && v.r.compte.affichee === 1 && v.r.compte.lue_par_mesure === 2 && v.r.compte.jamais_lue === 3 && v.r.compte.mesures_affichees === 1,
+      `mesurer-usage-restitution · verte : 1 affichée, 2 lues par mesure, 3 jamais lues, 1 mesure affichée — obtenu ${JSON.stringify(v.r.compte)}`);
+    const docV = JSON.parse(fs.readFileSync(pVerte, "utf8"));
+    ok(JSON.stringify(docV.populations.affichee) === JSON.stringify(["Ventes.quantite"]),
+      "mesurer-usage-restitution · verte : « Ventes.quantite » est AFFICHÉE (projetée telle quelle dans un visuel)");
+    ok(JSON.stringify(docV.populations.lue_par_mesure) === JSON.stringify(["Ventes.id_commande", "Ventes.montant_ht"]),
+      `mesurer-usage-restitution · verte : « Ventes.montant_ht » et « Ventes.id_commande » sont LUES PAR MESURE — jamais affichées elles-mêmes, atteintes par la fermeture transitive de « Ventes[Panier moyen] » — obtenu ${JSON.stringify(docV.populations.lue_par_mesure)}`);
+    ok(JSON.stringify(docV.populations.jamais_lue) === JSON.stringify(["Client.pays_facturation", "Client.segment", "Ventes.date_sk"]),
+      `mesurer-usage-restitution · verte : les 3 colonnes restantes du modèle sont JAMAIS LUES — obtenu ${JSON.stringify(docV.populations.jamais_lue)}`);
+    // Round-trip : la sortie du générateur PASSE l'oracle de cohérence structurelle sans retouche.
+    const ronde = lance("oracle-usage-restitution.mjs", pVerte);
+    ok(ronde.exit === 0 && ronde.r.verdict === "PASS", "mesurer-usage-restitution → oracle-usage-restitution : PASS sans retouche (round-trip)");
+
+    const pRouge = path.join(tmp9, "rouge.json");
+    const r = lanceScript("mesurer-usage-restitution.mjs",
+      ["--modele", fx("usage-modele-verte.json"), "--resolution", fx("usage-resolution-dax-verte.json"), "--rapport", fx("rapport-pbir-rouge"), "--sortie", pRouge]);
+    ok(r.exit === 0 && r.r.sortie === "OK", "mesurer-usage-restitution · rouge : une référence non résolue n'est pas une erreur d'exécution");
+    ok(r.r.compte && r.r.compte.references_non_resolues === 1, `mesurer-usage-restitution · rouge : 1 référence NON RÉSOLUE comptée — obtenu ${JSON.stringify(r.r.compte)}`);
+    ok((r.r.avertissements || []).some(a => /NON RÉSOLUE/.test(a) && /Fournisseur\.nom/.test(a)),
+      "mesurer-usage-restitution · rouge : « Fournisseur.nom », inconnue du modèle fourni, est NOMMÉE en avertissement — jamais silencieusement ignorée");
+  } finally {
+    fs.rmSync(tmp9, { recursive: true, force: true });
   }
 }
 

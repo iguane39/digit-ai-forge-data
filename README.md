@@ -40,6 +40,7 @@ node oracles/oracle-transformer.mjs fixtures/transformation-verte             # 
 node oracles/oracle-reconcilier.mjs fixtures/reconciliation-verte.json        # RC1-RC6, Gold ↔ modèle sémantique (TF-0864)
 node oracles/oracle-couvrir.mjs fixtures/couverture-verte.json                # CV1-CV6, mapping mesuré contre l'inventaire de sa source (TF-0911)
 node oracles/oracle-rapprocher.mjs fixtures/rapprochement-verte.json          # RP1-RP7, modèle rapproché d'un extrait du rapport client (TF-0975)
+node oracles/oracle-usage-restitution.mjs fixtures/usage-restitution-verte.json  # U1-U4, cohérence d'un relevé d'usage (TF-0971)
 node scripts/importer.mjs fixtures/schema-postgres-verte.sql --sortie-dir <dossier>
 node scripts/importer.mjs fixtures/schema-databricks-verte.sql --sortie-dir <dossier>   # dialecte Databricks (SHOW CREATE TABLE), TF-0858
 node scripts/traduire-unity-catalog.mjs fixtures/unity-catalog-verte.json --sortie <fichier.json>
@@ -47,6 +48,8 @@ node scripts/traduire-unity-catalog.mjs fixtures/unity-catalog-api-verte.json --
 node scripts/traduire-modele-semantique.mjs --modele fixtures/modele-semantique-verte \
      --complement fixtures/complement-modele-verte.json --sortie <fichier.json>   # TMDL Power BI → modele-dimensionnel@1 (TF-0894)
 node scripts/isoler-contexte-extrait.mjs fixtures/contexte-extrait-verte.csv --sortie <fichier.json>  # pied « Filtres appliqués », totaux, ligne vide (TF-0976)
+node scripts/mesurer-usage-restitution.mjs --modele fixtures/usage-modele-verte.json \
+     --resolution fixtures/usage-resolution-dax-verte.json --rapport fixtures/rapport-pbir-verte --sortie <f.json>  # affichée/lue_par_mesure/jamais_lue (TF-0971)
 node oracles/self-test.mjs   # double sens : vertes PASS, rouges FAIL localisants + round-trips importer/traducteur
 ```
 
