@@ -33,6 +33,9 @@ const CAS = [
   // d'antériorité de T7, où la règle ne rend qu'un `info`. Sans ces fixtures-là, la branche PASS
   // de T7 ne serait jouée par personne — et sa branche FAIL non plus.
   { oracle: "oracle-tracer.mjs", verte: "lineage-environnement-verte.json", rouge: "lineage-environnement-rouge.json", regles: ["T7"] },
+  // T8 (TF-0974, 14/09) : cibles structurées — la rouge porte une cible sans colonnes ni
+  // `entier: true`, une cible `entier: true` au motif trop court, et une cible sans table nommée.
+  { oracle: "oracle-tracer.mjs", verte: "lineage-cibles-verte.json", rouge: "lineage-cibles-rouge.json", regles: ["T8"] },
   { oracle: "oracle-restituer.mjs", verte: "rapport-verte.md", rouge: "rapport-rouge.md", regles: ["R2", "R3", "R4"] },
   { oracle: "oracle-contractualiser.mjs", verte: "contrat-verte.json", rouge: "contrat-rouge.json", regles: ["C2", "C3", "C4", "C5"] },
   // Lots L3, L4, L7 de l'étude d'opportunité du pilot (07/09/2026, mandat D-5 puis GO A-24 à A-26).

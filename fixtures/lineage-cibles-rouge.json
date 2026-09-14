@@ -1,0 +1,30 @@
+{
+  "_fait": "TF-0974 (14/09/2026). Même base que lineage-cibles-verte.json, cassée sur T8 et T8 seulement. Trois cibles fautives : (1) ni colonnes ni `entier: true` — le sur-périmètre mesuré (une table décrite en prose lue comme « table entière ») ; (2) `entier: true` mais motif de moins de 4 mots ; (3) table non nommée.",
+  "format": "forge-data/lineage@1",
+  "artefact": "perimetre_gold_servi",
+  "entrees": [
+    { "dataset": "silver.fact_lease_month", "date": "2026-08-01" },
+    { "dataset": "referentiel.pays", "date": "2026-07-15" }
+  ],
+  "transformations": [
+    { "etape": "reduction_perimetre", "type": "declaratif" }
+  ],
+  "sorties": [ { "dataset": "gold.fact_lease_month_servi" }, { "dataset": "gold.dim_pays" } ],
+  "horodatage": "2026-08-11T08:00:00Z",
+  "confiance": { "niveau": 2, "methode": "cibles rattachées à la main depuis la décision de périmètre, revues" },
+  "cibles": [
+    {
+      "table": "gold.dim_date",
+      "granularite": "jour"
+    },
+    {
+      "table": "gold.dim_marque",
+      "entier": true,
+      "motif": "table petite"
+    },
+    {
+      "table": "",
+      "colonnes": []
+    }
+  ]
+}
