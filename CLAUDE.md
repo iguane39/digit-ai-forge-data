@@ -315,6 +315,29 @@ node oracles/oracle-evoluer.mjs fixtures/evolutions-verte.json
 node oracles/oracle-evoluer.mjs fixtures/evolutions-provenance-verte.json --catalogue <catalogue.json>
 ```
 
+## Le verbe isoler-contexte-extrait (TF-0976, 14/09/2026) — le pied d'un export EST une donnée
+
+Sur les trois feuilles d'un classeur Power BI exporté, la lecture naïve comptait 21 559, 21 719 et
+14 121 lignes ; les données réelles sont 21 557, 21 716 et 14 117 — une ligne vide et une ligne de
+pied (« Filtres appliqués ») par feuille. Le pied atterrit dans la PREMIÈRE colonne (modalité
+fantôme), et il est en même temps la SEULE trace que l'extrait est un instantané filtré, pas
+complet.
+
+`scripts/isoler-contexte-extrait.mjs --fichier <export.csv> [--separateur <car>] [--sortie <f.json>]`
+LIT un export tabulaire délimité et rend DEUX populations, jamais une : les lignes de données
+(`forge-data/contexte-extrait@1`, champ `lignes`) et un objet `contexte_de_l_extrait` portant les
+prédicats `{champ, operateur, valeur}` lus au pied (jeu fermé `est`/`n_est_pas`/`n_est_pas_vide`/
+`n_est_pas_nul`/`non_reconnu` — une clause non reconnue est gardée avec son texte brut, jamais
+tue). Détecte aussi la ligne de totaux et la ligne vide terminale. Règle de contrat : sans pied
+détecté, `portee` vaut `"inconnue"` et le dit en avertissement — un extrait n'est jamais supposé
+complet par défaut. **Écart déclaré** : lit le CSV/TSV, pas le binaire `.xlsx` (aucune dépendance
+externe dans ce dépôt) — le même pied survit à l'export délimité du même rapport. Preuve en boucle
+(deux sens) sur `fixtures/contexte-extrait-{verte,rouge}.csv`.
+
+```bash
+node scripts/isoler-contexte-extrait.mjs --fichier fixtures/contexte-extrait-verte.csv --sortie <f.json>
+```
+
 ## Profils-moteur (TF-0140, `references\profils-moteur\`)
 
 Référentiels versionnés (loi n° 4, jamais du code) : dialecte de contraintes, mapping de

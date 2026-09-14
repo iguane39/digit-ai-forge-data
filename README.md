@@ -45,6 +45,7 @@ node scripts/traduire-unity-catalog.mjs fixtures/unity-catalog-verte.json --sort
 node scripts/traduire-unity-catalog.mjs fixtures/unity-catalog-api-verte.json --sortie <fichier.json>  # voie API lineage-tracking, grain table (TF-0893)
 node scripts/traduire-modele-semantique.mjs --modele fixtures/modele-semantique-verte \
      --complement fixtures/complement-modele-verte.json --sortie <fichier.json>   # TMDL Power BI → modele-dimensionnel@1 (TF-0894)
+node scripts/isoler-contexte-extrait.mjs fixtures/contexte-extrait-verte.csv --sortie <fichier.json>  # pied « Filtres appliqués », totaux, ligne vide (TF-0976)
 node oracles/self-test.mjs   # double sens : vertes PASS, rouges FAIL localisants + round-trips importer/traducteur
 ```
 

@@ -819,5 +819,53 @@ try {
   fs.rmSync(tmp7, { recursive: true, force: true });
 }
 
+// ---- isoler-contexte-extrait (TF-0976, 14/09) — pied « Filtres appliqués », totaux, vide ----
+// La verte porte le cas mesuré exactement : une ligne vide terminale puis un pied « Filtres
+// appliqués » dont les TROIS opérateurs cohabitent (est, n_est_pas, n_est_pas_vide). La rouge
+// ajoute une ligne de TOTAUX et une clause de pied NON RECONNUE, gardée et comptée plutôt que tue.
+console.log(String.fromCharCode(10) + "isoler-contexte-extrait (TF-0976) — pied « Filtres appliqués », totaux, ligne vide terminale" + String.fromCharCode(10));
+{
+  const tmp8 = fs.mkdtempSync(path.join(os.tmpdir(), "forge-data-contexte-extrait-"));
+  try {
+    const pVerte = path.join(tmp8, "verte.json");
+    const v = lanceScript("isoler-contexte-extrait.mjs", ["--fichier", fx("contexte-extrait-verte.csv"), "--sortie", pVerte]);
+    ok(v.exit === 0 && v.r.sortie === "OK", "isoler-contexte-extrait · verte : exit 0");
+    ok(v.r.compte && v.r.compte.lignes_donnees === 2 && v.r.compte.lignes_ecartees === 2 &&
+       v.r.compte.par_type.vide_terminale === 1 && v.r.compte.par_type.pied_filtres === 1,
+      `isoler-contexte-extrait · verte : 2 lignes de données, 1 vide terminale + 1 pied écartés — obtenu ${JSON.stringify(v.r.compte)}`);
+    ok(v.r.portee === "declaree", "isoler-contexte-extrait · verte : portée DÉCLARÉE (un pied a été lu)");
+    const docV = JSON.parse(fs.readFileSync(pVerte, "utf8"));
+    ok(docV.lignes.length === 2 && docV.lignes.every(l => Object.keys(l).length === 3),
+      "isoler-contexte-extrait · verte : les lignes de DONNÉES ne portent ni la ligne vide ni le pied — la modalité fantôme de la première colonne a disparu");
+    const preds = (docV.contexte_de_l_extrait || {}).predicats || [];
+    ok(preds.length === 3 &&
+       preds.some(p => p.champ === "Period" && p.operateur === "n_est_pas_nul" && p.valeur === null) &&
+       preds.some(p => p.champ === "Period" && p.operateur === "est" && p.valeur === "202606") &&
+       preds.some(p => p.champ === "Country_" && p.operateur === "n_est_pas_vide" && p.valeur === null),
+      `isoler-contexte-extrait · verte : les trois clauses du pied deviennent trois prédicats {champ, operateur, valeur} — obtenu ${JSON.stringify(preds)}`);
+
+    const pRouge = path.join(tmp8, "rouge.json");
+    const r = lanceScript("isoler-contexte-extrait.mjs", ["--fichier", fx("contexte-extrait-rouge.csv"), "--sortie", pRouge]);
+    ok(r.exit === 0 && r.r.sortie === "OK", "isoler-contexte-extrait · rouge : exit 0 (un défaut de lecture n'est pas une erreur d'exécution)");
+    ok(r.r.compte && r.r.compte.lignes_donnees === 2 && r.r.compte.par_type.ligne_totaux === 1,
+      `isoler-contexte-extrait · rouge : la ligne « Total » est écartée et NOMMÉE, pas comptée comme donnée — obtenu ${JSON.stringify(r.r.compte)}`);
+    ok((r.r.avertissements || []).some(a => /NON RECONNUE/.test(a) && /bizarre/.test(a)),
+      "isoler-contexte-extrait · rouge : la clause de pied non reconnue est GARDÉE et signalée, jamais tue en silence");
+    const docR = JSON.parse(fs.readFileSync(pRouge, "utf8"));
+    ok((docR.contexte_de_l_extrait.predicats || []).some(p => p.operateur === "non_reconnu" && p.brut === "Period fait bizarre 202606"),
+      "isoler-contexte-extrait · rouge : le prédicat non reconnu porte son texte BRUT, pas une interprétation devinée");
+
+    // Sens supplémentaire : SANS pied du tout, la portée reste INCONNUE et le dit — un extrait
+    // dont le contexte n'est pas déclaré n'est jamais supposé complet par défaut.
+    const pSansPied = path.join(tmp8, "sans-pied.csv");
+    fs.writeFileSync(pSansPied, "Period,Country_,Montant\n2026,FR,100\n2026,DE,200\n");
+    const s = lanceScript("isoler-contexte-extrait.mjs", ["--fichier", pSansPied]);
+    ok(s.exit === 0 && s.r.portee === "inconnue" && (s.r.avertissements || []).some(a => /PORTÉE.*INCONNUE/.test(a)),
+      "isoler-contexte-extrait · sans pied : portée INCONNUE déclarée en avertissement, jamais supposée complète par défaut");
+  } finally {
+    fs.rmSync(tmp8, { recursive: true, force: true });
+  }
+}
+
 console.log(`\nSelf-test forge-data : ${pass} PASS, ${echec} FAIL`);
 process.exit(echec ? 1 : 0);
