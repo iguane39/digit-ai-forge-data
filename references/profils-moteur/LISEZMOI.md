@@ -28,7 +28,7 @@
    Delta + Unity Catalog) — son apport distinctif est le lineage colonne natif d'Unity
    Catalog, couvert par un verbe séparé (`scripts/traduire-unity-catalog.mjs`, TF-0141), qui
    porte depuis TF-0893 (08/09/2026) une **seconde voie d'entrée** — l'API REST
-   `lineage-tracking/table-lineage`, grain table, ouverte parce que la première est refusée en
+   `lineage-tracking/table-lineage`, granularité table, ouverte parce que la première est refusée en
    DROIT sur un workspace réel (§4 du profil) et non seulement par l'édition ;
    son schéma de table (`SHOW CREATE TABLE`) est couvert par `importer` depuis TF-0858,
    avec les clés déclarées informationnelles (§1 du profil) averties comme telles.

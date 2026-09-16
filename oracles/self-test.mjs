@@ -39,7 +39,7 @@ const CAS = [
   { oracle: "oracle-restituer.mjs", verte: "rapport-verte.md", rouge: "rapport-rouge.md", regles: ["R2", "R3", "R4"] },
   { oracle: "oracle-contractualiser.mjs", verte: "contrat-verte.json", rouge: "contrat-rouge.json", regles: ["C2", "C3", "C4", "C5"] },
   // Lots L3, L4, L7 de l'étude d'opportunité du pilot (07/09/2026, mandat D-5 puis GO A-24 à A-26).
-  // modéliser (TF-0860) : la rouge porte un fait sans grain, une mesure d'agrégation inconnue, une
+  // modéliser (TF-0860) : la rouge porte un fait sans granularité, une mesure d'agrégation inconnue, une
   // dimension définie deux fois, une clé de substitution égale à la clé naturelle, un type de
   // changement hors jeu, aucune dimension temps, un processus absent de la matrice en bus.
   { oracle: "oracle-modeliser.mjs", verte: "modele-dimensionnel-verte.json", rouge: "modele-dimensionnel-rouge.json", regles: ["M2", "M3", "M4", "M5", "M6"] },
@@ -189,6 +189,81 @@ console.log(String.fromCharCode(10) + "M2/M5 (TF-1044) — `granularite` alias d
   // c'est la rétro-compatibilité que TF-1044 s'interdit de casser.
   const v1 = lance("oracle-modeliser.mjs", fx("modele-dimensionnel-verte.json"));
   ok(v1.exit === 0 && v1.r.verdict === "PASS", "M2/M5 · le format @1 historique (clé `grain` seule) continue de PASSER sans retouche");
+}
+
+// ---- Garde de non-régression : « grain » (prose) ne doit pas revenir dans les registres
+// machine hors citation (TF-1044, 16/09/2026) ----
+// Deux fois le même défaut, sur deux registres différents : TF-0936 avait clos une correction
+// que TF-1044 a dû rejouer six jours plus tard sur un DDL, un mapping et un chargement — la
+// correction n'était descendue nulle part, faute de juge qui la rejoue. Celui-ci scanne les
+// COMMENTAIRES et messages des fichiers listés ci-dessous : un « grain » NU (hors citation entre
+// accents graves ou guillemets, hors identifiant de code tel que `const grain`, `obj.grain` ou
+// `["grain", …]`) y est une régression de prose. Portée volontairement ÉTROITE : elle ne lit que
+// les COMMENTAIRES `//`, jamais le CODE — c'est la frontière la plus sûre entre prose et
+// identifiant, et la seule qu'un script simple puisse tracer sans reproduire l'incident TF-0927
+// (un anonymiseur qui avait remplacé un nom À L'INTÉRIEUR d'un identifiant, rendant une suite de
+// tests non collectable dix-huit jours). Ce que cette garde NE couvre PAS : un « grain » nu logé
+// dans un MESSAGE de chaîne au milieu d'une ligne de code (hors commentaire) — c'est le manque
+// que l'étude d'opportunité TF-0155 doit outiller (oracle-vocabulaire.mjs, esquissé au rapport de
+// campagne du 16/09/2026).
+console.log(String.fromCharCode(10) + "Garde de non-régression — « grain » hors citation dans les registres machine (TF-1044)" + String.fromCharCode(10));
+{
+  const FICHIERS_MACHINE = [
+    "oracles/oracle-modeliser.mjs", "oracles/oracle-tracer.mjs", "oracles/oracle-rapprocher.mjs",
+    "oracles/oracle-restituer.mjs", "oracles/self-test.mjs",
+    "scripts/traduire-modele-semantique.mjs", "scripts/traduire-unity-catalog.mjs",
+    "references/STANDARDS-DATA.md", "references/profils-moteur/LISEZMOI.md", "references/profils-moteur/databricks.md",
+  ];
+  // La prose d'un fichier : commentaires `//` pour les .mjs (jamais le code — c'est la frontière
+  // qui évite TF-0927), tout le texte hors blocs de code pour les .md. Puis on retire les
+  // citations — accents graves, guillemets français, ET double quotes JSON (un commentaire qui
+  // montre un extrait de schéma, ex. `"grain": "une ligne par …"`, cite la clé, il ne l'emploie
+  // pas) — admises comme MENTION du terme, jamais comme intention de l'auteur, avant de chercher
+  // le mot.
+  const proseDe = (chemin, texte) => {
+    const lignes = [];
+    if (chemin.endsWith(".mjs")) {
+      for (const l of texte.split(/\r?\n/)) {
+        const t = l.trim();
+        if (t.startsWith("//")) lignes.push(t.slice(2));
+      }
+    } else {
+      let dansBloc = false;
+      for (const l of texte.split(/\r?\n/)) {
+        if (/^\s*(```|~~~)/.test(l)) { dansBloc = !dansBloc; continue; }
+        if (!dansBloc) lignes.push(l);
+      }
+    }
+    return lignes.join(String.fromCharCode(10))
+      .replace(/`[^`]*`/g, " ")     // citation en accents graves
+      .replace(/«[^»]*»/g, " ")     // mention entre guillemets français
+      .replace(/"[^"]*"/g, " ");    // citation JSON (clé ou valeur d'un extrait de schéma)
+  };
+  const grainNu = (prose) => [...prose.matchAll(/(?<![\p{L}\p{N}_])grains?(?![\p{L}\p{N}_])/giu)];
+
+  const casses = [];
+  for (const rel of FICHIERS_MACHINE) {
+    const texte = fs.readFileSync(path.join(ici, "..", rel), "utf8");
+    const trouves = grainNu(proseDe(rel, texte));
+    if (trouves.length) casses.push(`${rel} (${trouves.length})`);
+  }
+  ok(casses.length === 0,
+    casses.length
+      ? `garde vocabulaire · RÉGRESSION sur ${casses.length} fichier(s) : ${casses.join(" · ")} — « grain » nu doit se lire « granularité » hors citation`
+      : `garde vocabulaire · 0 « grain » nu hors citation sur ${FICHIERS_MACHINE.length} fichiers des registres machine`);
+
+  // Sens rouge : une prose synthétique qui PORTE « grain » nu doit être détectée — sans ce sens,
+  // la garde pourrait ne plus rien détecter en silence (la leçon R8/EC-7 : une règle qui ne PEUT
+  // jamais échouer n'a jamais prouvé qu'elle savait échouer).
+  const rougeMjs = grainNu(proseDe("x.mjs", "// le fait declare son grain en une phrase" + String.fromCharCode(10) + "const grain = 1;"));
+  ok(rougeMjs.length === 1,
+    `garde vocabulaire · sens rouge (commentaire .mjs) : « grain » nu DÉTECTÉ dans le commentaire, le CODE ignoré — obtenu ${rougeMjs.length}`);
+  const rougeMd = grainNu(proseDe("x.md", "Le grain de la table est declare ici." + String.fromCharCode(10) + "```js" + String.fromCharCode(10) + "const grain = 1;" + String.fromCharCode(10) + "```"));
+  ok(rougeMd.length === 1,
+    `garde vocabulaire · sens rouge (.md) : « grain » nu détecté en prose, le bloc de code ignoré — obtenu ${rougeMd.length}`);
+  const verteCitation = grainNu(proseDe("x.mjs", "// la cle JSON `grain` et le terme « grain » machine restent admis en citation"));
+  ok(verteCitation.length === 0,
+    `garde vocabulaire · sens vert : citation en accents graves ET en guillemets épargnée — obtenu ${verteCitation.length} (attendu 0)`);
 }
 
 // ---- CV5/CV6 : le CHIFFRE de la couverture, deux sens (TF-0911) ----
@@ -401,7 +476,7 @@ try {
   ok(!tn.r.fichier_produit, "traduire-unity-catalog · sans namespace : aucun lineage inventé");
   ok(tv.r.voie === "system-tables", "traduire-unity-catalog · la voie system-tables est DÉTECTÉE et déclarée au manifeste (jamais devinée en silence)");
 
-  // ---- TF-0893 : seconde voie d'entrée — API REST lineage-tracking, grain TABLE ----
+  // ---- TF-0893 : seconde voie d'entrée — API REST lineage-tracking, granularité TABLE ----
   // Le fait mesuré : sur un workspace réel, `SELECT … FROM system.access.table_lineage` rend
   // INSUFFICIENT_PERMISSIONS (SQLSTATE 42501) tandis que l'API répond avec les droits ordinaires
   // du jeton. Le verbe n'avait que l'entrée qui ne répond pas — 30 objets transcrits à la main.
@@ -422,7 +497,7 @@ try {
     ok(lg.entrees.some(e => e.dataset === "main.servi.ventes_mensuelles") && lg.sorties.some(s => s.dataset === "main.servi.ventes_mensuelles_agregees"),
       "traduire-unity-catalog/api · un downstream devient une SORTIE et la table interrogée une entrée (sens inverse de l'arête)");
     ok(lg.confiance.niveau === 0 && lg.transformations.every(t => t.type === "runtime"),
-      `traduire-unity-catalog/api · grain table → confiance.niveau 0 (REX X6 : 1-2-3 sont des grains colonne), transformations runtime — obtenu niveau ${lg.confiance.niveau}`);
+      `traduire-unity-catalog/api · granularité table → confiance.niveau 0 (REX X6 : 1-2-3 sont des granularités colonne), transformations runtime — obtenu niveau ${lg.confiance.niveau}`);
     ok(lg.colonnes === undefined, "traduire-unity-catalog/api · aucun champ `colonnes` inventé — cette voie ne voit pas la colonne");
     ok(lg.transformations.some(t => t.etape === "notebook_4210") && lg.transformations.some(t => t.etape === "job_77012"),
       "traduire-unity-catalog/api · les entités d'exécution (notebook, job) deviennent les étapes déclarées");
@@ -454,7 +529,7 @@ try {
 
 // ---- verbe traduire-modele-semantique (TF-0894) : le brouillon dit ce qu'il ne sait pas ----
 // L'enjeu de ce verbe n'est pas de produire un modèle : c'est de produire un modèle qui ne
-// MENT PAS sur ce que TMDL ne porte pas. Un brouillon qui aurait rempli le grain, la clé
+// MENT PAS sur ce que TMDL ne porte pas. Un brouillon qui aurait rempli la granularité, la clé
 // naturelle et la matrice en bus de valeurs vraisemblables PASSERAIT oracle-modeliser — et
 // c'est très exactement le défaut que TF-0911 vient de coûter (trois PASS sur un livrable
 // incomplet). Les deux sens sont donc : sans complément, l'oracle réclame EXACTEMENT les
@@ -481,7 +556,7 @@ try {
     ok(mes.find(x => x.nom === "Panier moyen").agregation === undefined,
       "traduire-modele-semantique · une mesure dont le DAX ne commence pas par une agrégation reste SANS agrégation — deviner « somme » sur un DIVIDE serait faux et invérifiable");
     ok(dimCal.cle_naturelle === undefined && m.matrice_bus === undefined && m.faits[0].grain === undefined,
-      "traduire-modele-semantique · clé naturelle, grain et matrice en bus restent ABSENTS — TMDL ne les porte pas, et un placeholder vraisemblable ferait PASSER l'oracle en mentant");
+      "traduire-modele-semantique · clé naturelle, granularité et matrice en bus restent ABSENTS — TMDL ne les porte pas, et un placeholder vraisemblable ferait PASSER l'oracle en mentant");
     // Le point qui compte : l'oracle réclame EXACTEMENT ce que le verbe a annoncé manquant.
     const r = lance("oracle-modeliser.mjs", pBrouillon);
     const durs = [...new Set((r.r.findings || []).filter(f => f.sev === "bloquant").map(f => f.regle))].sort();
@@ -564,7 +639,7 @@ try {
     `projeter-evolutions · la provenance d'une colonne déplacée RÉSOUT son objet d'origine en catalogue, schéma, table et colonne — obtenu ${JSON.stringify(objet1("ventes.clients", "id_client"))}`);
   ok(ligne("servi.ventes_mensuelles", "total_ht").provenance.type === "objets_resolus" &&
      ligne("servi.ventes_mensuelles", "total_ht").provenance.objets.some(o => o.table === "exports_pgi" && o.schema === "brut" && o.source_de_l_explication === "mapping"),
-    "projeter-evolutions · une table déclarée en sortie du lineage RÉSOUT ses ENTRÉES déclarées en objets (grain table : la colonne reste null, jamais inventée)");
+    "projeter-evolutions · une table déclarée en sortie du lineage RÉSOUT ses ENTRÉES déclarées en objets (granularité table : la colonne reste null, jamais inventée)");
   ok(objet1("ventes.ventes", "id_commande").source_de_l_explication === "commentaire_ddl" &&
      /caisse/.test(objet1("ventes.ventes", "id_commande").explication),
     "projeter-evolutions · le commentaire DDL reste la source la plus proche du producteur : il EXPLIQUE le rôle de l'objet résolu (8 des 33 emplois du retour venaient de là)");

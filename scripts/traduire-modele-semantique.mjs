@@ -27,7 +27,7 @@
 //   substitution de chaque dimension (la colonne visée par la relation) ; la dimension temps
 //   (`dataCategory: Time`) ; l'agrégation d'une mesure quand son DAX commence par une fonction
 //   d'agrégation reconnue.
-//   ABSENT de TMDL, structurellement : le GRAIN d'un fait en une phrase ; la CLÉ NATURELLE
+//   ABSENT de TMDL, structurellement : la GRANULARITÉ d'un fait en une phrase ; la CLÉ NATURELLE
 //   d'une dimension ; son TYPE DE CHANGEMENT LENT ; les bornes et la contiguïté de la dimension
 //   temps (propriétés de la DONNÉE, pas de la définition — forge-audit le déclare aussi en
 //   non_juge) ; la MATRICE EN BUS.
@@ -508,7 +508,7 @@ for (const nom of nomsFaits) {
   if (!t.mesures.length) aCompleter(`fait « ${nom} » : aucune mesure définie sur cette table dans le modèle — un fait sans mesure ne sert aucune question (M2)`);
   const fait = { nom, dimensions: dimsDuFait, mesures };
   const grain = cf.grain;
-  if (grain) fait.grain = grain; else aCompleter(`fait « ${nom} » : GRAIN absent — TMDL ne porte pas la phrase de grain (« une ligne par … ») ; à déclarer au complément (M2)`);
+  if (grain) fait.grain = grain; else aCompleter(`fait « ${nom} » : GRANULARITÉ absente — TMDL ne porte pas la phrase de granularité (« une ligne par … ») ; à déclarer au complément (M2)`);
   const processus = cf.processus;
   if (processus) fait.processus = processus; else aCompleter(`fait « ${nom} » : PROCESSUS métier absent — il n'existe pas dans TMDL ; à déclarer au complément avec la ligne correspondante de la matrice en bus (M6)`);
   faits.push(fait);
@@ -531,13 +531,13 @@ for (const [nom, cleSub] of nomsDims) {
   if ([0, 1, 2, 3].includes(cd.type_changement)) dim.type_changement = cd.type_changement;
   else aCompleter(`dimension « ${nom} » : TYPE DE CHANGEMENT LENT absent — il n'existe pas dans TMDL ; à déclarer au complément, jeu {0, 1, 2, 3} (M4)`);
   if (estTemps) {
-    // Le grain, les bornes et la CONTIGUÏTÉ d'une dimension temps sont des propriétés de la
+    // La granularité, les bornes et la CONTIGUÏTÉ d'une dimension temps sont des propriétés de la
     // DONNÉE, pas de la définition — forge-audit le déclare aussi en non_juge. Les lire dans un
     // fichier TMDL serait les inventer.
     for (const [cle, regle] of [["grain", "M5"], ["debut", "M5"], ["fin", "M5"], ["contigue", "M5"]]) {
       const v = completer(undefined, cd, cle, `dimension « ${nom} »`);
       if (v !== undefined) dim[cle] = v;
-      else aCompleter(`dimension temps « ${nom} » : « ${cle} » absent — grain, bornes et contiguïté se mesurent sur la DONNÉE, jamais dans la définition TMDL ; à déclarer au complément (${regle})`);
+      else aCompleter(`dimension temps « ${nom} » : « ${cle} » absent — granularité, bornes et contiguïté se mesurent sur la DONNÉE, jamais dans la définition TMDL ; à déclarer au complément (${regle})`);
     }
   }
   dimensions.push(dim);

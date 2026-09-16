@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// oracle-modeliser — Domaine « Modèle dimensionnel déclaré de la couche Gold : grain, dimensions
+// oracle-modeliser — Domaine « Modèle dimensionnel déclaré de la couche Gold : granularité, dimensions
 // conformes, clés de substitution, dimension temps, changements lents, matrice en bus »
 // (déterministe). TF-0860, lot L3 de l'étude d'opportunité du pilot du 07/09/2026.
 //

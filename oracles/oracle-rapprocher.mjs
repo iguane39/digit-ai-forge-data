@@ -40,7 +40,7 @@
 // non_juge : la pertinence métier d'un motif ou d'un concept de dictionnaire — l'oracle
 // exige l'un et l'autre, il ne les arbitre pas ; la lecture de l'export lui-même (isolement
 // des lignes non-données — `scripts/isoler-lignes-non-donnees.mjs`, TF-0976, à exécuter
-// avant) ; la correspondance colonne à colonne au grain VALEUR (oracle-reconcilier).
+// avant) ; la correspondance colonne à colonne à la granularité VALEUR (oracle-reconcilier).
 // Usage : node oracle-rapprocher.mjs <rapprochement.json> [--json-only]
 import fs from "node:fs";
 
@@ -48,7 +48,7 @@ const DOM = "Rapprochement modèle ↔ extrait externe, bijection dans les deux 
 const NON_JUGE = [
   "la pertinence métier d'un motif d'absence ou d'un concept de dictionnaire — l'oracle exige le motif et le concept, il ne les arbitre pas",
   "la lecture de l'export lui-même (isolement des lignes non-données) — `scripts/isoler-lignes-non-donnees.mjs`, TF-0976, à exécuter en amont",
-  "la correspondance au grain VALEUR (deux lots de mesures sous tolérance) — `oracles/oracle-reconcilier.mjs` de ce dépôt",
+  "la correspondance à la granularité VALEUR (deux lots de mesures sous tolérance) — `oracles/oracle-reconcilier.mjs` de ce dépôt",
   "la complétude du mapping contre l'inventaire de sa source — `oracles/oracle-couvrir.mjs` de ce dépôt, qui mesure l'AMONT quand celui-ci mesure l'AVAL",
 ];
 

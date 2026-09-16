@@ -12,7 +12,7 @@
 //       champ optionnel `etat` ∈ {constate, propose} (RD-4, 13/08) — un mapping proposé
 //       (colonne cible non encore alimentée) se déclare, absent = constate
 //       (comment ce lineage a été établi — REX X8) ;
-//   T6  (optionnel, rétro-compatible) grain colonne — champ `colonnes` : chaque entrée
+//   T6  (optionnel, rétro-compatible) granularité colonne — champ `colonnes` : chaque entrée
 //       référence une colonne de sortie déclarée (`sortie` = "<dataset>.<colonne>", le
 //       dataset devant figurer dans `sorties`) et au moins une colonne d'entrée déclarée
 //       (`entrees`, dataset figurant dans `entrees`) ; `transformation` optionnelle doit
@@ -43,7 +43,7 @@
 // Usage : node oracle-tracer.mjs <lineage.json> [--json-only]
 import fs from "node:fs";
 
-const DOM = "Lineage déclaré complet (T1-T5, T6 optionnel grain colonne, T7 environnement des datasets, T8 optionnel cibles structurées — niveau OpenLineage)";
+const DOM = "Lineage déclaré complet (T1-T5, T6 optionnel granularité colonne, T7 environnement des datasets, T8 optionnel cibles structurées — niveau OpenLineage)";
 const NON_JUGE = [
   "véracité du lineage déclaré contre le plan réellement exécuté (capture runtime — niveau 3, hors v0)",
   "résolution colonne→colonne multi-saut (T6 vérifie que la référence directe existe, pas la chaîne complète)",
@@ -105,7 +105,7 @@ if (d.colonnes !== undefined) {
   const etapes = new Set((Array.isArray(d.transformations) ? d.transformations : []).map(t => t.etape));
   const datasetDe = ref => (typeof ref === "string" && ref.includes(".")) ? ref.slice(0, ref.lastIndexOf(".")) : "";
   if (!Array.isArray(d.colonnes) || !d.colonnes.length) {
-    add("bloquant", "T6", "colonnes déclaré mais vide — le grain colonne (OpenLineage columnLineage) n'ajoute rien à vide", file);
+    add("bloquant", "T6", "colonnes déclaré mais vide — la granularité colonne (OpenLineage columnLineage) n'ajoute rien à vide", file);
   } else d.colonnes.forEach((c, i) => {
     const ou = `colonnes #${i + 1}`;
     if (!c.sortie) add("bloquant", "T6", "colonne de sortie non référencée", ou);
