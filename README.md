@@ -2,7 +2,7 @@
 
 Forge **discipline de la donnée** de l'écosystème Digit-AI — quatre verbes jugés par
 oracle : **profiler** (qualité en assertions exécutables), **tracer** (lineage déclaré,
-niveau OpenLineage, grain colonne optionnel), **restituer** (chiffres ancrés, doctrine
+niveau OpenLineage, granularité colonne optionnelle), **restituer** (chiffres ancrés, doctrine
 déclaré→généré), **contractualiser** (data contract inspectable, niveau ODCS v3.1). Elle
 vérifie la **forme de la discipline** ; le profiling lui-même est composé
 (`data-quality-auditor`), jamais réécrit. Un cinquième verbe, **importer** (TF-0139), est
@@ -42,7 +42,7 @@ node oracles/oracle-couvrir.mjs fixtures/couverture-verte.json                # 
 node scripts/importer.mjs fixtures/schema-postgres-verte.sql --sortie-dir <dossier>
 node scripts/importer.mjs fixtures/schema-databricks-verte.sql --sortie-dir <dossier>   # dialecte Databricks (SHOW CREATE TABLE), TF-0858
 node scripts/traduire-unity-catalog.mjs fixtures/unity-catalog-verte.json --sortie <fichier.json>
-node scripts/traduire-unity-catalog.mjs fixtures/unity-catalog-api-verte.json --sortie <fichier.json>  # voie API lineage-tracking, grain table (TF-0893)
+node scripts/traduire-unity-catalog.mjs fixtures/unity-catalog-api-verte.json --sortie <fichier.json>  # voie API lineage-tracking, granularité table (TF-0893)
 node scripts/traduire-modele-semantique.mjs --modele fixtures/modele-semantique-verte \
      --complement fixtures/complement-modele-verte.json --sortie <fichier.json>   # TMDL Power BI → modele-dimensionnel@1 (TF-0894)
 node scripts/traduire-modele-semantique.mjs --modele fixtures/modele-resolution-verte \

@@ -21,7 +21,7 @@ porte sa source et sa fraîcheur.
 | Verbe | Discipline exigée | Barre de niveau |
 |---|---|---|
 | **profiler** | la qualité = **assertions déclaratives unitaires** (objet + condition + paramètres typés), à verdict machine — jamais « données propres » en prose ; pont optionnel vers un lineage@1 (P4, cf. dataQualityAssertions OpenLineage) | Great Expectations |
-| **tracer** | toute donnée servie **déclare son lineage** : entrées (datasets datés) → transformations (typées statique/runtime/déclaratif) → sorties + horodatage + niveau de maturité 0-3 et méthode ; grain colonne optionnel (T6) ; **environnement de chaque dataset** — `namespace` désignant l'INSTANCE, jugé à partir du 24/08 (T7, TF-0595 : deux catalogues homonymes sur deux workspaces sont la règle, cf. REX X13-X14) ; **cibles du périmètre servi NOMMÉES**, jamais décrites en prose — `table` + `colonnes`, ou `entier: true` motivé (T8 optionnel, TF-0974) | OpenLineage (object model : run · job · inputs · outputs · facets — un dataset s'y identifie par le COUPLE namespace+nom) |
+| **tracer** | toute donnée servie **déclare son lineage** : entrées (datasets datés) → transformations (typées statique/runtime/déclaratif) → sorties + horodatage + niveau de maturité 0-3 et méthode ; granularité colonne optionnelle (T6) ; **environnement de chaque dataset** — `namespace` désignant l'INSTANCE, jugé à partir du 24/08 (T7, TF-0595 : deux catalogues homonymes sur deux workspaces sont la règle, cf. REX X13-X14) ; **cibles du périmètre servi NOMMÉES**, jamais décrites en prose — `table` + `colonnes`, ou `entier: true` motivé (T8 optionnel, TF-0974) | OpenLineage (object model : run · job · inputs · outputs · facets — un dataset s'y identifie par le COUPLE namespace+nom) |
 | **restituer** | tout chiffre d'un rapport **référence une entrée déclarée** (id → valeur + source + date) et le rapport pointe sa déclaration de lineage — le document se génère des déclarations, jamais l'inverse. **R5 (TF-0378)** : et tout NOMBRE du corps porte son marqueur, ou l'échappement explicite `[c:-]` — sans elle, un chiffre écrit en prose sans marqueur n'existait pas pour l'oracle, qui rendait PASS (mesuré : 788 nus contre 135 ancrés sur cinq rapports réels, tous PASS) | dbt-core (déclaré → généré) |
 | **contractualiser** | l'accord producteur↔consommateur est **inspectable** : schéma typé + SLA mesurable + propriétaire joignable + versionnage à statut de cycle de vie — jamais un accord oral ou en prose | ODCS v3.1.0 (Bitol / Linux Foundation) |
 
@@ -31,7 +31,7 @@ porte sa source et sa fraîcheur.
 node oracles/oracle-profiler.mjs <assertions.json>        # P1-P3 (+P4 optionnel) : forme exécutable + pont lineage
 node oracles/oracle-tracer.mjs <lineage.json>             # T1-T5 (+T6 optionnel, T7 environnement,
                                                           # T8 optionnel cibles structurées) : lineage
-                                                          # complet, grain colonne, instance de chaque
+                                                          # complet, granularité colonne, instance de chaque
                                                           # dataset, périmètre servi NOMMÉ (TF-0974)
 node oracles/oracle-restituer.mjs <rapport.md> [--strict] [--glossaire <chemin>]
                                                           # R1-R5 : chiffres ancrés, lineage_ref,
@@ -52,7 +52,7 @@ node oracles/self-test.mjs                                 # double sens — à 
 **Glossaire de restitution (TF-0936, 08/09/2026 — portée resserrée par TF-1044, 14/09/2026)** —
 `references/glossaire-restitution.json`, donnée éditable, datée et sourcée (loi n° 4) : chaque
 terme y porte sa forme MACHINE et sa forme de RESTITUTION (celle que le destinataire lit).
-Premier terme : « grain » machine, rendu « granularité ». **Portée machine resserrée** à la
+Premier terme : `grain` machine, rendu « granularité ». **Portée machine resserrée** à la
 seule clé JSON `grain` de `forge-data/modele-dimensionnel@1` — alias `granularite`, clé
 NOMINALE d'un `modele-dimensionnel@2`, les deux acceptées et jugées par `oracle-modeliser`
 (M2, M5) — commentaires DDL et sorties d'oracles ne sont PLUS exemptés : un second retour du
@@ -128,7 +128,7 @@ node scripts/importer.mjs fixtures/schema-databricks-verte.sql --sortie-dir <dos
 system tables Unity Catalog Databricks (`system.access.column_lineage` : colonnes
 `source_table_full_name`, `source_column_name`, `target_table_full_name`,
 `target_column_name`, `entity_type`, `entity_id`, `event_time`) en `forge-data/lineage@1`
-grain colonne (T6). **Validé sur fixture synthétique uniquement** — aucun export réel
+granularité colonne (T6). **Validé sur fixture synthétique uniquement** — aucun export réel
 disponible sans workspace Unity Catalog Premium/Enterprise payant (jamais de connexion,
 loi n° 4). Le lineage colonne d'Unity Catalog est par nature une capture runtime : type de
 transformation toujours `"runtime"`, `confiance.niveau` toujours 3. Export incohérent
@@ -144,10 +144,10 @@ pas dans la journée, tandis que `GET /api/2.0/lineage-tracking/table-lineage?�
 répond avec les droits ordinaires du jeton. Le verbe n'avait donc qu'une entrée, et c'était celle
 qui ne répond pas : un lineage de 30 objets a été relevé par l'API puis transcrit À LA MAIN. La
 voie `api-lineage-tracking` prend le champ `reponses` (une réponse par table interrogée :
-`upstreams` / `downstreams` avec `tableInfo` et les entités d'exécution) et rend un lineage@1 au
-grain **table**, transformations `runtime`, **`confiance.niveau` = 0** — arbitrage délibéré contre
+`upstreams` / `downstreams` avec `tableInfo` et les entités d'exécution) et rend un lineage@1 à la
+granularité **table**, transformations `runtime`, **`confiance.niveau` = 0** — arbitrage délibéré contre
 la proposition du retour (qui demandait 2) : sur l'échelle REX X6, les niveaux 1 à 3 sont TOUS des
-grains colonne, et T5 ne juge que la présence du niveau, jamais sa justesse. La voie se détecte
+granularités colonne, et T5 ne juge que la présence du niveau, jamais sa justesse. La voie se détecte
 (`lignes` → system tables, `reponses` → API) ou se déclare (`--voie`), figure au manifeste et dans
 `origine.voie` du lineage produit ; une entrée portant les deux champs est **ambiguë** (refus), une
 entrée `fileInfo` (emplacement externe) est écartée **en le disant**, un `tableInfo` dont un des
@@ -229,7 +229,7 @@ l'expression commence par `SUM`/`AVERAGE`/`COUNT`/`DISTINCTCOUNT`/`MIN`/`MAX`) ;
 par leur **orientation**, quelle table est un fait (côté `fromColumn`) et laquelle une dimension
 (côté `toColumn`), et la clé de **substitution** de chaque dimension ; la dimension temps
 (`dataCategory: Time`).
-**Ce que TMDL ne porte pas, et que le verbe REFUSE d'inventer** : le grain d'un fait en une phrase,
+**Ce que TMDL ne porte pas, et que le verbe REFUSE d'inventer** : la granularité d'un fait en une phrase,
 le processus métier, la clé **naturelle**, le type de changement lent, les bornes et la contiguïté
 de la dimension temps (propriétés de la DONNÉE), la matrice en bus (elle PRÉCÈDE le modèle et ne
 se relit pas dans le modèle construit). Ces champs restent **absents**, chacun nommé dans
@@ -403,7 +403,7 @@ est un OUBLI) ; **RA3** un dictionnaire de concepts déclaré n'invente rien (ch
 et `cote_extrait` doit exister dans sa source) ; **RA4** chaque objet du modèle absent de
 l'extrait porte son `motif` (≥ 4 mots, convention CV4) ET le `visuel` qui l'explique. Le
 verbe qui lit l'export lui-même appartient à `scripts/isoler-lignes-non-donnees.mjs` (TF-0976,
-en amont) ; celui qui juge la valeur au grain fin à `oracle-reconcilier`.
+en amont) ; celui qui juge la valeur à la granularité fine à `oracle-reconcilier`.
 
 ```bash
 node oracles/oracle-rapprocher.mjs fixtures/rapprochement-verte.json
