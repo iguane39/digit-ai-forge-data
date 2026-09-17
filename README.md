@@ -52,6 +52,7 @@ node scripts/traduire-modele-semantique.mjs --modele fixtures/modele-semantique-
      --usage-restitution --mise-en-page fixtures/mise-en-page-verte.json \
      --orphelins fixtures/orphelins-usage-verte.json   # 3 populations + croisement couverture (TF-0971)
 node oracles/oracle-rapprocher.mjs fixtures/rapprochement-verte.json        # RA1-RA4, rapprochement modèle ↔ extrait externe (TF-0975)
+node oracles/oracle-reconstruire.mjs fixtures/reconstruction-verte.json      # RS1-RS6, mise en page d'un rapport fourni en entrée CONSERVÉE (TF-1176)
 node scripts/isoler-lignes-non-donnees.mjs fixtures/extrait-pied-verte.csv   # TF-0976 : pied « Filtres appliqués » isolé, deux sorties
 node oracles/self-test.mjs   # double sens : vertes PASS, rouges FAIL localisants + round-trips importer/traducteur
 python scripts/verifier_unites_parquet.py --self-test   # TF-1065 : type parquet écrit, refuse la nanoseconde (fixtures à la volée)

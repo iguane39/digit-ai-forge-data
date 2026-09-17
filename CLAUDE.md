@@ -45,6 +45,9 @@ node oracles/oracle-restituer.mjs <rapport.md> [--strict] [--glossaire <chemin>]
                                                           # le corps CITE les décisions d'architecture
                                                           # déclarées par le modèle pointé (TF-1170)
 node oracles/oracle-contractualiser.mjs <contrat.json>    # C1-C5 : schéma + SLA + propriétaire + version
+node oracles/oracle-reconstruire.mjs <reconstruction.json> # RS1-RS6 : la mise en page d'un rapport fourni
+                                                          # en entrée est CONSERVÉE (pages, visuels, géométrie
+                                                          # au pixel, ressources) ; repli généré = déclaré
 node oracles/oracle-couvrir.mjs <couverture.json>         # CV1-CV6 : mapping mesuré contre l'inventaire de sa source
 node oracles/oracle-evoluer.mjs <evolutions.json>         # EV1-EV7 : projection des évolutions d'une couche, provenance typée,
                                                           # comptes recalculés, arbre schéma › table › colonne
@@ -208,6 +211,31 @@ TMDL ne porte ni le `pourquoi` ni les décisions : `traduire-modele-semantique` 
 les nomme dans `a_completer` (M7), le complément humain les fournit — même mécanique que la
 granularité et la matrice en bus. La reprise de ces mêmes décisions dans le mode d'emploi du
 livrable-dossier (LISEZMOI) relève du gabarit du pilot, déclarée en `non_juge` ici.
+
+## Le verbe reconstruire (TF-1176, 17/09/2026) — ce que le mandat fournit ne se réinvente pas
+
+Retour humain, mot pour mot : « Le PowerBI semble fonctionner mais le design a été modifié.
+Corrige le rapport pour revenir sur le design original. » Pendant deux jours, un générateur a
+DESSINÉ sa propre mise en page pour un rapport dont le fichier d'origine était fourni en entrée :
+page en 1600 × 900 contre 1280 × 720, segments réalignés, tableau pleine page, ni fond, ni titre,
+ni bouton de réinitialisation, ni signet, ni largeurs de colonnes. Vingt-trois contrôles de recette
+et sept d'audit rendaient PASS, dont « en-têtes repris au caractère près, 70/70 » : l'invariant
+mesuré était le texte des en-têtes, l'invariant protégé « le lecteur retrouve SON rapport ».
+
+**Règle de reconstruction de la forge** : quand le rapport à reconstruire EXISTE et qu'il est
+fourni en entrée, sa mise en page est CONSERVÉE et transposée — seules les liaisons changent.
+Une mise en page générée n'est pas interdite : elle est un **repli**, déclaré avec son motif, dont
+le coût reste compté. Ce qui n'existe pas, c'est le repli par omission.
+
+`oracle-reconstruire.mjs <reconstruction.json>`, format `forge-data/reconstruction@1` —
+RS1 forme (dont l'origine de la source et QUI l'a relevée) ; **RS2** doctrine du repli (`mode`
+`transposition` ou `repli_genere`, ce dernier exigeant un motif ≥ 6 mots ; sous repli motivé, les
+écarts sont comptés et nommés en avertissement au lieu de bloquer) ; **RS3** pages (bijection,
+largeur, hauteur, ordre, visibilité) ; **RS4** visuels (bijection par page, type et géométrie à
+`tolerance_px` près — prototype P24 du produit) ; **RS5** tout objet écarté porte son motif
+(≥ 4 mots, convention CV4/RA4) ; **RS6** ressources portées ET référencées (une ressource copiée
+que rien ne référence est un fond que le lecteur ne verra jamais). Quatre fixtures, deux sens
+chacune : `reconstruction-{verte,rouge}.json` et `reconstruction-repli-{verte,rouge}.json`.
 
 ## Le verbe couvrir (TF-0911, 08/09/2026) — la complétude, que nulle règle de forme ne pose
 

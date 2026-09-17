@@ -1,0 +1,39 @@
+{
+  "format": "forge-data/reconstruction@1",
+  "id": "reconstruction_etat_locatif_reinventee",
+  "mode": "transposition",
+  "tolerance_px": 0,
+  "source": {
+    "origine": "entree/Rapport locatif (fixture).pbix › Report/Layout",
+    "releve_par": "lecture du Layout d'origine (fixture synthétique)",
+    "date": "2026-09-17",
+    "pages": [
+      { "page": "Etat locatif", "largeur": 1280, "hauteur": 720, "ordre": 0, "visible": true,
+        "visuels": [
+          { "visuel": "titre", "type": "textbox", "x": 16, "y": 8, "largeur": 600, "hauteur": 48 },
+          { "visuel": "segment_periode", "type": "slicer", "x": 16, "y": 64, "largeur": 210, "hauteur": 76 },
+          { "visuel": "segment_actif", "type": "slicer", "x": 234, "y": 64, "largeur": 210, "hauteur": 76 },
+          { "visuel": "tableau_baux", "type": "tableEx", "x": 16, "y": 150, "largeur": 1248, "hauteur": 540 },
+          { "visuel": "bouton_reinitialiser", "type": "actionButton", "x": 1180, "y": 8, "largeur": 84, "hauteur": 40 }
+        ] }
+    ],
+    "ressources": ["Theme Client 2024.json", "Fond ecran locatif.svg", "Bouton reinitialiser.png"]
+  },
+  "produit": {
+    "origine": "sortie/Projet Power BI (fixture) - mise en page dessinee par le generateur/report.json",
+    "pages": [
+      { "page": "Etat locatif", "largeur": 1600, "hauteur": 900, "ordre": 0, "visible": true,
+        "visuels": [
+          { "visuel": "segment_periode", "type": "slicer", "x": 0, "y": 0, "largeur": 210, "hauteur": 76 },
+          { "visuel": "segment_actif", "type": "slicer", "x": 218, "y": 0, "largeur": 210, "hauteur": 76 },
+          { "visuel": "tableau_baux", "type": "tableEx", "x": 0, "y": 80, "largeur": 1600, "hauteur": 820 }
+        ] }
+    ],
+    "ressources": [
+      { "nom": "theme.json", "depuis": "Theme Client 2024.json", "referencee": false }
+    ]
+  },
+  "ecarts_assumes": [
+    { "objet": "page Etat locatif › visuel titre", "motif": "pas utile" }
+  ]
+}

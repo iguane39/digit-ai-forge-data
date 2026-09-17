@@ -79,6 +79,11 @@ const CAS = [
   // écart (RA2), un concept de dictionnaire qui cite un intitulé absent des deux sources (RA3),
   // et une absence sans motif écrit ni visuel (RA4, deux findings).
   { oracle: "oracle-rapprocher.mjs", verte: "rapprochement-verte.json", rouge: "rapprochement-rouge.json", regles: ["RA2", "RA3", "RA4"] },
+  // reconstruire (TF-1176, 17/09) : la rouge EST le défaut mesuré — une page en 1600 × 900 contre
+  // 1280 × 720 à l'origine (RS3), trois visuels réalignés en haut de page (RS4), le titre et le
+  // bouton de réinitialisation disparus sans un mot (RS5), un écart « assumé » en deux mots (RS5),
+  // le thème copié mais jamais référencé et deux ressources perdues (RS6).
+  { oracle: "oracle-reconstruire.mjs", verte: "reconstruction-verte.json", rouge: "reconstruction-rouge.json", regles: ["RS3", "RS4", "RS5", "RS6"] },
 ];
 
 console.log("SELF-TEST forge-data — discipline aux niveaux des 4 barres (fixtures synthétiques)\n");
@@ -1004,6 +1009,29 @@ console.log(String.fromCharCode(10) + "traduire-modele-semantique --usage-restit
   const ur = lanceScript("traduire-modele-semantique.mjs", ["--modele", fx("modele-semantique-verte"), "--usage-restitution", "--mise-en-page", fx("mise-en-page-rouge.json")]);
   ok(ur.exit === 2 && ur.r.sortie === "ECHEC" && !ur.r.document,
     `--usage-restitution · rouge : mise en page au format non reconnu → refus propre (exit 2), aucun usage inventé — obtenu ${ur.r.erreur}`);
+}
+
+// ---- RS2 : la doctrine du repli, deux sens (TF-1176, 17/09/2026) ----
+// Une mise en page GÉNÉRÉE alors que le rapport d'origine est fourni n'est pas interdite : elle
+// est un REPLI, et un repli se déclare avec son motif. Les deux sens comptent également. Sens
+// vert : le repli motivé PASSE, et les écarts sont tout de même COMPTÉS et NOMMÉS — un repli qui
+// tairait ce qu'il coûte serait la même cécité, déplacée d'un cran. Sens rouge : le même document
+// sans motif ÉCHOUE sur RS2, et sur RS2 seulement — c'est le défaut d'origine, une mise en page
+// réinventée que personne n'a décidée, sous 23 contrôles PASS.
+console.log(String.fromCharCode(10) + "RS2 (TF-1176) — mise en page générée : un repli motivé, jamais un défaut par omission" + String.fromCharCode(10));
+{
+  const v = lance("oracle-reconstruire.mjs", fx("reconstruction-repli-verte.json"));
+  const av = (v.r.findings || []).filter(f => f.sev === "avertissement");
+  ok(v.exit === 0 && v.r.verdict === "PASS" && av.length > 0,
+    `RS2 · repli MOTIVÉ : PASS, et les ${av.length} écart(s) de mise en page restent comptés et nommés en avertissement — obtenu ${v.r.verdict}`);
+  ok(v.r.compte && v.r.compte.ecarts_geometrie === 8,
+    `RS2 · repli motivé : le COÛT du repli est chiffré (8 écarts de géométrie attendus) — obtenu ${JSON.stringify(v.r.compte && v.r.compte.ecarts_geometrie)}`);
+  const r = lance("oracle-reconstruire.mjs", fx("reconstruction-repli-rouge.json"));
+  const durs = [...new Set((r.r.findings || []).filter(f => f.sev === "bloquant").map(f => f.regle))];
+  ok(r.exit === 1 && r.r.verdict === "FAIL" && JSON.stringify(durs) === JSON.stringify(["RS2"]),
+    `RS2 · repli SANS motif : FAIL sur RS2 et sur RS2 seulement — obtenu ${r.r.verdict} ${JSON.stringify(durs)}`);
+  ok((r.r.findings || []).some(f => f.regle === "RS2" && f.sev === "info" && /personne ne l'a décidé/.test(f.msg)),
+    "RS2 · le verdict DIT que le repli n'a pas été décidé — un message qui féliciterait un repli non motivé serait pire que pas de message");
 }
 
 console.log(`\nSelf-test forge-data : ${pass} PASS, ${echec} FAIL`);
