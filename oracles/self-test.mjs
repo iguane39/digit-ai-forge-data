@@ -96,6 +96,12 @@ const CAS = [
   // exclusion en deux mots (DL4), une correspondance et une lecture déclarée qui pointent hors du
   // modèle publié (DL5), et un taux de 100 % là où il en vaut 50 (DL6).
   { oracle: "oracle-delimiter.mjs", verte: "perimetre-verte.json", rouge: "perimetre-rouge.json", regles: ["DL2", "DL3", "DL4", "DL5", "DL6"] },
+  // enchaîner (TF-1179, 17/09) : la rouge est la chaîne telle qu'elle s'écrit quand personne ne la
+  // vérifie — une étape dont on ne sait pas ce qu'elle rend (CH1), deux étapes au même rang (CH2),
+  // un oracle qui n'existe pas (CH3), une règle qui a survécu à sa règle (CH4), un geste humain en
+  // cinq mots dont la trace n'atterrit nulle part (CH5), et trois étapes que le document lu par
+  // les humains ne cite pas (CH6).
+  { oracle: "oracle-enchainer.mjs", verte: "chaine-verte.json", rouge: "chaine-rouge.json", regles: ["CH1", "CH2", "CH3", "CH4", "CH5", "CH6"] },
 ];
 
 console.log("SELF-TEST forge-data — discipline aux niveaux des 4 barres (fixtures synthétiques)\n");
@@ -1152,6 +1158,41 @@ try {
     `DL4 · le périmètre RÉDUIT à ce que les visuels lisent PASSE, zéro excédent — obtenu ${rv.r.verdict} ${JSON.stringify(rv.r.perimetre && rv.r.perimetre.excedent)}`);
 } finally {
   fs.rmSync(tmpPerim, { recursive: true, force: true });
+}
+
+// ---- CH3/CH6 : la procédure de la forge passe SON PROPRE contrôle (TF-1179, 17/09/2026) ----
+// Un contrôle qui ne juge que ses fixtures ne prouve rien de l'artefact qu'il est censé tenir : la
+// procédure de migration écrite dans `references/` est donc JOUÉE ici, et sa déclaration machine
+// doit rester alignée sur le document que les humains lisent. Le sens rouge est joué sur cette
+// même procédure, mutée en mémoire : un porteur qui disparaît doit la faire échouer — sans quoi
+// la garde serait verte pour toujours, y compris le jour où un oracle est renommé.
+console.log(String.fromCharCode(10) + "CH3/CH6 (TF-1179) — la procédure de migration passe son propre contrôle" + String.fromCharCode(10));
+{
+  const pChaine = path.join(ici, "..", "references", "migration-rapport-powerbi.chaine.json");
+  const v = lance("oracle-enchainer.mjs", pChaine);
+  ok(v.exit === 0 && v.r.verdict === "PASS" && v.r.chaine.etapes === 10 && v.r.chaine.etapes_absentes_du_document === 0,
+    `CH6 · la procédure de migration : 10 étapes déclarées, toutes citées par le document lu par les humains — obtenu ${v.r.verdict} ${JSON.stringify(v.r.chaine && { etapes: v.r.chaine.etapes, absentes: v.r.chaine.etapes_absentes_du_document })}`);
+  ok(v.r.chaine.porteurs.geste_humain === 3 && v.r.chaine.regles_verifiees === 39,
+    `CH4/CH5 · les 39 règles citées par les étapes EXISTENT dans leur porteur, et les 3 gestes qui ne se mécanisent pas déclarent leur enregistreur — obtenu ${JSON.stringify(v.r.chaine && { gestes: v.r.chaine.porteurs.geste_humain, regles: v.r.chaine.regles_verifiees })}`);
+
+  const tmpCh = fs.mkdtempSync(path.join(os.tmpdir(), "forge-data-chaine-"));
+  try {
+    const mut = JSON.parse(fs.readFileSync(pChaine, "utf8"));
+    mut.racine = path.join(ici, "..");   // la copie vit hors du dépôt : la racine reste celle de la forge
+    mut.document = path.join(ici, "..", "references", "MIGRATION-RAPPORT-POWERBI.md");
+    const cible = mut.etapes.find(e => e.porteur.type === "oracle");
+    cible.porteur.chemin = "oracles/oracle-qui-a-ete-renomme.mjs";
+    const pMut = path.join(tmpCh, "chaine-mutee.json");
+    fs.writeFileSync(pMut, JSON.stringify(mut));
+    const r = lance("oracle-enchainer.mjs", pMut);
+    const durs = [...new Set((r.r.findings || []).filter(f => f.sev === "bloquant").map(f => f.regle))];
+    ok(r.exit === 1 && JSON.stringify(durs) === JSON.stringify(["CH3"]),
+      `CH3 · la MÊME procédure dont un porteur a été renommé ÉCHOUE, sur CH3 et sur CH3 seulement — obtenu ${r.r.verdict} ${JSON.stringify(durs)}`);
+    ok((r.r.findings || []).some(f => f.regle === "CH3" && /oracle-qui-a-ete-renomme/.test(f.msg) && /E\d/.test(f.where)),
+      "CH3 · le porteur manquant est nommé AVEC son étape — une chaîne qui dirait seulement « un porteur manque » ne se répare pas");
+  } finally {
+    fs.rmSync(tmpCh, { recursive: true, force: true });
+  }
 }
 
 console.log(`\nSelf-test forge-data : ${pass} PASS, ${echec} FAIL`);

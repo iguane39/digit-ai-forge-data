@@ -1,0 +1,33 @@
+{
+  "format": "forge-data/chaine@1",
+  "id": "chaine_de_fixture_verte",
+  "document": "fixtures/chaine-verte.md",
+  "racine": "..",
+  "etapes": [
+    {
+      "id": "E1", "rang": 1,
+      "etape": "Relever ce que les visuels affichent",
+      "entree": "le fichier d'origine fourni au mandat",
+      "sortie": "un relevé d'usage au format usage-restitution@1",
+      "porteur": { "type": "script", "chemin": "scripts/traduire-modele-semantique.mjs" }
+    },
+    {
+      "id": "E2", "rang": 2,
+      "etape": "Délimiter le périmètre sur ce relevé",
+      "entree": "le relevé d'usage de E1 et l'inventaire du modèle cible",
+      "sortie": "un perimetre@1 sans excédent non motivé",
+      "porteur": { "type": "oracle", "chemin": "oracles/oracle-delimiter.mjs", "regles": ["DL3", "DL4"] }
+    },
+    {
+      "id": "E3", "rang": 3,
+      "etape": "Prouver le rendu par l'export lu",
+      "entree": "le rapport publié",
+      "sortie": "un verdict de rendu daté et résulté",
+      "porteur": {
+        "type": "geste_humain",
+        "geste": "exporter la page depuis le service, télécharger le fichier, lire son image et conclure sur son contenu",
+        "enregistre_par": { "chemin": "oracles/oracle-rendre.mjs", "regle": "RN5" }
+      }
+    }
+  ]
+}

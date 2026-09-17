@@ -1,0 +1,91 @@
+{
+  "format": "forge-data/chaine@1",
+  "id": "migration_rapport_powerbi",
+  "document": "references/MIGRATION-RAPPORT-POWERBI.md",
+  "racine": "..",
+  "_source": "TF-1179, retour Produit-62 RF-24 du 2026-09-17 — déclaration machine de la procédure écrite dans le document ci-dessus ; jugée par `node oracles/oracle-enchainer.mjs references/migration-rapport-powerbi.chaine.json`",
+  "etapes": [
+    {
+      "id": "E1", "rang": 1,
+      "etape": "Relever ce que les visuels du rapport d'origine affichent",
+      "entree": "le fichier d'origine fourni au mandat (mise en page et modèle sémantique)",
+      "sortie": "une mise-en-page@1 et un usage-restitution@1 (trois populations, champs inconnus nommés)",
+      "porteur": { "type": "script", "chemin": "scripts/traduire-modele-semantique.mjs" }
+    },
+    {
+      "id": "E2", "rang": 2,
+      "etape": "Délimiter le périmètre sur ce que les visuels lisent",
+      "entree": "le relevé d'usage de E1 et l'inventaire du modèle cible",
+      "sortie": "un perimetre@1 sans excédent, exclusions motivées nommées",
+      "porteur": { "type": "oracle", "chemin": "oracles/oracle-delimiter.mjs", "regles": ["DL1", "DL2", "DL3", "DL4", "DL5", "DL6"] }
+    },
+    {
+      "id": "E3", "rang": 3,
+      "etape": "Concevoir le modèle cible et déclarer ses décisions",
+      "entree": "le périmètre arrêté en E2",
+      "sortie": "un modele-dimensionnel@1 portant ses décisions d'architecture",
+      "porteur": { "type": "oracle", "chemin": "oracles/oracle-modeliser.mjs", "regles": ["M1", "M2", "M3", "M4", "M5", "M6", "M7"] }
+    },
+    {
+      "id": "E4", "rang": 4,
+      "etape": "Transposer la mise en page du rapport d'origine",
+      "entree": "le fichier d'origine et le modèle cible de E3",
+      "sortie": "une reconstruction@1 en mode transposition, écarts nommés",
+      "porteur": { "type": "oracle", "chemin": "oracles/oracle-reconstruire.mjs", "regles": ["RS1", "RS2", "RS3", "RS4", "RS5", "RS6"] }
+    },
+    {
+      "id": "E5", "rang": 5,
+      "etape": "Recetter les liaisons du rapport construit",
+      "entree": "le rapport construit et l'inventaire du modèle publié",
+      "sortie": "un rendu@1 dont toute projection résout, aucun visuel vide",
+      "porteur": { "type": "oracle", "chemin": "oracles/oracle-rendre.mjs", "regles": ["RN1", "RN2", "RN3", "RN4"] }
+    },
+    {
+      "id": "E6", "rang": 6,
+      "etape": "Publier le rapport et reposer les identifiants de source",
+      "entree": "le rapport recetté en E5 et le GO humain de publication",
+      "sortie": "le rapport publié, identifiants de source reposés et vérifiés",
+      "porteur": {
+        "type": "geste_humain",
+        "geste": "publier depuis le service, puis reposer les identifiants de source que l'appel de mise à jour de définition a perdus, et rouvrir le rapport publié pour constater qu'il pointe la bonne source",
+        "enregistre_par": { "chemin": "oracles/oracle-rendre.mjs", "regle": "RN5" }
+      }
+    },
+    {
+      "id": "E7", "rang": 7,
+      "etape": "Prouver le rendu par l'export téléchargé et lu",
+      "entree": "le rapport publié en E6",
+      "sortie": "un verdict de rendu daté : durée, octets, texte extrait par page, libellés d'erreur",
+      "porteur": {
+        "type": "geste_humain",
+        "geste": "exporter la page depuis le service, télécharger le fichier produit, lire son image et son texte extrait, puis conclure sur la durée, le poids et le contenu — jamais sur le statut rendu par le service",
+        "enregistre_par": { "chemin": "oracles/oracle-rendre.mjs", "regle": "RN5" }
+      }
+    },
+    {
+      "id": "E8", "rang": 8,
+      "etape": "Réconcilier les chiffres du rapport avec la couche amont",
+      "entree": "les mesures du modèle publié et celles archivées de la couche amont",
+      "sortie": "une reconciliation@1 sous tolérance déclarée, chaque écart nommé",
+      "porteur": { "type": "oracle", "chemin": "oracles/oracle-reconcilier.mjs", "regles": ["RC1", "RC2", "RC3", "RC4", "RC5", "RC6"] }
+    },
+    {
+      "id": "E9", "rang": 9,
+      "etape": "Diagnostiquer un symptôme par banc et bissection",
+      "entree": "un symptôme de rendu ou de performance, sans cause établie",
+      "sortie": "la cause nommée, ou l'hypothèse écartée avec la mesure qui l'écarte",
+      "porteur": {
+        "type": "geste_humain",
+        "geste": "bissecter le rapport jusqu'au plus petit cas qui reproduit le symptôme, mesurer ce cas, et n'incriminer la capacité, le coût d'un croisement ou le nombre de tables qu'une fois le banc joué",
+        "enregistre_par": { "chemin": "oracles/oracle-rendre.mjs", "regle": "RN5" }
+      }
+    },
+    {
+      "id": "E10", "rang": 10,
+      "etape": "Restituer le travail au commanditaire",
+      "entree": "les sorties de E1 à E9",
+      "sortie": "un rapport dont chaque chiffre est ancré et dont les décisions sont citées",
+      "porteur": { "type": "oracle", "chemin": "oracles/oracle-restituer.mjs", "regles": ["R1", "R2", "R3", "R4", "R5", "R7", "R9"] }
+    }
+  ]
+}

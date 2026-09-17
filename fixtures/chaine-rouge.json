@@ -1,0 +1,36 @@
+{
+  "format": "forge-data/chaine@1",
+  "id": "chaine_de_fixture_rouge",
+  "document": "fixtures/chaine-rouge.md",
+  "racine": "..",
+  "_pourquoi": "La chaîne telle qu'elle s'écrit quand personne ne la vérifie : une étape dont on ne sait pas ce qu'elle rend, deux étapes au même rang, un oracle qui n'existe pas, une règle qui a survécu à sa règle, un geste humain en cinq mots dont la trace n'atterrit nulle part, et trois étapes que le document lu par les humains ne cite pas.",
+  "etapes": [
+    {
+      "id": "E1", "rang": 1,
+      "etape": "Relever ce que les visuels affichent",
+      "entree": "le fichier d'origine fourni au mandat",
+      "porteur": { "type": "script", "chemin": "scripts/traduire-modele-semantique.mjs" }
+    },
+    {
+      "id": "E2", "rang": 1,
+      "etape": "Délimiter le périmètre sur ce relevé",
+      "entree": "le relevé d'usage de E1",
+      "sortie": "un périmètre arrêté",
+      "porteur": { "type": "oracle", "chemin": "oracles/oracle-perimetre.mjs", "regles": ["PE1"] }
+    },
+    {
+      "id": "E3", "rang": 3,
+      "etape": "Recetter les liaisons du rapport construit",
+      "entree": "le rapport construit et l'inventaire du modèle",
+      "sortie": "une recette de liaisons",
+      "porteur": { "type": "oracle", "chemin": "oracles/oracle-rendre.mjs", "regles": ["RN2", "RN9"] }
+    },
+    {
+      "id": "E4", "rang": 4,
+      "etape": "Vérifier que le rapport rend",
+      "entree": "le rapport publié",
+      "sortie": "un rapport réputé rendu",
+      "porteur": { "type": "geste_humain", "geste": "à faire à la main" }
+    }
+  ]
+}

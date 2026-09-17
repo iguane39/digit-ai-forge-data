@@ -53,6 +53,8 @@ node oracles/oracle-reconstruire.mjs <reconstruction.json> # RS1-RS6 : la mise e
                                                           # au pixel, ressources) ; repli généré = déclaré
 node oracles/oracle-delimiter.mjs <perimetre.json>        # DL1-DL6 : le périmètre livré est ce que les
                                                           # VISUELS LISENT ; l'excédent non motivé est refusé
+node oracles/oracle-enchainer.mjs <chaine.json>           # CH1-CH6 : chaîne de travail déclarée — étapes
+                                                          # ordonnées, chacune avec un porteur qui EXISTE
 node oracles/oracle-couvrir.mjs <couverture.json>         # CV1-CV6 : mapping mesuré contre l'inventaire de sa source
 node oracles/oracle-evoluer.mjs <evolutions.json>         # EV1-EV7 : projection des évolutions d'une couche, provenance typée,
                                                           # comptes recalculés, arbre schéma › table › colonne
@@ -267,6 +269,31 @@ largeur, hauteur, ordre, visibilité) ; **RS4** visuels (bijection par page, typ
 (≥ 4 mots, convention CV4/RA4) ; **RS6** ressources portées ET référencées (une ressource copiée
 que rien ne référence est un fond que le lecteur ne verra jamais). Quatre fixtures, deux sens
 chacune : `reconstruction-{verte,rouge}.json` et `reconstruction-repli-{verte,rouge}.json`.
+
+## Migrer un rapport vers un nouveau modèle (TF-1179, 17/09/2026) — la procédure, et son contrôle
+
+Migrer un rapport était une chaîne promise dont aucune étape n'était écrite : elles ont été
+découvertes une à une par l'échec. Trois jours, 3 défauts vus par l'humain avant tout oracle,
+3 fausses pistes mesurées avant la cause, 4 lots de retours avant que la procédure existe.
+
+La procédure vit en référence : **`references/MIGRATION-RAPPORT-POWERBI.md`** — 10 étapes ordonnées
+(relever les champs affichés, délimiter le périmètre, concevoir le modèle, transposer la mise en
+page, recetter les liaisons, publier et reposer les identifiants, prouver le rendu par l'export lu,
+réconcilier, diagnostiquer par banc, restituer), chacune avec son entrée, sa sortie et **le contrôle
+qui la juge** ; 14 règles ; l'arbre de diagnostic symptôme → cause ; le tableau de ce que chaque
+contrôle prouve et **ne prouve pas**. Sa déclaration machine est
+`references/migration-rapport-powerbi.chaine.json`.
+
+`oracle-enchainer.mjs <chaine.json>`, format `forge-data/chaine@1` — **CH1** forme (chaque étape a
+son id, son libellé, son entrée et sa sortie) ; **CH2** ordre en rangs contigus, parce que l'ordre
+est la moitié de la procédure : un périmètre relevé APRÈS la conception est le périmètre du modèle ;
+**CH3** chaque étape nomme un porteur du jeu fermé {oracle, script, geste_humain} dont le chemin
+**EXISTE** — une étape sans porteur existant est une étape non écrite ; **CH4** toute règle citée
+se retrouve **dans le fichier** de son oracle (un identifiant de règle survit à sa règle) ; **CH5**
+ce qui ne se mécanise pas se déclare geste humain, nommé et **avec son enregistreur** (doctrine
+RN5) ; **CH6** le document lu par les humains cite chaque étape déclarée. La procédure de la forge
+passe son propre contrôle au self-test (10 étapes, 39 règles retrouvées), et la même procédure dont
+un porteur est renommé y échoue sur CH3.
 
 ## Le verbe délimiter (TF-1180, 17/09/2026) — le périmètre est ce que les visuels LISENT
 
