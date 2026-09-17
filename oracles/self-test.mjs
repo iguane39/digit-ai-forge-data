@@ -84,6 +84,12 @@ const CAS = [
   // bouton de réinitialisation disparus sans un mot (RS5), un écart « assumé » en deux mots (RS5),
   // le thème copié mais jamais référencé et deux ressources perdues (RS6).
   { oracle: "oracle-reconstruire.mjs", verte: "reconstruction-verte.json", rouge: "reconstruction-rouge.json", regles: ["RS3", "RS4", "RS5", "RS6"] },
+  // rendre (TF-1175, 17/09) : la rouge porte un champ projeté absent de l'inventaire du modèle
+  // (RN2), une projection écrite en mesure mais inventoriée en colonne (RN3), un visuel porteur
+  // de données sans aucune projection affichée (RN4), et un geste de vérification du rendu en
+  // deux mots, sans date (RN5) — c'est-à-dire un livrable déclaré rendu sur la seule lecture de
+  // son fichier, le défaut exact de RF-21.
+  { oracle: "oracle-rendre.mjs", verte: "rendu-verte.json", rouge: "rendu-rouge.json", regles: ["RN2", "RN3", "RN4", "RN5"] },
 ];
 
 console.log("SELF-TEST forge-data — discipline aux niveaux des 4 barres (fixtures synthétiques)\n");
@@ -1032,6 +1038,42 @@ console.log(String.fromCharCode(10) + "RS2 (TF-1176) — mise en page générée
     `RS2 · repli SANS motif : FAIL sur RS2 et sur RS2 seulement — obtenu ${r.r.verdict} ${JSON.stringify(durs)}`);
   ok((r.r.findings || []).some(f => f.regle === "RS2" && f.sev === "info" && /personne ne l'a décidé/.test(f.msg)),
     "RS2 · le verdict DIT que le repli n'a pas été décidé — un message qui féliciterait un repli non motivé serait pire que pas de message");
+}
+
+// ---- RN1/RN2 : la chaîne TMDL → inventaire → rendu se ferme SANS transcription (TF-1175) ----
+// L'inventaire du modèle est la SECONDE source sans laquelle RN2 ne peut rien dire — et une
+// seconde source recopiée à la main est l'endroit exact où le contrôle ment (leçon TF-0911,
+// mécanisée par TF-0917). `inventaire_ref` reprend donc le `couverture@1` que
+// `traduire-modele-semantique --inventaire` produit déjà, sans une ligne retapée. Le cas joué
+// ici est celui de la mise en page de fixture : un visuel projette un champ qui n'existe nulle
+// part dans le modèle, et un visuel SANS données en projette un autre — le premier est bloqué,
+// le second ignoré par construction.
+console.log(String.fromCharCode(10) + "RN1/RN2 (TF-1175) — inventaire repris du modèle, jamais retapé" + String.fromCharCode(10));
+const tmpRendu = fs.mkdtempSync(path.join(os.tmpdir(), "forge-data-rendu-"));
+try {
+  const pCouverture = path.join(tmpRendu, "couverture.json");
+  const inv = lanceScript("traduire-modele-semantique.mjs", ["--modele", fx("modele-semantique-verte"), "--inventaire",
+    "--namespace", "powerbi://fixture/instance-de-test", "--sortie", pCouverture]);
+  ok(inv.exit === 0 && fs.existsSync(pCouverture), "RN1 · l'inventaire du modèle est produit par le verbe (aucune transcription à la main)");
+  const pRendu = path.join(tmpRendu, "rendu.json");
+  fs.writeFileSync(pRendu, JSON.stringify({
+    format: "forge-data/rendu@1", id: "rendu_chaine_fermee",
+    mise_en_page: JSON.parse(fs.readFileSync(fx("mise-en-page-verte.json"), "utf8")),
+    inventaire_ref: "couverture.json",
+    gestes_de_verification: [{ geste: "export PDF depuis le service puis lecture de l'image du fichier exporté",
+      fait_le: "2026-09-17", resultat: "2 pages avec données, aucun libellé d'erreur du service" }],
+  }));
+  const r = lance("oracle-rendre.mjs", pRendu);
+  const durs = [...new Set((r.r.findings || []).filter(f => f.sev === "bloquant").map(f => f.regle))];
+  ok(r.exit === 1 && JSON.stringify(durs) === JSON.stringify(["RN2"]),
+    `RN1/RN2 · inventaire repris par \`inventaire_ref\` : FAIL sur RN2 et RIEN d'autre — obtenu ${JSON.stringify(durs)}`);
+  const rn2 = (r.r.findings || []).filter(f => f.regle === "RN2");
+  ok(rn2.length === 1 && rn2[0].msg.includes("Ventes.champ_invente") && /Widget casse/.test(rn2[0].where),
+    `RN1/RN2 · le champ fantôme est NOMMÉ avec son visuel — un compte anonyme ne se corrige pas (obtenu ${rn2.map(f => f.where).join(",") || "rien"})`);
+  ok(!rn2.some(f => /Logo/.test(f.where)),
+    "RN1/RN2 · le visuel déclaré `porte_donnees: false` (Logo) n'est jugé sur aucune liaison — juger un logo sur ses champs serait un faux positif, et un oracle à faux positifs se désactive");
+} finally {
+  fs.rmSync(tmpRendu, { recursive: true, force: true });
 }
 
 console.log(`\nSelf-test forge-data : ${pass} PASS, ${echec} FAIL`);

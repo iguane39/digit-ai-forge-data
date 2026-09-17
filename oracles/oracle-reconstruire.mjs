@@ -52,7 +52,7 @@ import fs from "node:fs";
 
 const DOM = "Reconstruction d'un rapport existant : mise en page conservée, géométrie au pixel, repli déclaré (RS1-RS6)";
 const NON_JUGE = [
-  "le RENDU lui-même — ce que le lecteur voit à l'écran (polices, couleurs, données affichées) : une géométrie fidèle ne dit rien de ce qui s'affiche dedans, et cet oracle ne l'ouvre jamais",
+  "le RENDU lui-même — ce que le lecteur voit à l'écran (polices, couleurs, données affichées) : une géométrie fidèle ne dit rien de ce qui s'affiche dedans ; `oracles/oracle-rendre.mjs` de ce dépôt (TF-1175) pour ce qui se mécanise, et le geste de vérification qu'il exige déclaré pour le reste",
   "la justesse du relevé de la source : il se produit en lisant le fichier d'origine chez le produit, jamais ici — cet oracle compare deux relevés, il n'en lit aucun fichier natif",
   "les objets de FORMATAGE fins (polices, couleurs, largeurs de colonnes, tri) au-delà de la géométrie et des ressources déclarées ici",
   "un rapport construit sans rapport d'origine : il n'y a rien à conserver, et ce domaine ne s'applique pas",

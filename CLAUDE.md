@@ -45,6 +45,9 @@ node oracles/oracle-restituer.mjs <rapport.md> [--strict] [--glossaire <chemin>]
                                                           # le corps CITE les décisions d'architecture
                                                           # déclarées par le modèle pointé (TF-1170)
 node oracles/oracle-contractualiser.mjs <contrat.json>    # C1-C5 : schéma + SLA + propriétaire + version
+node oracles/oracle-rendre.mjs <rendu.json>               # RN1-RN5 : liaisons visuel → objet du modèle,
+                                                          # mesures référencées existantes, visuels vides,
+                                                          # et geste de vérification du RENDU déclaré
 node oracles/oracle-reconstruire.mjs <reconstruction.json> # RS1-RS6 : la mise en page d'un rapport fourni
                                                           # en entrée est CONSERVÉE (pages, visuels, géométrie
                                                           # au pixel, ressources) ; repli généré = déclaré
@@ -211,6 +214,32 @@ TMDL ne porte ni le `pourquoi` ni les décisions : `traduire-modele-semantique` 
 les nomme dans `a_completer` (M7), le complément humain les fournit — même mécanique que la
 granularité et la matrice en bus. La reprise de ces mêmes décisions dans le mode d'emploi du
 livrable-dossier (LISEZMOI) relève du gabarit du pilot, déclarée en `non_juge` ici.
+
+## Le verbe rendre (TF-1175, 17/09/2026) — un contrôle qui lit le fichier ne prouve jamais le rendu
+
+Un rapport Power BI généré a passé 22 contrôles de recette et 7 d'audit, a été publié sur GO
+humain, et ne rendait AUCUN visuel : « Chargement de votre rapport… » sans fin, export PDF
+`Succeeded` en 557 à 569 s sur 6 configurations, PDF de 943 à 1 415 octets et **zéro caractère**,
+quand le rapport du client sur la même capacité s'exporte en 41 s et 137 506 octets. Le contrôle
+« en-têtes repris au caractère près, 70/70 » rendait PASS sur des en-têtes que personne ne voyait.
+Coût : deux jours de mandat, deux diagnostics faux, un GO de publication dépensé.
+
+`oracle-rendre.mjs <rendu.json>`, format `forge-data/rendu@1` — **RN1** forme, l'inventaire du
+modèle venant inline ou d'un `couverture@1` déjà relevé (`inventaire_ref` : la chaîne
+`traduire-modele-semantique --inventaire` → oracle se ferme sans transcription) ; **RN2** toute
+projection d'un visuel porteur de données résout à un objet du modèle, comparaison insensible à la
+casse ; **RN3** une projection écrite `Table[Mesure]` est inventoriée comme mesure ; **RN4** aucun
+visuel porteur de données sans projection affichée, les projections `active: false` étant comptées
+et dites ; **RN5** le geste de vérification du RENDU RÉEL est déclaré, daté et résulté.
+
+**Doctrine de livraison — le geste obligatoire, jamais passé sous silence.** Ce que le lecteur voit
+ne se mécanise pas sans l'outil : aucun contrôle de ce dépôt ne l'atteint, et c'est écrit au
+`non_juge` de l'oracle. Tout livrable dont l'usage est un rendu se vérifie donc par le geste
+nommé — **publier → exporter la page depuis le service → lire l'IMAGE du fichier exporté →
+verdict** (durée sous borne, octets au-dessus du plancher, texte extrait non vide par page, aucun
+libellé d'erreur du service) — et ce geste entre au livrable par RN5 avec sa date et son résultat.
+Un rendu non joué reste `non_juge` et se DIT ; il ne se déduit d'aucun contrôle sur le fichier.
+Fixtures des deux sens : `rendu-{verte,rouge}.json`, plus la chaîne fermée jouée au self-test.
 
 ## Le verbe reconstruire (TF-1176, 17/09/2026) — ce que le mandat fournit ne se réinvente pas
 

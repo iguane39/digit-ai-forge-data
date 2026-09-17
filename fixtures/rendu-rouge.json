@@ -1,0 +1,31 @@
+{
+  "format": "forge-data/rendu@1",
+  "id": "rendu_rapport_ventes_invisible",
+  "mise_en_page": {
+    "format": "forge-data/mise-en-page@1",
+    "rapport": "Rapport ventes qui ne rend rien (fixture)",
+    "pages": [
+      {
+        "page": "Synthese",
+        "visuels": [
+          { "visuel": "Axe temps", "projections": [ { "champ": "Calendrier.annee" }, { "champ": "Calendrier.trimestre", "active": false } ] },
+          { "visuel": "Segments", "projections": [ { "champ": "Client.segment_commercial" } ] },
+          { "visuel": "Panier moyen (carte)", "projections": [ { "champ": "Ventes[montant_ht]" } ] },
+          { "visuel": "Tableau de detail", "projections": [] }
+        ]
+      }
+    ]
+  },
+  "inventaire": [
+    { "objet": "Calendrier", "type": "table" },
+    { "objet": "Calendrier.annee", "type": "colonne" },
+    { "objet": "Calendrier.trimestre", "type": "colonne" },
+    { "objet": "Client", "type": "table" },
+    { "objet": "Client.segment", "type": "colonne" },
+    { "objet": "Ventes", "type": "table" },
+    { "objet": "Ventes[montant_ht]", "type": "colonne" }
+  ],
+  "gestes_de_verification": [
+    { "geste": "recette lue", "resultat": "22 contrôles PASS sur le fichier du projet" }
+  ]
+}
