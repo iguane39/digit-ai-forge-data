@@ -51,6 +51,8 @@ node oracles/oracle-rendre.mjs <rendu.json>               # RN1-RN5 : liaisons v
 node oracles/oracle-reconstruire.mjs <reconstruction.json> # RS1-RS6 : la mise en page d'un rapport fourni
                                                           # en entrée est CONSERVÉE (pages, visuels, géométrie
                                                           # au pixel, ressources) ; repli généré = déclaré
+node oracles/oracle-delimiter.mjs <perimetre.json>        # DL1-DL6 : le périmètre livré est ce que les
+                                                          # VISUELS LISENT ; l'excédent non motivé est refusé
 node oracles/oracle-couvrir.mjs <couverture.json>         # CV1-CV6 : mapping mesuré contre l'inventaire de sa source
 node oracles/oracle-evoluer.mjs <evolutions.json>         # EV1-EV7 : projection des évolutions d'une couche, provenance typée,
                                                           # comptes recalculés, arbre schéma › table › colonne
@@ -265,6 +267,40 @@ largeur, hauteur, ordre, visibilité) ; **RS4** visuels (bijection par page, typ
 (≥ 4 mots, convention CV4/RA4) ; **RS6** ressources portées ET référencées (une ressource copiée
 que rien ne référence est un fond que le lecteur ne verra jamais). Quatre fixtures, deux sens
 chacune : `reconstruction-{verte,rouge}.json` et `reconstruction-repli-{verte,rouge}.json`.
+
+## Le verbe délimiter (TF-1180, 17/09/2026) — le périmètre est ce que les visuels LISENT
+
+Le rapport d'origine porte 27 tables, 342 colonnes, 160 mesures. Ses visuels affichent 83 champs
+qui lisent 66 colonnes réelles. La première proposition servait les 342, quand la demande humaine
+disait « uniquement » les colonnes affichées ; puis 3 tables qu'aucun visuel ni aucune mesure ne
+lit sont restées au modèle publié jusqu'à la décision D-32 du 16/09/2026. Personne n'avait demandé
+ce surplus, et aucun contrôle ne comparait le SERVI au LU — `oracle-couvrir` mesure le défaut
+inverse (ce que la source contient et que le livrable oublie), et une couverture parfaite est même
+la façon la plus sûre de produire celui-ci.
+
+**Règle de périmètre de la forge** : le périmètre d'un livrable migré est l'ensemble des objets
+**lus par un visuel ou par une mesure affichée** du livrable d'origine, relevé sur ce **fichier
+d'origine AVANT toute conception**. Tout objet publié hors de cet ensemble est un **excédent** :
+il se retire du modèle publié, ou il porte son exclusion motivée. Un objet nécessaire que rien
+n'affiche — clé de substitution, mesure intermédiaire — se **déclare** ; il ne se devine pas et ne
+se tait pas. Rien n'est retiré de la couche de données : ce qui se réduit, c'est le modèle publié,
+celui que le lecteur actualise et parcourt.
+
+`oracle-delimiter.mjs <perimetre.json>`, format `forge-data/perimetre@1` — **DL1** forme, avec les
+trois pièces qui rendent le jugement possible : la mise en page de l'origine (`mise-en-page@1`, ou
+le `rendu@1` qui la porte déjà), l'usage relevé (`usage-restitution@1` de
+`traduire-modele-semantique --usage-restitution`, dont la population `lue_par_mesure` est la
+fermeture transitive qu'un relevé à la main manque — 45 colonnes sur 66 au cas mesuré) et le
+périmètre livré (inline, ou le `source.inventaire` d'un `couverture@1` déjà relevé) ; **DL2** le
+relevé s'identifie (qui, quand, et SUR QUEL FICHIER D'ORIGINE) ; **DL3** aucun champ affiché à
+l'origine n'est perdu — un renommage se déclare en `correspondances`, une colonne lue par une
+mesure sans être affichée est avertie et non bloquante (la migration peut recalculer la mesure) ;
+**DL4** l'**excédent** — tout objet livré est lu, ou porte une exclusion motivée (≥ 4 mots,
+convention CV4) — les lectures nécessaires se déclarant en `lectures_declarees`
+(`relation`, `mesure_intermediaire`), dont la justification doit elle-même remonter à un objet lu ;
+**DL5** les déclarations résolvent (défaut symétrique de CV3) ; **DL6** un taux déclaré se
+recalcule. Fixtures `perimetre-{verte,rouge}.json`, plus la chaîne jouée au self-test : servir tout
+le modèle de la fixture rend 15 excédents sur 26 objets (42,3 % lus), et le périmètre réduit PASSE.
 
 ## Le verbe couvrir (TF-0911, 08/09/2026) — la complétude, que nulle règle de forme ne pose
 

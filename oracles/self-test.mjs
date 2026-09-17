@@ -90,6 +90,12 @@ const CAS = [
   // deux mots, sans date (RN5) — c'est-à-dire un livrable déclaré rendu sur la seule lecture de
   // son fichier, le défaut exact de RF-21.
   { oracle: "oracle-rendre.mjs", verte: "rendu-verte.json", rouge: "rendu-rouge.json", regles: ["RN2", "RN3", "RN4", "RN5"] },
+  // délimiter (TF-1180, 17/09) : la rouge EST le défaut mesuré, en petit — le périmètre pris au
+  // MODÈLE et non aux visuels. Relevé sans auteur (DL2), un champ que le lecteur voyait absent du
+  // périmètre livré (DL3), une table entière et trois colonnes que personne ne lit plus une
+  // exclusion en deux mots (DL4), une correspondance et une lecture déclarée qui pointent hors du
+  // modèle publié (DL5), et un taux de 100 % là où il en vaut 50 (DL6).
+  { oracle: "oracle-delimiter.mjs", verte: "perimetre-verte.json", rouge: "perimetre-rouge.json", regles: ["DL2", "DL3", "DL4", "DL5", "DL6"] },
 ];
 
 console.log("SELF-TEST forge-data — discipline aux niveaux des 4 barres (fixtures synthétiques)\n");
@@ -1074,6 +1080,78 @@ try {
     "RN1/RN2 · le visuel déclaré `porte_donnees: false` (Logo) n'est jugé sur aucune liaison — juger un logo sur ses champs serait un faux positif, et un oracle à faux positifs se désactive");
 } finally {
   fs.rmSync(tmpRendu, { recursive: true, force: true });
+}
+
+// ---- DL4 : servir tout le modèle est l'excédent, et la chaîne le mesure sans transcription ----
+// (TF-1180, 17/09/2026) Le défaut mesuré tient en une phrase : le périmètre du rapport migré a été
+// pris au MODÈLE d'origine (342 colonnes) et non aux VISUELS (66 colonnes lues par 83 champs).
+// Le cas est rejoué ici à l'échelle de la fixture, et par la CHAÎNE, sans une ligne retapée :
+// `--inventaire` produit le périmètre qu'on publierait en servant tout le modèle, et
+// `--usage-restitution` produit ce que les visuels lisent vraiment. L'oracle soustrait.
+console.log(String.fromCharCode(10) + "DL4 (TF-1180) — servir tout le modèle : l'excédent se mesure, il ne se discute pas" + String.fromCharCode(10));
+const tmpPerim = fs.mkdtempSync(path.join(os.tmpdir(), "forge-data-perimetre-"));
+try {
+  const pCouv = path.join(tmpPerim, "couverture.json");
+  const inv = lanceScript("traduire-modele-semantique.mjs", ["--modele", fx("modele-semantique-verte"), "--inventaire",
+    "--namespace", "powerbi://fixture/instance-de-test", "--sortie", pCouv]);
+  const pUsage = path.join(tmpPerim, "usage.json");
+  const us = lanceScript("traduire-modele-semantique.mjs", ["--modele", fx("modele-semantique-verte"), "--usage-restitution",
+    "--mise-en-page", fx("mise-en-page-verte.json"), "--sortie", pUsage]);
+  ok(inv.exit === 0 && us.exit === 0 && fs.existsSync(pCouv) && fs.existsSync(pUsage),
+    "DL1 · le périmètre livré et l'usage relevé sont PRODUITS par le verbe (aucune transcription à la main, leçon TF-0911)");
+
+  const pPerim = path.join(tmpPerim, "perimetre.json");
+  fs.writeFileSync(pPerim, JSON.stringify({
+    format: "forge-data/perimetre@1", id: "perimetre_tout_le_modele",
+    releve: { par: "traduire-modele-semantique --usage-restitution", date: "2026-09-17", source: "modèle d'origine de la fixture" },
+    mise_en_page: JSON.parse(fs.readFileSync(fx("mise-en-page-verte.json"), "utf8")),
+    usage_ref: "usage.json", livre_ref: "couverture.json",
+  }));
+  const r = lance("oracle-delimiter.mjs", pPerim);
+  const durs = [...new Set((r.r.findings || []).filter(f => f.sev === "bloquant").map(f => f.regle))].sort();
+  ok(r.exit === 1 && JSON.stringify(durs) === JSON.stringify(["DL3", "DL4"]),
+    `DL4 · périmètre pris au MODÈLE : FAIL sur DL4 (excédent) et DL3 (champ affiché absent), et rien d'autre — obtenu ${JSON.stringify(durs)}`);
+  const p = r.r.perimetre;
+  ok(p && p.livres === 26 && p.lus === 11 && p.excedent === 15 && p.exclus === 0 && p.taux.lu === 42.3,
+    `DL4 · les comptes sont RECALCULÉS depuis les deux sources : 26 objets publiés, 11 lus, 15 en excédent, 42,3 % — obtenu ${JSON.stringify(p && { livres: p.livres, lus: p.lus, excedent: p.excedent, taux: p.taux.lu })}`);
+  const dl4 = (r.r.findings || []).filter(f => f.regle === "DL4" && f.sev === "bloquant");
+  ok(dl4.length === 1 && /13 colonne\(s\), 2 mesure\(s\)/.test(dl4[0].msg) && /Calendrier\.date_sk/.test(dl4[0].msg),
+    `DL4 · l'excédent est compté PAR TYPE et ses objets sont NOMMÉS — un total anonyme ne se retire pas (obtenu ${dl4.map(f => f.msg.slice(0, 80)).join(" | ") || "rien"})`);
+  // Ce que l'excédent contient ici dit la règle mieux qu'une phrase : trois clés de substitution
+  // et deux mesures intermédiaires, c'est-à-dire des objets NÉCESSAIRES que rien n'affiche. Ils ne
+  // se taisent pas et ne se devinent pas : ils se DÉCLARENT (`lectures_declarees`), et c'est ce
+  // que le périmètre réduit ci-dessous fait pour les mesures.
+  ok(/Client\.client_sk/.test(dl4[0].msg) && p.excedent_par_type.mesure === 2,
+    "DL4 · clés de substitution et mesures intermédiaires tombent en excédent tant que leur lecture n'est pas DÉCLARÉE — l'oracle ne devine aucune nécessité structurelle");
+
+  // Le sens qui compte autant : le MÊME périmètre, réduit à ce que les visuels lisent et aux
+  // objets structurellement nécessaires, PASSE. Un oracle qui refuserait aussi le périmètre juste
+  // serait inapplicable, et se ferait désactiver le jour de sa première migration.
+  const couv = JSON.parse(fs.readFileSync(pCouv, "utf8"));
+  const usage = JSON.parse(fs.readFileSync(pUsage, "utf8"));
+  const lus = new Set([...usage.populations.affichee, ...usage.populations.lue_par_mesure].map(x => x.toLowerCase()));
+  const restreint = couv.source.inventaire.filter(o => {
+    const c = o.objet.toLowerCase();
+    return lus.has(c) || o.type === "mesure" || (o.type === "table" && [...lus].some(x => x.startsWith(c + ".")));
+  });
+  const pReduit = path.join(tmpPerim, "perimetre-reduit.json");
+  fs.writeFileSync(pReduit, JSON.stringify({
+    format: "forge-data/perimetre@1", id: "perimetre_reduit_a_ce_qui_est_lu",
+    releve: { par: "traduire-modele-semantique --usage-restitution", date: "2026-09-17", source: "modèle d'origine de la fixture" },
+    mise_en_page: {
+      format: "forge-data/mise-en-page@1", rapport: "mise en page de l'origine, visuels cassés écartés",
+      pages: JSON.parse(fs.readFileSync(fx("mise-en-page-verte.json"), "utf8")).pages
+        .map(pg => ({ ...pg, visuels: pg.visuels.filter(v => v.visuel !== "Widget casse") })),
+    },
+    usage_ref: "usage.json", livre: restreint,
+    lectures_declarees: restreint.filter(o => o.type === "mesure" && !lus.has(o.objet.toLowerCase()))
+      .map(o => ({ objet: o.objet, type: "mesure_intermediaire", par: "Ventes[Panier moyen]" })),
+  }));
+  const rv = lance("oracle-delimiter.mjs", pReduit);
+  ok(rv.exit === 0 && rv.r.verdict === "PASS" && rv.r.perimetre.excedent === 0,
+    `DL4 · le périmètre RÉDUIT à ce que les visuels lisent PASSE, zéro excédent — obtenu ${rv.r.verdict} ${JSON.stringify(rv.r.perimetre && rv.r.perimetre.excedent)}`);
+} finally {
+  fs.rmSync(tmpPerim, { recursive: true, force: true });
 }
 
 console.log(`\nSelf-test forge-data : ${pass} PASS, ${echec} FAIL`);
