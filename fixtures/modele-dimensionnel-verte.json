@@ -5,6 +5,12 @@
     { "processus": "ventes", "dimensions": ["date", "client", "produit", "pays"] },
     { "processus": "retours", "dimensions": ["date", "client", "produit"] }
   ],
+  "decisions": [
+    { "id": "D-3", "qui": "commanditaire (fixture)", "date": "2026-09-07",
+      "quoi": "un fait par processus métier servi, jamais un fait unique fourre-tout" },
+    { "id": "D-22", "qui": "commanditaire (fixture)", "date": "2026-09-09",
+      "quoi": "les retours restent un fait distinct des ventes, avec leurs propres mesures" }
+  ],
   "dimensions": [
     { "nom": "date", "role": "temps", "grain": "jour", "debut": "2024-01-01", "fin": "2026-12-31", "contigue": true,
       "cle_substitution": "date_sk", "cle_naturelle": "date", "type_changement": 0, "attributs": ["annee", "trimestre", "mois", "jour", "jour_semaine"], "conforme": true },
@@ -15,10 +21,14 @@
   "faits": [
     { "nom": "ventes", "processus": "ventes",
       "grain": "une ligne par ligne de commande livrée, par jour de livraison",
+      "pourquoi": "Ce fait sert le processus de vente : il répond aux questions de chiffre d'affaires livré par client, par produit et par pays.",
+      "decision_ref": "D-3",
       "dimensions": ["date", "client", "produit", "pays"],
       "mesures": [ { "nom": "montant_ht", "agregation": "somme" }, { "nom": "quantite", "agregation": "somme" }, { "nom": "commandes", "agregation": "compte_distinct" } ] },
     { "nom": "retours", "processus": "retours",
       "grain": "une ligne par article retourné, par jour de réception du retour",
+      "pourquoi": "Ce fait sert le processus de retour : les volumes et montants remboursés ne se lisent pas dans les ventes, et les mélanger fausserait le chiffre d'affaires.",
+      "decision_ref": "D-22",
       "dimensions": ["date", "client", "produit"],
       "mesures": [ { "nom": "quantite_retournee", "agregation": "somme" }, { "nom": "montant_rembourse", "agregation": "somme" } ] }
   ]

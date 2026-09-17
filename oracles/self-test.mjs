@@ -42,7 +42,10 @@ const CAS = [
   // modéliser (TF-0860) : la rouge porte un fait sans granularité, une mesure d'agrégation inconnue, une
   // dimension définie deux fois, une clé de substitution égale à la clé naturelle, un type de
   // changement hors jeu, aucune dimension temps, un processus absent de la matrice en bus.
-  { oracle: "oracle-modeliser.mjs", verte: "modele-dimensionnel-verte.json", rouge: "modele-dimensionnel-rouge.json", regles: ["M2", "M3", "M4", "M5", "M6"] },
+  // M7 (TF-1170, 17/09) s'ajoute : la rouge porte un fait sans « pourquoi » ni `decision_ref`, un
+  // fait dont le « pourquoi » tient en 4 mots et dont le `decision_ref` ne résout à rien, et une
+  // décision sans QUI, sans date ISO et au QUOI de 2 mots.
+  { oracle: "oracle-modeliser.mjs", verte: "modele-dimensionnel-verte.json", rouge: "modele-dimensionnel-rouge.json", regles: ["M2", "M3", "M4", "M5", "M6", "M7"] },
   // transformer (TF-0861) : cible = dossier des artefacts de l'outil (manifest, run_results, catalog).
   { oracle: "oracle-transformer.mjs", verte: "transformation-verte", rouge: "transformation-rouge", regles: ["TR2", "TR3", "TR4", "TR5", "TR6"] },
   // réconcilier (TF-0864) : tolérance absente, cible sans namespace, mesure sans homologue, écart.
@@ -67,6 +70,11 @@ const CAS = [
   // restituer R7 : un rapport de mapping qui pointe une mesure de couverture existante PASSE ;
   // celui qui se dit exhaustif en pointant le vide ÉCHOUE — sur R7 et sur R7 seulement.
   { oracle: "oracle-restituer.mjs", verte: "rapport-couverture-verte.md", rouge: "rapport-couverture-rouge.md", regles: ["R7"] },
+  // restituer R9 (TF-1170, 17/09) : un rapport de modélisation qui cite les décisions déclarées par
+  // le modèle qu'il pointe PASSE ; celui qui en laisse une au seul ledger ÉCHOUE — sur R9 et sur R9
+  // seulement. C'est le défaut exact de RF-18 : la décision était lisible d'une machine (le modèle
+  // jugé conforme) et invisible du lecteur, qui l'a dénoncée comme un défaut neuf jours plus tard.
+  { oracle: "oracle-restituer.mjs", verte: "rapport-modele-verte.md", rouge: "rapport-modele-rouge.md", regles: ["R9"] },
   // rapprocher (TF-0975, 14/09) : la rouge porte un intitulé d'extrait ni apparié ni déclaré en
   // écart (RA2), un concept de dictionnaire qui cite un intitulé absent des deux sources (RA3),
   // et une absence sans motif écrit ni visuel (RA4, deux findings).
@@ -555,15 +563,16 @@ try {
       "traduire-modele-semantique · l'agrégation se lit à la tête du DAX (SUM → somme, DISTINCTCOUNT → compte_distinct, jamais l'inverse)");
     ok(mes.find(x => x.nom === "Panier moyen").agregation === undefined,
       "traduire-modele-semantique · une mesure dont le DAX ne commence pas par une agrégation reste SANS agrégation — deviner « somme » sur un DIVIDE serait faux et invérifiable");
-    ok(dimCal.cle_naturelle === undefined && m.matrice_bus === undefined && m.faits[0].grain === undefined,
-      "traduire-modele-semantique · clé naturelle, granularité et matrice en bus restent ABSENTS — TMDL ne les porte pas, et un placeholder vraisemblable ferait PASSER l'oracle en mentant");
+    ok(dimCal.cle_naturelle === undefined && m.matrice_bus === undefined && m.faits[0].grain === undefined
+       && m.decisions === undefined && m.faits[0].pourquoi === undefined,
+      "traduire-modele-semantique · clé naturelle, granularité, matrice en bus, décisions et « pourquoi » du fait restent ABSENTS — TMDL ne les porte pas, et un placeholder vraisemblable ferait PASSER l'oracle en mentant (M7, TF-1170)");
     // Le point qui compte : l'oracle réclame EXACTEMENT ce que le verbe a annoncé manquant.
     const r = lance("oracle-modeliser.mjs", pBrouillon);
     const durs = [...new Set((r.r.findings || []).filter(f => f.sev === "bloquant").map(f => f.regle))].sort();
-    ok(r.exit === 1 && JSON.stringify(durs) === JSON.stringify(["M2", "M4", "M5", "M6"]),
-      `traduire-modele-semantique → oracle-modeliser : FAIL sur M2, M4, M5, M6 et RIEN d'autre — la liste des règles rouges est celle des champs déclarés « à compléter » (obtenu ${JSON.stringify(durs)})`);
+    ok(r.exit === 1 && JSON.stringify(durs) === JSON.stringify(["M2", "M4", "M5", "M6", "M7"]),
+      `traduire-modele-semantique → oracle-modeliser : FAIL sur M2, M4, M5, M6, M7 et RIEN d'autre — la liste des règles rouges est celle des champs déclarés « à compléter » (obtenu ${JSON.stringify(durs)})`);
     const annonces = (b.r.a_completer || []).join(" ");
-    ok(["M2", "M4", "M5", "M6"].every(x => annonces.includes(`(${x})`)),
+    ok(["M2", "M4", "M5", "M6", "M7"].every(x => annonces.includes(`(${x})`)),
       "traduire-modele-semantique · chaque règle rouge est nommée dans `a_completer` — le lecteur du brouillon sait quoi faire sans exécuter l'oracle");
   }
   // Sens 2 — avec le complément humain, le round-trip PASSE sans retouche (patron d'importer).

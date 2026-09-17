@@ -41,7 +41,9 @@ node oracles/oracle-restituer.mjs <rapport.md> [--strict] [--glossaire <chemin>]
                                                           # R8 vocabulaire du destinataire (glossaire de la
                                                           # forge par défaut, ou celui du produit via
                                                           # --glossaire — bloquant si un terme y porte
-                                                          # "bloquant": true, TF-1044)
+                                                          # "bloquant": true, TF-1044) ; R9 modele_ref :
+                                                          # le corps CITE les décisions d'architecture
+                                                          # déclarées par le modèle pointé (TF-1170)
 node oracles/oracle-contractualiser.mjs <contrat.json>    # C1-C5 : schéma + SLA + propriétaire + version
 node oracles/oracle-couvrir.mjs <couverture.json>         # CV1-CV6 : mapping mesuré contre l'inventaire de sa source
 node oracles/oracle-evoluer.mjs <evolutions.json>         # EV1-EV7 : projection des évolutions d'une couche, provenance typée,
@@ -166,7 +168,7 @@ puis rapports Power BI), sur mandat humain, chacun contre une barre validée le 
 
 | Verbe | Discipline exigée | Barre | Oracle |
 |---|---|---|---|
-| **modéliser** (TF-0860) | la couche Gold EST le modèle dimensionnel, déclaré AVANT construction : granularité en une phrase par fait (clé `grain`, alias `granularite` — TF-1044), dimensions conformes définies une fois, clé de substitution distincte de la clé naturelle, type de changement lent 0-3, dimension temps unique à la granularité jour et contiguë, matrice en bus qui précède le modèle | Kimball — Dimensional Modeling Techniques | `oracle-modeliser.mjs <modele.json>` — M1-M6, format `forge-data/modele-dimensionnel@1` (ou `@2`, clé `granularite` nominale) |
+| **modéliser** (TF-0860) | la couche Gold EST le modèle dimensionnel, déclaré AVANT construction : granularité en une phrase par fait (clé `grain`, alias `granularite` — TF-1044), dimensions conformes définies une fois, clé de substitution distincte de la clé naturelle, type de changement lent 0-3, dimension temps unique à la granularité jour et contiguë, matrice en bus qui précède le modèle, **et les décisions d'architecture qui l'ont façonné, portées par lui** (M7, TF-1170) | Kimball — Dimensional Modeling Techniques | `oracle-modeliser.mjs <modele.json>` — M1-M7, format `forge-data/modele-dimensionnel@1` (ou `@2`, clé `granularite` nominale) |
 | **transformer** (TF-0861) | un projet de transformation déclare ses dépendances (ref/source), décrit et teste chaque modèle, rejoue ses tests, GÉNÈRE sa documentation ; l'oracle lit les artefacts de l'outil (`manifest.json`, `run_results.json`, `catalog.json`), jamais un YAML réinterprété | dbt-core | `oracle-transformer.mjs <dossier-target>` — TR1-TR6 |
 | **réconcilier** (TF-0864) | toute mesure exposée par un modèle sémantique vaut ce que Gold dit : deux lots de mesures identifiées (Gold archivé par `mesurer_base.py`, export du modèle), chacun avec son instance (T7), sous tolérance DÉCLARÉE, chaque écart nommé | prolonge dbt-core (déclaré → généré) ; défaut n° 18 de l'analyse L99 | `oracle-reconcilier.mjs <reconciliation.json>` — RC1-RC6, format `forge-data/reconciliation@1` ; `oracle-restituer` **R6** : un rapport peut pointer un lot par `reconciliation_ref:` |
 
@@ -178,9 +180,34 @@ du modèle sémantique aval à forge-audit (`verifier-modele-semantique.mjs`).
 ```bash
 node oracles/oracle-modeliser.mjs fixtures/modele-dimensionnel-verte.json
 node oracles/oracle-modeliser.mjs fixtures/modele-dimensionnel-granularite-verte.json   # @2, clé `granularite` (TF-1044)
+node oracles/oracle-restituer.mjs fixtures/rapport-modele-verte.md   # R9 : le rapport cite les décisions du modèle (TF-1170)
 node oracles/oracle-transformer.mjs fixtures/transformation-verte
 node oracles/oracle-reconcilier.mjs fixtures/reconciliation-verte.json
 ```
+
+## M7 et R9 (TF-1170, 17/09/2026) — une décision qui ne vit qu'au ledger n'est pas portée par le livrable
+
+Le 16/09/2026, un commanditaire dénonce comme un défaut les quatre tables de faits qui appliquent
+sa propre décision, tranchée neuf jours plus tôt : la déclaration machine était conforme, jugée
+PASS par `oracle-modeliser`, et le mode d'emploi du livrable ne disait nulle part pourquoi quatre
+faits. Coût : un tour d'analyse de 55 minutes pour établir que le défaut dénoncé était une décision.
+
+**Règle de restitution de la forge** : un livrable de modélisation porte ses décisions d'architecture
+tranchées — QUI a tranché, QUAND, QUOI, et POURQUOI — à l'endroit où le lecteur rencontre le choix,
+jamais seulement au ledger. Deux contrôles exécutés la tiennent, chacun à son endroit :
+
+- `oracle-modeliser` **M7** — le modèle déclare un bloc `decisions` (`id`, `qui`, `date` ISO, `quoi`
+  ≥ 4 mots) et chaque fait porte son `pourquoi` en prose lecteur (≥ 8 mots : le processus servi, ce
+  que le choix apporte) plus un `decision_ref` qui résout ; une décision que nul fait ne référence
+  est une déclaration morte (avertissement). Fixtures : `modele-dimensionnel-{verte,rouge}.json`.
+- `oracle-restituer` **R9** — un rapport qui pointe un modèle par `modele_ref:` CITE au corps chaque
+  décision que ce modèle déclare ; optionnel comme R6 et R7, bloquant dès qu'il est présent.
+  Fixtures : `rapport-modele-{verte,rouge}.md`.
+
+TMDL ne porte ni le `pourquoi` ni les décisions : `traduire-modele-semantique` les laisse ABSENTS et
+les nomme dans `a_completer` (M7), le complément humain les fournit — même mécanique que la
+granularité et la matrice en bus. La reprise de ces mêmes décisions dans le mode d'emploi du
+livrable-dossier (LISEZMOI) relève du gabarit du pilot, déclarée en `non_juge` ici.
 
 ## Le verbe couvrir (TF-0911, 08/09/2026) — la complétude, que nulle règle de forme ne pose
 

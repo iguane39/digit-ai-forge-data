@@ -19,6 +19,10 @@
 //   R7  (optionnel) `couverture_ref:` pointe une mesure `forge-data/couverture@1` existante
 //       (TF-0911) — un rapport de mapping chaîne ainsi la question de la COMPLÉTUDE, celle
 //       qu'aucune règle de forme ne pose ; présent et faux : bloquant.
+//   R9  (optionnel) `modele_ref:` pointe un `forge-data/modele-dimensionnel@1|@2` existant
+//       (TF-1170) et le corps CITE chaque décision d'architecture que ce modèle déclare :
+//       le lecteur rencontre le choix dans le rapport, il doit y trouver qui l'a tranché et
+//       quand. Absent : R9 se tait. Présent et faux, ou décision non citée : bloquant.
 //   R8  VOCABULAIRE DU DESTINATAIRE (TF-0936, portée resserrée TF-1044) : un terme déclaré
 //       « machine » au glossaire `references/glossaire-restitution.json` employé dans la
 //       prose d'un livrable humain est constaté, compté et rendu par son équivalent de
@@ -171,6 +175,41 @@ if (couvertureRef) {
     let cv = null;
     try { cv = JSON.parse(fs.readFileSync(pc, "utf8")); } catch { add("bloquant", "R7", `couverture_ref illisible (JSON attendu) : ${couvertureRef}`, file); }
     if (cv && cv.format !== "forge-data/couverture@1") add("bloquant", "R7", `couverture_ref au format « ${cv.format} » (attendu forge-data/couverture@1)`, file);
+  }
+}
+// --- R9 — les DÉCISIONS qui ont façonné le modèle, citées là où le lecteur voit le choix ----
+// TF-1170 (retour Produit-62 RF-18, 16/09/2026) : le commanditaire a dénoncé comme un défaut
+// les quatre tables de faits qui appliquaient sa propre décision, tranchée neuf jours plus tôt.
+// Elle vivait au ledger ; le rapport livré ne la portait pas. M7 d'`oracle-modeliser` exige
+// désormais que le MODÈLE porte ses décisions ; R9 exige que le RAPPORT les cite — sans quoi la
+// décision reste lisible d'une machine et invisible du lecteur, ce qui était exactement le cas.
+// Même construction que R6 et R7 : optionnel (un rapport qui ne restitue aucun modèle n'en porte
+// pas), bloquant dès qu'il est présent — un rapport qui pointe un modèle sans en reprendre les
+// arbitrages laisse son lecteur les redécouvrir comme des défauts.
+const modeleRef = (front.match(/^modele_ref\s*:\s*(.+)$/m) || [])[1]?.trim();
+if (modeleRef) {
+  const pm = path.join(path.dirname(path.resolve(file)), modeleRef);
+  if (!fs.existsSync(pm)) add("bloquant", "R9", `modele_ref introuvable à côté du rapport : ${modeleRef}`, file);
+  else {
+    let md = null;
+    try { md = JSON.parse(fs.readFileSync(pm, "utf8")); } catch { add("bloquant", "R9", `modele_ref illisible (JSON attendu) : ${modeleRef}`, file); }
+    const FORMATS_MODELE = ["forge-data/modele-dimensionnel@1", "forge-data/modele-dimensionnel@2"];
+    if (md && !FORMATS_MODELE.includes(md.format))
+      add("bloquant", "R9", `modele_ref au format « ${md.format} » (attendu ${FORMATS_MODELE.join(" ou ")})`, file);
+    else if (md) {
+      const decisions = Array.isArray(md.decisions) ? md.decisions : [];
+      if (!decisions.length)
+        add("bloquant", "R9", `le modèle pointé ne déclare aucune décision d'architecture — un modèle façonné par des arbitrages humains les porte (M7 d'oracle-modeliser)`, modeleRef);
+      // La citation se cherche dans le corps JUGEABLE (code et spans retirés, comme R3/R5/R8) :
+      // une décision montrée dans un bloc de code est de la machine, pas de la prose lue.
+      for (const dec of decisions) {
+        const id = String(dec.id || "").trim();
+        if (!id) continue;
+        const motif = new RegExp(`(^|[^\\w-])${id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^\\w-]|$)`);
+        if (!motif.test(corpsJugeable))
+          add("bloquant", "R9", `décision « ${id} » (${dec.qui || "décideur non déclaré"}, ${dec.date || "date non déclarée"}) jamais citée au corps — le lecteur rencontre le choix qu'elle a tranché sans savoir qu'il a été tranché, ni par qui`, "corps");
+      }
+    }
   }
 }
 // --- R5 — couverture des nombres de prose (TF-0378) ---------------------------------------

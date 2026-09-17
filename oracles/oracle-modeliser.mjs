@@ -22,6 +22,20 @@
 //       bornes ISO debut ≤ fin, déclarée contiguë, référencée par CHAQUE fait ;
 //   M6  matrice en bus : présente ; chaque fait nomme un processus de la matrice et ses
 //       dimensions sont un sous-ensemble de celles du processus.
+//   M7  DÉCISIONS D'ARCHITECTURE PORTÉES PAR LE MODÈLE (TF-1170, retour Produit-62 RF-18) :
+//       chaque fait porte un `pourquoi` en prose destinée au lecteur (≥ 8 mots : le processus
+//       servi et ce que le choix apporte) et un `decision_ref` qui résout dans le bloc
+//       `decisions` du modèle ; chaque décision déclare QUI a tranché, QUAND (date ISO) et
+//       QUOI (≥ 4 mots) ; une décision que nul fait ne référence est une déclaration morte
+//       (avertissement, convention R3 d'oracle-restituer).
+//
+// M7 (TF-1170, retour Produit-62 RF-18 du 16/09/2026) — le commanditaire a dénoncé comme un
+// défaut (« une seule table de fait, et pas 4 comme actuellement ») les QUATRE tables de faits
+// qui appliquaient SA PROPRE décision, tranchée neuf jours plus tôt. La décision vivait au
+// ledger du produit ; le modèle déclaré et le mode d'emploi du livrable ne la portaient nulle
+// part. M1-M6 rendaient PASS : elles jugent la matrice en bus, les clés et les granularités,
+// jamais qu'un lecteur retrouve le POURQUOI à l'endroit où il rencontre le choix. Coût mesuré :
+// un tour d'analyse de 55 minutes pour établir que le défaut dénoncé était une décision.
 //
 // TF-1044 (14/09/2026, retour Produit-62 RD-14) — la clé JSON `grain` reste valide (rétro-
 // compatibilité, `modele-dimensionnel@1`) mais le glossaire de restitution rend le mot
@@ -36,8 +50,10 @@
 // Usage : node oracle-modeliser.mjs <modele.json> [--json-only]
 import fs from "node:fs";
 
-const DOM = "Modèle dimensionnel déclaré : granularité, dimensions conformes, clés, temps, matrice en bus (M1-M6, niveau Kimball)";
+const DOM = "Modèle dimensionnel déclaré : granularité, dimensions conformes, clés, temps, matrice en bus, décisions portées (M1-M7, niveau Kimball)";
 const NON_JUGE = [
+  "M7 : justesse et actualité de la décision citée — le ledger du produit fait foi ; un modèle qui cite une décision révoquée passe M7 et ment",
+  "M7 : reprise des mêmes décisions dans le mode d'emploi du livrable-dossier (LISEZMOI) — gabarit du pilot, jamais jugé ici",
   "véracité de la granularité réelle contre la table construite — une mesure (`oracles/oracle-reconcilier.mjs` et `scripts/mesurer_base.py` de ce dépôt), jamais une déclaration",
   "pertinence métier du type de changement lent retenu par dimension (0-3) — arbitrage du concepteur",
   "performance et volumétrie de la couche Gold",
@@ -54,7 +70,7 @@ const F = [];
 const add = (sev, regle, msg, where) => F.push({ sev, regle, msg, where });
 const out = (verdict, code) => {
   process.stdout.write(JSON.stringify({ oracle: "oracle-modeliser", domaine: DOM, artefact: file || null,
-    verdict, findings: F.length ? F : [{ sev: "info", regle: "—", msg: "M1-M6 sans écart", where: file }],
+    verdict, findings: F.length ? F : [{ sev: "info", regle: "—", msg: "M1-M7 sans écart", where: file }],
     non_juge: NON_JUGE }, null, jsonOnly ? 0 : 2));
   process.exit(code);
 };
@@ -159,5 +175,35 @@ else {
     });
   });
 }
+
+// M7 · les décisions qui ont façonné le modèle, lisibles là où le lecteur rencontre le choix
+const decisions = Array.isArray(d.decisions) ? d.decisions : [];
+const parIdDecision = new Map();
+decisions.forEach((dec, i) => {
+  const id = String(dec.id || "").trim();
+  const ou = `decisions #${i + 1}${id ? ` (${id})` : ""}`;
+  if (!id) { add("bloquant", "M7", "décision sans id — un fait la référence par son id, jamais par son rang", ou); return; }
+  if (parIdDecision.has(id)) add("bloquant", "M7", `décision « ${id} » déclarée plus d'une fois — deux versions d'un même arbitrage sont un arbitrage perdu`, ou);
+  parIdDecision.set(id, dec);
+  if (!String(dec.qui || "").trim()) add("bloquant", "M7", `décision « ${id} » sans QUI — une décision sans décideur ne se retrouve pas au ledger`, ou);
+  if (!DATE_ISO.test(String(dec.date || ""))) add("bloquant", "M7", `décision « ${id} » sans date AAAA-MM-JJ — le QUAND est ce qui permet de la relire au ledger`, ou);
+  const quoi = String(dec.quoi || "").trim();
+  const motsQuoi = quoi ? quoi.split(/\s+/).length : 0;
+  if (motsQuoi < 4) add("bloquant", "M7", `décision « ${id} » : le QUOI tranché tient en ${motsQuoi} mot(s) — au moins 4 (convention CV4/RA4), sinon le lecteur ne sait pas ce qui a été choisi`, ou);
+});
+const decisionsUtilisees = new Set();
+faits.forEach((f, i) => {
+  const ou = `fait ${f.nom || `#${i + 1}`}`;
+  const pourquoi = String(f.pourquoi || "").trim();
+  const mots = pourquoi ? pourquoi.split(/\s+/).length : 0;
+  if (!pourquoi) add("bloquant", "M7", "`pourquoi` absent — le lecteur rencontre ce fait sans savoir quel processus il sert ni quel choix l'a créé, et il dénonce comme un défaut ce qui est une décision (RF-18)", ou);
+  else if (mots < 8) add("bloquant", "M7", `« pourquoi » en ${mots} mot(s) : au moins 8, en prose destinée au LECTEUR (le processus servi, ce que le choix apporte) — « ${pourquoi.slice(0, 40)} »`, ou);
+  const ref = String(f.decision_ref || "").trim();
+  if (!ref) add("bloquant", "M7", "`decision_ref` absent — une prose sans décision citée n'est pas retrouvable au ledger (qui a tranché, quand)", ou);
+  else if (!parIdDecision.has(ref)) add("bloquant", "M7", `decision_ref « ${ref} » ne résout à aucune décision du bloc \`decisions\` — une référence qui ne pointe rien est pire qu'une absence`, ou);
+  else decisionsUtilisees.add(ref);
+});
+for (const id of parIdDecision.keys()) if (!decisionsUtilisees.has(id))
+  add("avertissement", "M7", `décision « ${id} » déclarée mais référencée par aucun fait (déclaration morte)`, `decisions:${id}`);
 
 out(F.some(f => f.sev === "bloquant") ? "FAIL" : "PASS", F.some(f => f.sev === "bloquant") ? 1 : 0);

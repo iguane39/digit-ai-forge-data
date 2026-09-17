@@ -30,7 +30,8 @@
 //   ABSENT de TMDL, structurellement : la GRANULARITÉ d'un fait en une phrase ; la CLÉ NATURELLE
 //   d'une dimension ; son TYPE DE CHANGEMENT LENT ; les bornes et la contiguïté de la dimension
 //   temps (propriétés de la DONNÉE, pas de la définition — forge-audit le déclare aussi en
-//   non_juge) ; la MATRICE EN BUS.
+//   non_juge) ; la MATRICE EN BUS ; les DÉCISIONS D'ARCHITECTURE qui ont façonné le modèle et le
+//   `pourquoi` de chaque fait (M7, TF-1170 : elles vivent au ledger du produit, jamais dans TMDL).
 //
 // ET CE VERBE NE LES INVENTE PAS. Un brouillon qui remplirait ces champs de valeurs
 // vraisemblables PASSERAIT `oracle-modeliser` en mentant — exactement le défaut que TF-0911
@@ -46,7 +47,9 @@
 // Format du complément :
 //   { "format": "forge-data/complement-modele@1", "id": "<id du modèle>",
 //     "matrice_bus": [ { "processus": …, "dimensions": [ … ] } ],
+//     "decisions":  [ { "id": "D-3", "qui": …, "date": "AAAA-MM-JJ", "quoi": … } ],
 //     "faits":      { "<table>": { "grain": "une ligne par …", "processus": "…",
+//                                  "pourquoi": "<prose lecteur>", "decision_ref": "D-3",
 //                                  "mesures": { "<mesure>": "<agrégation>" } } },
 //     "dimensions": { "<table>": { "cle_naturelle": "…", "type_changement": 0..3,
 //                                  "grain": "jour", "debut": "AAAA-MM-JJ", "fin": "AAAA-MM-JJ",
@@ -511,6 +514,13 @@ for (const nom of nomsFaits) {
   if (grain) fait.grain = grain; else aCompleter(`fait « ${nom} » : GRANULARITÉ absente — TMDL ne porte pas la phrase de granularité (« une ligne par … ») ; à déclarer au complément (M2)`);
   const processus = cf.processus;
   if (processus) fait.processus = processus; else aCompleter(`fait « ${nom} » : PROCESSUS métier absent — il n'existe pas dans TMDL ; à déclarer au complément avec la ligne correspondante de la matrice en bus (M6)`);
+  // TF-1170 — le POURQUOI d'un fait et la décision qui l'a tranché vivent au ledger du produit,
+  // jamais dans TMDL : les déduire du nom des tables serait la prose vraisemblable que ce verbe
+  // refuse, et c'est elle qui a fait dénoncer comme un défaut une décision du commanditaire.
+  if (cf.pourquoi) fait.pourquoi = cf.pourquoi;
+  else aCompleter(`fait « ${nom} » : POURQUOI absent — la prose qui dit au lecteur quel processus ce fait sert et quel choix l'a créé n'existe pas dans TMDL ; à déclarer au complément (M7)`);
+  if (cf.decision_ref) fait.decision_ref = cf.decision_ref;
+  else aCompleter(`fait « ${nom} » : DECISION_REF absent — l'arbitrage qui a créé ce fait vit au ledger (qui, quand, quoi) ; à déclarer au complément avec le bloc \`decisions\` (M7)`);
   faits.push(fait);
 }
 
@@ -552,6 +562,8 @@ const brouillon = {
   origine: { verbe: VERBE, source: path.relative(process.cwd(), modeleArg).replace(/\\/g, "/") || modeleArg,
              fichiers_tmdl: fichiers.length, complement: complementArg || null, statut: A_COMPLETER.length ? "brouillon" : "complete" },
 };
+if (Array.isArray(comp.decisions) && comp.decisions.length) brouillon.decisions = comp.decisions;
+else aCompleter("DÉCISIONS D'ARCHITECTURE absentes — elles sont tranchées par un humain et consignées à son ledger, jamais lisibles dans TMDL ; à déclarer au complément (qui, quand, quoi) pour que le livrable porte les choix qui l'ont façonné (M7)");
 if (Array.isArray(comp.matrice_bus) && comp.matrice_bus.length) brouillon.matrice_bus = comp.matrice_bus;
 else aCompleter("MATRICE EN BUS absente — elle PRÉCÈDE le modèle (processus métier × dimensions) et ne se relit pas dans le modèle construit : la dériver du TMDL satisferait M6 sans rien vouloir dire. À déclarer au complément (M6)");
 

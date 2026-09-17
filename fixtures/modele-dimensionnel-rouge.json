@@ -4,6 +4,9 @@
   "matrice_bus": [
     { "processus": "ventes", "dimensions": ["client", "produit"] }
   ],
+  "decisions": [
+    { "id": "D-3", "date": "07/09/2026", "quoi": "quatre faits" }
+  ],
   "dimensions": [
     { "nom": "client", "cle_substitution": "id_client", "cle_naturelle": "id_client", "type_changement": 2, "attributs": ["statut"] },
     { "nom": "client", "cle_substitution": "client_sk", "cle_naturelle": "id_client", "type_changement": 7, "attributs": [] },
@@ -16,6 +19,8 @@
       "mesures": [ { "nom": "montant_ht", "agregation": "total" } ] },
     { "nom": "stocks", "processus": "stocks",
       "grain": "stock",
+      "pourquoi": "parce que c'est mieux",
+      "decision_ref": "D-99",
       "dimensions": ["produit", "entrepot"],
       "mesures": [] }
   ]
