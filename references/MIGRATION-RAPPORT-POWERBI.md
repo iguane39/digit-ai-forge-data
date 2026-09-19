@@ -115,9 +115,10 @@ cause écrite — jamais une quatrième hypothèse plausible substituée à une 
 |---|---|---|
 | `oracle-delimiter` (DL) | que le modèle publié ne porte que ce que les visuels lisent | que le relevé d'usage est complet — un visuel oublié au relevé fausse les deux sens |
 | `oracle-modeliser` (M) | que le modèle est bien formé et porte ses décisions | que le modèle correspond au besoin |
-| `oracle-reconstruire` (RS) | que la mise en page d'origine est conservée au pixel près | que le rapport rend |
+| `oracle-reconstruire` (RS) | que la mise en page d'origine est conservée au pixel près, plan compris, et que chaque en-tête affiché est repris autant de FOIS qu'à l'origine (RS7) | que le rapport rend |
 | `oracle-rendre` (RN1-RN4) | que toute projection résout et qu'aucun visuel n'est vide | **que le lecteur voit quelque chose** — c'est RN5, et c'est un geste |
 | `oracle-rendre` (RN5) | que le geste de vérification du rendu a été joué, daté, résulté | rien d'autre : il enregistre, il ne rend pas le verdict à la place de l'humain |
+| `oracle-rendre` (RN6) | que la mesure de l'export tient ses bornes : fichier téléchargé, durée, octets, texte par page, libellés d'erreur cherchés et trouvés | que le geste a été joué sur la bonne version — c'est la date de RN5 qui le dit ; et l'oracle ne JOUE aucun export, il confronte des nombres rapportés |
 | `oracle-reconcilier` (RC) | que deux lots de mesures concordent sous tolérance déclarée | que les deux lots portent sur le même périmètre filtré |
 | `oracle-restituer` (R) | que les chiffres du rapport sont ancrés et les décisions citées | que les chiffres sont justes |
 | `oracle-enchainer` (CH) | que chaque étape de cette procédure nomme un porteur qui existe | que la procédure a été suivie — un contrôle ne remplace pas un geste |

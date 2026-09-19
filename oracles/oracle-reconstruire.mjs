@@ -21,7 +21,8 @@
 //   { format, id, mode: "transposition" | "repli_genere", motif_du_repli?: "…",
 //     tolerance_px: 0,
 //     source:  { origine, releve_par, date?, pages: [ { page, largeur, hauteur, ordre?, visible?,
-//                 visuels: [ { visuel, type, x, y, largeur, hauteur } ] } ],
+//                 visuels: [ { visuel, type, x, y, largeur, hauteur, plan?,
+//                              projections?: [ { entete } ] } ] } ],
 //               ressources?: [ "theme.json", … ] },
 //     produit: { origine?, pages: [ … même forme … ],
 //               ressources?: [ { nom, depuis, referencee } ] },
@@ -36,12 +37,22 @@
 //   RS3  PAGES : bijection des noms, et pour chaque page appariée mêmes largeur, hauteur, ordre
 //        et visibilité (c'est le 1600 × 900 contre 1280 × 720 qui passait inaperçu) ;
 //   RS4  VISUELS : bijection par page, et pour chaque visuel apparié mêmes type, x, y, largeur,
-//        hauteur, à `tolerance_px` près — la géométrie au pixel, prototype P24 du produit ;
+//        hauteur, à `tolerance_px` près — la géométrie au pixel, prototype P24 du produit ; plus
+//        le PLAN (ordre d'empilement) quand la source le déclare (TF-1188) : deux visuels aux
+//        mêmes coordonnées et au plan inversé cachent l'un l'autre sans un écart de géométrie ;
 //   RS5  tout objet de la source absent du produit (ou l'inverse) porte son `motif` (≥ 4 mots,
 //        convention CV4 / RA4) dans `ecarts_assumes` — sinon écarté et OUBLIÉ sont indiscernables ;
 //   RS6  RESSOURCES : chaque ressource de la source est portée par le produit (`depuis`) ET
 //        référencée (`referencee: true`) — une ressource copiée que rien ne référence est un fond
-//        d'écran que le lecteur ne verra jamais.
+//        d'écran que le lecteur ne verra jamais ;
+//   RS7  LE PÉRIMÈTRE À L'OCCURRENCE (TF-1188, retour Produit-62 RF-29). Quand les visuels des
+//        deux côtés déclarent leurs `projections`, les en-têtes affichés se comparent en
+//        MULTISET par page : autant d'occurrences au produit qu'à l'origine, pas autant d'en-têtes
+//        DISTINCTS. Le fait mesuré : la recette du produit comptait 75 objets de modèle distincts
+//        et 70 couples (page, en-tête) distincts, quand le rapport affichait 83 OCCURRENCES —
+//        deux occurrences qui partagent un en-tête comptaient pour une, et un champ perdu dont
+//        l'en-tête existe ailleurs sur la même page passait inaperçu. Une occurrence perdue ou
+//        ajoutée se déclare dans `ecarts_assumes` (objet « page X › en-tête Y »), sinon elle bloque.
 // non_juge : le RENDU lui-même (ce que le lecteur voit à l'écran, polices, couleurs, données
 // affichées) — une géométrie fidèle ne dit rien de ce qui s'affiche dedans ; la justesse du
 // relevé de la source (il se produit en
@@ -50,11 +61,12 @@
 // Usage : node oracle-reconstruire.mjs <reconstruction.json> [--json-only]
 import fs from "node:fs";
 
-const DOM = "Reconstruction d'un rapport existant : mise en page conservée, géométrie au pixel, repli déclaré (RS1-RS6)";
+const DOM = "Reconstruction d'un rapport existant : mise en page conservée, géométrie au pixel, occurrences d'en-tête, repli déclaré (RS1-RS7)";
 const NON_JUGE = [
   "le RENDU lui-même — ce que le lecteur voit à l'écran (polices, couleurs, données affichées) : une géométrie fidèle ne dit rien de ce qui s'affiche dedans ; `oracles/oracle-rendre.mjs` de ce dépôt (TF-1175) pour ce qui se mécanise, et le geste de vérification qu'il exige déclaré pour le reste",
   "la justesse du relevé de la source : il se produit en lisant le fichier d'origine chez le produit, jamais ici — cet oracle compare deux relevés, il n'en lit aucun fichier natif",
   "les objets de FORMATAGE fins (polices, couleurs, largeurs de colonnes, tri) au-delà de la géométrie et des ressources déclarées ici",
+  "que l'en-tête comparé par RS7 désigne le même OBJET DE MODÈLE des deux côtés : RS7 compte des occurrences d'en-tête affiché, la résolution vers le modèle appartient à `oracles/oracle-rendre.mjs` (RN2/RN3) et le périmètre servi à `oracles/oracle-delimiter.mjs` (DL3/DL4)",
   "un rapport construit sans rapport d'origine : il n'y a rien à conserver, et ce domaine ne s'applique pas",
 ];
 const MODES = ["transposition", "repli_genere"];
@@ -66,7 +78,7 @@ const F = [];
 const add = (sev, regle, msg, where) => F.push({ sev, regle, msg, where });
 const out = (verdict, code, extra = {}) => {
   process.stdout.write(JSON.stringify({ oracle: "oracle-reconstruire", domaine: DOM, artefact: file || null,
-    verdict, findings: F.length ? F : [{ sev: "info", regle: "—", msg: "RS1-RS6 sans écart", where: file }],
+    verdict, findings: F.length ? F : [{ sev: "info", regle: "—", msg: "RS1-RS7 sans écart", where: file }],
     non_juge: NON_JUGE, ...extra }, null, jsonOnly ? 0 : 2));
   process.exit(code);
 };
@@ -117,6 +129,7 @@ const assume = objet => motifParObjet.has(objet) && motifParObjet.get(objet).spl
 const parNom = liste => new Map(liste.filter(p => p && p.page).map(p => [String(p.page), p]));
 const src = parNom(pagesSource), prd = parNom(pagesProduit);
 let ecartsGeometrie = 0, visuelsCompares = 0;
+let occurrencesSource = 0, occurrencesProduit = 0, ecartsOccurrence = 0;
 for (const [nom, ps] of src) {
   const ou = `page ${nom}`;
   const pp = prd.get(nom);
@@ -142,6 +155,10 @@ for (const [nom, ps] of src) {
     }
     visuelsCompares++;
     if (String(v.type || "") !== String(w.type || "")) { ecartsGeometrie++; add(sevEcart, "RS4", `visuel « ${nv} » : type « ${w.type} » au produit contre « ${v.type} » à l'origine`, ouv); }
+    // Le PLAN (ordre d'empilement) : comparé seulement si la source le déclare, comme `ordre` et
+    // `visible` sur les pages. Deux visuels superposés au plan inversé se cachent l'un l'autre
+    // sans produire le moindre écart de x, y, largeur ou hauteur.
+    if (v.plan !== undefined && v.plan !== w.plan) { ecartsGeometrie++; add(sevEcart, "RS4", `visuel « ${nv} » : plan ${w.plan} au produit contre ${v.plan} à l'origine — un empilement inversé cache un visuel derrière un autre, à géométrie identique`, ouv); }
     for (const champ of ["x", "y", "largeur", "hauteur"]) {
       const a = Number(v[champ]), b = Number(w[champ]);
       if (!Number.isFinite(a) || !Number.isFinite(b)) { ecartsGeometrie++; add(sevEcart, "RS4", `visuel « ${nv} » : ${champ} absent ou non numérique (origine ${v[champ]}, produit ${w[champ]})`, ouv); continue; }
@@ -151,6 +168,40 @@ for (const [nom, ps] of src) {
   }
   for (const nv of vp.keys()) {
     if (!vs.has(nv) && !assume(`page ${nom} › visuel ${nv}`)) { ecartsGeometrie++; add(sevEcart, "RS5", `visuel « ${nv} » ajouté par le produit, absent de la source et non déclaré dans ecarts_assumes`, `page ${nom} › visuel ${nv}`); }
+  }
+
+  // RS7 — les en-têtes affichés, comptés à l'OCCURRENCE. Opt-in : la règle ne parle que si l'un des
+  // deux côtés déclare ses `projections` — les relevés qui n'en portent pas restent jugés sur la
+  // seule géométrie, comme avant. Compter des en-têtes DISTINCTS laisserait passer la perte d'une
+  // occurrence dont l'en-tête existe ailleurs sur la même page : c'est le défaut mesuré.
+  const compterEntetes = page => {
+    const c = new Map();
+    let declare = false;
+    for (const v of Array.isArray(page?.visuels) ? page.visuels : []) {
+      if (!Array.isArray(v?.projections)) continue;
+      declare = true;
+      for (const pr of v.projections) {
+        const e = String(pr?.entete ?? "").trim();
+        if (!e) continue;
+        c.set(e, (c.get(e) || 0) + 1);
+      }
+    }
+    return { c, declare };
+  };
+  const os = compterEntetes(ps), op = compterEntetes(pp);
+  if (os.declare || op.declare) {
+    for (const [e, n] of os.c) occurrencesSource += n;
+    for (const [e, n] of op.c) occurrencesProduit += n;
+    for (const e of new Set([...os.c.keys(), ...op.c.keys()])) {
+      const a = os.c.get(e) || 0, b = op.c.get(e) || 0;
+      if (a === b) continue;
+      if (assume(`page ${nom} › en-tête ${e}`)) continue;
+      ecartsOccurrence++;
+      add(sevEcart, "RS7", a > b
+        ? `en-tête « ${e} » affiché ${a} fois à l'origine et ${b} fois au produit sur cette page — ${a - b} occurrence(s) perdue(s) ; un décompte d'en-têtes DISTINCTS n'y verrait rien`
+        : `en-tête « ${e} » affiché ${b} fois au produit contre ${a} à l'origine — ${b - a} occurrence(s) ajoutée(s), non déclarée(s) dans ecarts_assumes`,
+        `page ${nom} › en-tête ${e}`);
+    }
   }
 }
 for (const nom of prd.keys()) {
@@ -174,6 +225,8 @@ out(F.some(f => f.sev === "bloquant") ? "FAIL" : "PASS", F.some(f => f.sev === "
   compte: {
     pages_source: pagesSource.length, pages_produit: pagesProduit.length,
     visuels_compares: visuelsCompares, ecarts_geometrie: ecartsGeometrie,
+    occurrences_entete_source: occurrencesSource, occurrences_entete_produit: occurrencesProduit,
+    ecarts_occurrence: ecartsOccurrence,
     ressources_source: ressourcesSource.length, ecarts_assumes: ecartsAssumes.length,
     mode, tolerance_px: tol,
   },

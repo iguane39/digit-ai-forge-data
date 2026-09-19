@@ -83,13 +83,18 @@ const CAS = [
   // 1280 × 720 à l'origine (RS3), trois visuels réalignés en haut de page (RS4), le titre et le
   // bouton de réinitialisation disparus sans un mot (RS5), un écart « assumé » en deux mots (RS5),
   // le thème copié mais jamais référencé et deux ressources perdues (RS6).
-  { oracle: "oracle-reconstruire.mjs", verte: "reconstruction-verte.json", rouge: "reconstruction-rouge.json", regles: ["RS3", "RS4", "RS5", "RS6"] },
+  // RS7 (TF-1188, 18/09) s'y ajoute : « Loyer annuel » affiché DEUX fois à l'origine et une seule au
+  // produit — une occurrence perdue qu'un décompte d'en-têtes DISTINCTS ne voit pas (défaut RF-29).
+  { oracle: "oracle-reconstruire.mjs", verte: "reconstruction-verte.json", rouge: "reconstruction-rouge.json", regles: ["RS3", "RS4", "RS5", "RS6", "RS7"] },
   // rendre (TF-1175, 17/09) : la rouge porte un champ projeté absent de l'inventaire du modèle
   // (RN2), une projection écrite en mesure mais inventoriée en colonne (RN3), un visuel porteur
   // de données sans aucune projection affichée (RN4), et un geste de vérification du rendu en
   // deux mots, sans date (RN5) — c'est-à-dire un livrable déclaré rendu sur la seule lecture de
   // son fichier, le défaut exact de RF-21.
-  { oracle: "oracle-rendre.mjs", verte: "rendu-verte.json", rouge: "rendu-rouge.json", regles: ["RN2", "RN3", "RN4", "RN5"] },
+  // RN6 (TF-1188, 18/09) s'y ajoute : la rouge porte AUSSI le geste d'export du 15/09 tel qu'il a été
+  // rendu — `Succeeded` en 569 s, 1 415 octets, une page à ZÉRO caractère, aucun libellé d'erreur
+  // cherché, et le fichier jamais téléchargé. Sans RN6, ce geste-là passait RN5 sans un mot.
+  { oracle: "oracle-rendre.mjs", verte: "rendu-verte.json", rouge: "rendu-rouge.json", regles: ["RN2", "RN3", "RN4", "RN5", "RN6"] },
   // délimiter (TF-1180, 17/09) : la rouge EST le défaut mesuré, en petit — le périmètre pris au
   // MODÈLE et non aux visuels. Relevé sans auteur (DL2), un champ que le lecteur voyait absent du
   // périmètre livré (DL3), une table entière et trois colonnes que personne ne lit plus une
@@ -1158,6 +1163,85 @@ try {
     `DL4 · le périmètre RÉDUIT à ce que les visuels lisent PASSE, zéro excédent — obtenu ${rv.r.verdict} ${JSON.stringify(rv.r.perimetre && rv.r.perimetre.excedent)}`);
 } finally {
   fs.rmSync(tmpPerim, { recursive: true, force: true });
+}
+
+// ---- RN6 / RS4-plan / RS7 : les trois contrôles rapportés par RF-29 (TF-1188, 18/09/2026) ----
+// Le retour dit trois choses mesurées chez un produit, et deux d'entre elles n'étaient couvertes par
+// aucune règle d'ici. La boucle des CAS prouve que les règles se DÉCLENCHENT ; ce bloc prouve ce
+// qu'elles MESURENT, sur des mutations chirurgicales de la fixture VERTE — un seul champ change à
+// la fois, donc le FAIL obtenu ne peut venir que de lui.
+console.log(String.fromCharCode(10) + "RN6 / RS4-plan / RS7 (TF-1188) — l'export mesuré, le plan, et le périmètre à l'OCCURRENCE" + String.fromCharCode(10));
+const tmpQ = fs.mkdtempSync(path.join(os.tmpdir(), "forge-data-rf29-"));
+try {
+  // --- RN6 · le geste d'export rend ses NOMBRES, et ils sont confrontés à leurs bornes ----------
+  const v = lance("oracle-rendre.mjs", fx("rendu-verte.json"));
+  ok(v.exit === 0 && v.r.compte.mesures_d_export === 1 &&
+     (v.r.findings || []).some(f => f.regle === "RN6" && f.sev === "info" && /449|101376|octets/.test(f.msg)),
+    `RN6 · verte : l'export est prouvé sur le fichier TÉLÉCHARGÉ, et l'oracle rend ses nombres — obtenu ${v.r.compte.mesures_d_export} mesure(s)`);
+  const rn6Rouge = (lance("oracle-rendre.mjs", fx("rendu-rouge.json")).r.findings || []).filter(f => f.regle === "RN6" && f.sev === "bloquant");
+  ok(rn6Rouge.length === 5,
+    `RN6 · rouge : les CINQ défauts du geste du 15/09 sont nommés un à un (statut pris pour le fichier, 569 s, 1 415 octets, page à zéro caractère, aucun libellé cherché) — obtenu ${rn6Rouge.length}`);
+  ok(rn6Rouge.some(f => /1415|1 415/.test(f.msg)) && rn6Rouge.some(f => /zéro caractère|aucun caractère/.test(f.msg)),
+    "RN6 · rouge : le poids et la page vide sont CHIFFRÉS, pas seulement dénoncés — c'est le couple 1 415 octets / 0 caractère qui a coûté deux jours");
+  // Un geste qui se déclare « export_rendu » et ne rend aucun nombre est refusé : c'est la porte
+  // par laquelle « export Succeeded » rentrerait à nouveau, en une phrase bien écrite.
+  const sansMesure = JSON.parse(fs.readFileSync(fx("rendu-verte.json"), "utf8"));
+  delete sansMesure.gestes_de_verification[0].mesure_export;
+  const pSansMesure = path.join(tmpQ, "rendu-sans-mesure.json");
+  fs.writeFileSync(pSansMesure, JSON.stringify(sansMesure));
+  const sm = lance("oracle-rendre.mjs", pSansMesure);
+  const dursSm = [...new Set((sm.r.findings || []).filter(f => f.sev === "bloquant").map(f => f.regle))];
+  ok(sm.exit === 1 && JSON.stringify(dursSm) === JSON.stringify(["RN6"]),
+    `RN6 · un geste déclaré « export_rendu » SANS mesure échoue, sur RN6 et sur RN6 seulement — obtenu ${JSON.stringify(dursSm)}`);
+  // Sens inverse, celui qui garde la règle utilisable : un rendu dont AUCUN geste ne se déclare
+  // export ne bloque pas — il est AVERTI. La doctrine dit qu'un rendu non joué se DIT ; une règle
+  // qui refuserait ici toute livraison serait désactivée le jour même.
+  const sansNature = JSON.parse(JSON.stringify(sansMesure));
+  delete sansNature.gestes_de_verification[0].nature;
+  const pSansNature = path.join(tmpQ, "rendu-sans-nature.json");
+  fs.writeFileSync(pSansNature, JSON.stringify(sansNature));
+  const sn = lance("oracle-rendre.mjs", pSansNature);
+  const sn6 = (sn.r.findings || []).filter(f => f.regle === "RN6");
+  ok(sn.exit === 0 && sn6.length === 1 && sn6[0].sev === "avertissement",
+    `RN6 · aucun geste d'export déclaré : AVERTISSEMENT nommant la doctrine, jamais un blocage — obtenu exit=${sn.exit} ${sn6.map(f => f.sev).join(",") || "rien"}`);
+
+  // --- RS4 · le PLAN, seul champ muté : deux visuels superposés et inversés ---------------------
+  const planMute = JSON.parse(fs.readFileSync(fx("reconstruction-verte.json"), "utf8"));
+  planMute.produit.pages[0].visuels.find(x => x.visuel === "tableau_baux").plan = 9;
+  const pPlan = path.join(tmpQ, "reconstruction-plan.json");
+  fs.writeFileSync(pPlan, JSON.stringify(planMute));
+  const rp = lance("oracle-reconstruire.mjs", pPlan);
+  const dursPlan = [...new Set((rp.r.findings || []).filter(f => f.sev === "bloquant").map(f => f.regle))];
+  ok(rp.exit === 1 && JSON.stringify(dursPlan) === JSON.stringify(["RS4"]) && rp.r.compte.ecarts_geometrie === 1,
+    `RS4 · le PLAN seul inversé, géométrie identique au pixel : FAIL sur RS4 et rien d'autre — obtenu ${JSON.stringify(dursPlan)} ${rp.r.compte.ecarts_geometrie} écart(s)`);
+
+  // --- RS7 · une occurrence perdue dont l'en-tête existe ailleurs sur la même page ---------------
+  // C'est le cas exact que la recette du produit ne voyait pas : « Loyer annuel » est affiché deux
+  // fois, on en retire une, et le nombre d'en-têtes DISTINCTS de la page ne bouge pas d'un.
+  const occMute = JSON.parse(fs.readFileSync(fx("reconstruction-verte.json"), "utf8"));
+  const tbl = occMute.produit.pages[0].visuels.find(x => x.visuel === "tableau_baux");
+  tbl.projections = tbl.projections.slice(0, 3);
+  const distinctsAvant = new Set(occMute.source.pages[0].visuels.flatMap(x => (x.projections || []).map(p => p.entete))).size;
+  const distinctsApres = new Set(occMute.produit.pages[0].visuels.flatMap(x => (x.projections || []).map(p => p.entete))).size;
+  const pOcc = path.join(tmpQ, "reconstruction-occurrence.json");
+  fs.writeFileSync(pOcc, JSON.stringify(occMute));
+  const ro = lance("oracle-reconstruire.mjs", pOcc);
+  const dursOcc = [...new Set((ro.r.findings || []).filter(f => f.sev === "bloquant").map(f => f.regle))];
+  ok(distinctsAvant === distinctsApres,
+    `RS7 · le décompte d'en-têtes DISTINCTS ne bouge PAS (${distinctsAvant} des deux côtés) — c'est pourquoi la recette du produit comptait 70 couples distincts pour 83 occurrences affichées`);
+  ok(ro.exit === 1 && JSON.stringify(dursOcc) === JSON.stringify(["RS7"]) &&
+     ro.r.compte.occurrences_entete_source === 8 && ro.r.compte.occurrences_entete_produit === 7,
+    `RS7 · à l'OCCURRENCE, la perte se voit : 8 contre 7, FAIL sur RS7 et rien d'autre — obtenu ${JSON.stringify(dursOcc)} ${ro.r.compte.occurrences_entete_source}/${ro.r.compte.occurrences_entete_produit}`);
+  // Et la porte de sortie reste la même que pour tout écart de ce dépôt : une occurrence retirée
+  // EXPRÈS se déclare avec son motif, sinon écarté et OUBLIÉ sont indiscernables (convention RS5).
+  occMute.ecarts_assumes.push({ objet: "page Etat locatif › en-tête Loyer annuel",
+    motif: "la colonne de loyer était affichée deux fois dans le tableau d'origine, le doublon est retiré" });
+  fs.writeFileSync(pOcc, JSON.stringify(occMute));
+  const ra = lance("oracle-reconstruire.mjs", pOcc);
+  ok(ra.exit === 0 && ra.r.verdict === "PASS",
+    `RS7 · la même occurrence retirée AVEC son motif écrit PASSE — l'oracle exige une décision, pas la conservation (obtenu ${ra.r.verdict})`);
+} finally {
+  fs.rmSync(tmpQ, { recursive: true, force: true });
 }
 
 // ---- CH3/CH6 : la procédure de la forge passe SON PROPRE contrôle (TF-1179, 17/09/2026) ----

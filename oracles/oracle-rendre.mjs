@@ -24,7 +24,11 @@
 //     mise_en_page: { … forge-data/mise-en-page@1 : pages → visuels → projections … },
 //     inventaire?: [ { objet, type: "table"|"colonne"|"mesure" } ],
 //     inventaire_ref?: "<couverture@1 à côté de ce fichier>"   (son bloc source.inventaire),
-//     gestes_de_verification: [ { geste, fait_le, par?, resultat } ] }
+//     gestes_de_verification: [ { geste, fait_le, par?, resultat,
+//         nature?: "export_rendu",                    ce geste EST la preuve du rendu (RN6)
+//         mesure_export?: { fichier_telecharge, secondes, borne_s, octets, plancher_octets,
+//                           pages: [ { page, caracteres } ],
+//                           libelles_erreur_cherches: [ … ], libelles_erreur_trouves: [ … ] } } ] }
 //
 //   RN1  format + id ; mise_en_page au format `forge-data/mise-en-page@1` avec des pages ;
 //        inventaire du modèle non vide (inline, ou `inventaire_ref` vers un `couverture@1`
@@ -41,7 +45,17 @@
 //   RN5  LE GESTE QUI NE SE MÉCANISE PAS SE DÉCLARE : au moins un geste de vérification du
 //        RENDU RÉEL, chacun avec son libellé (≥ 4 mots), sa date (AAAA-MM-JJ) et son résultat.
 //        Sans lui, le livrable est déclaré rendu sur la foi de contrôles qui lisent son fichier —
-//        très exactement le défaut de RF-21, et le seul que cet oracle ne peut pas mesurer seul.
+//        très exactement le défaut de RF-21, et le seul que cet oracle ne peut pas mesurer seul ;
+//   RN6  ET LA MESURE DE CE GESTE SE JUGE (TF-1188, retour Produit-62 RF-29 du 18/09/2026). RN5
+//        exige un résultat ÉCRIT ; une phrase écrite se contente de « export Succeeded », et c'est
+//        littéralement ce qu'affichait le service le 15/09 sur un PDF de 1 415 octets et ZÉRO
+//        caractère. Un geste qui déclare `nature: "export_rendu"` porte donc son bloc
+//        `mesure_export`, et ce bloc est CHIFFRÉ puis confronté à ses propres bornes : fichier
+//        réellement TÉLÉCHARGÉ (le statut du service n'est pas le fichier), durée sous la borne
+//        déclarée, octets au-dessus du plancher déclaré, chaque page du fichier exporté porte du
+//        texte, et aucun des libellés d'erreur CHERCHÉS n'est trouvé — chercher zéro libellé et
+//        n'en trouver aucun ne prouve rien. Mesuré le 18/09 sur le même rapport, après correction :
+//        27,0 s, 449 705 octets, 1 page, 2 235 caractères, 0 libellé d'erreur.
 // non_juge : CE QUE LE LECTEUR VOIT — le rendu réel (pages affichées, données, polices, couleurs,
 // libellés d'erreur du service, durée et poids d'un export) ne s'obtient qu'en ouvrant le rapport
 // ou en l'exportant depuis le service, et c'est le geste que RN5 exige déclaré : publier →
@@ -55,9 +69,9 @@
 import fs from "node:fs";
 import path from "node:path";
 
-const DOM = "Livrable dont l'usage est un rendu : liaisons, mesures, visuels vides, et geste de vérification du rendu déclaré (RN1-RN5)";
+const DOM = "Livrable dont l'usage est un rendu : liaisons, mesures, visuels vides, geste de vérification déclaré et sa mesure d'export jugée (RN1-RN6)";
 const NON_JUGE = [
-  "CE QUE LE LECTEUR VOIT : le rendu réel (pages affichées, données, polices, couleurs, libellés d'erreur du service, durée et poids d'un export) ne s'obtient qu'en ouvrant le rapport ou en l'exportant depuis le service — c'est le geste que RN5 exige DÉCLARÉ, daté et résulté, jamais une case à cocher",
+  "CE QUE LE LECTEUR VOIT : le rendu réel (pages affichées, données, polices, couleurs) ne s'obtient qu'en ouvrant le rapport ou en l'exportant depuis le service — c'est le geste que RN5 exige DÉCLARÉ, daté et résulté, et dont RN6 juge la mesure quand elle est portée ; l'oracle ne JOUE aucun export, il confronte des nombres rapportés à leurs bornes déclarées",
   "la forme native des expressions du rapport (référence de source, alias du From, en-têtes de colonnes) — profil Power BI de forge-audit, jamais jugé ici",
   "la FIDÉLITÉ de la mise en page à un rapport d'origine fourni en entrée — `oracles/oracle-reconstruire.mjs` de ce dépôt (TF-1176)",
   "la justesse des valeurs affichées — `oracles/oracle-reconcilier.mjs` de ce dépôt, sur deux lots de mesures sous tolérance",
@@ -72,7 +86,7 @@ const F = [];
 const add = (sev, regle, msg, where) => F.push({ sev, regle, msg, where });
 const out = (verdict, code, extra = {}) => {
   process.stdout.write(JSON.stringify({ oracle: "oracle-rendre", domaine: DOM, artefact: file || null,
-    verdict, findings: F.length ? F : [{ sev: "info", regle: "—", msg: "RN1-RN5 sans écart", where: file }],
+    verdict, findings: F.length ? F : [{ sev: "info", regle: "—", msg: "RN1-RN6 sans écart", where: file }],
     non_juge: NON_JUGE, ...extra }, null, jsonOnly ? 0 : 2));
   process.exit(code);
 };
@@ -145,7 +159,9 @@ pages.forEach((p, ip) => {
 });
 
 // RN5 — ce qui exige l'ouverture réelle du rapport. Déclaré, daté, résulté : jamais tu.
+// RN6 — et quand ce geste est l'export, ses NOMBRES sont confrontés à leurs bornes.
 const gestes = Array.isArray(d.gestes_de_verification) ? d.gestes_de_verification : [];
+let mesures = 0;
 if (!gestes.length)
   add("bloquant", "RN5", "aucun geste de vérification du RENDU déclaré — un livrable dont l'usage est un rendu ne se déclare pas livré sur des contrôles qui lisent son fichier (publier → exporter → lire l'image de l'export → verdict)", file);
 gestes.forEach((g, i) => {
@@ -157,12 +173,53 @@ gestes.forEach((g, i) => {
     add("bloquant", "RN5", `geste « ${libelle.slice(0, 40)} » sans date AAAA-MM-JJ — un geste sans date a pu être joué sur une version antérieure du livrable`, ou);
   if (!String(g?.resultat || "").trim())
     add("bloquant", "RN5", `geste « ${libelle.slice(0, 40)} » sans résultat écrit — un geste joué dont personne ne dit ce qu'il a montré ne prouve rien`, ou);
+
+  // RN6 — la mesure de l'export, quand le geste se déclare comme LA preuve du rendu.
+  const m = g?.mesure_export && typeof g.mesure_export === "object" ? g.mesure_export : null;
+  if (g?.nature === "export_rendu" && !m) {
+    add("bloquant", "RN6", `geste déclaré « export_rendu » sans bloc \`mesure_export\` — un geste qui se présente comme LA preuve du rendu rend ses nombres (durée, octets, texte par page, libellés d'erreur), sinon il rend une phrase`, ou);
+    return;
+  }
+  if (!m) return;
+  mesures++;
+  const nb = v => (Number.isFinite(Number(v)) ? Number(v) : null);
+  if (m.fichier_telecharge !== true)
+    add("bloquant", "RN6", "mesure d'export sans `fichier_telecharge: true` — le STATUT rendu par le service n'est pas le fichier : les exports du cas mesuré rendaient `Succeeded` pour 943 à 1 415 octets et zéro caractère", ou);
+  const sec = nb(m.secondes), borne = nb(m.borne_s);
+  if (sec === null || borne === null || borne <= 0)
+    add("bloquant", "RN6", `durée « ${m.secondes} » ou borne « ${m.borne_s} » absente ou non numérique — une durée sans borne déclarée ne se juge pas`, ou);
+  else if (sec > borne)
+    add("bloquant", "RN6", `export en ${sec} s contre une borne déclarée à ${borne} s — un export qui traîne est le premier symptôme d'une page qui ne rend pas (557 à 569 s au cas mesuré)`, ou);
+  const oct = nb(m.octets), plancher = nb(m.plancher_octets);
+  if (oct === null || plancher === null || plancher <= 0)
+    add("bloquant", "RN6", `octets « ${m.octets} » ou plancher « ${m.plancher_octets} » absent ou non numérique — un poids sans plancher déclaré ne se juge pas`, ou);
+  else if (oct < plancher)
+    add("bloquant", "RN6", `fichier exporté de ${oct} octets sous le plancher déclaré de ${plancher} — un PDF vide en pesait 1 415 et passait pour un succès`, ou);
+  const pagesExport = Array.isArray(m.pages) ? m.pages : [];
+  if (!pagesExport.length)
+    add("bloquant", "RN6", "mesure d'export sans aucune page lue — le fichier se rend en images et son texte s'extrait page par page, sinon rien n'est lu", ou);
+  const vides = pagesExport.filter(p => !(nb(p?.caracteres) > 0)).map((p, i) => String(p?.page ?? i + 1));
+  if (vides.length)
+    add("bloquant", "RN6", `${vides.length} page(s) du fichier exporté sans aucun caractère : ${vides.map(x => `« ${x} »`).join(" · ")} — c'est le défaut exact du 15/09, un export déclaré réussi que personne ne voyait`, ou);
+  const cherches = Array.isArray(m.libelles_erreur_cherches) ? m.libelles_erreur_cherches.filter(x => String(x || "").trim()) : [];
+  if (!cherches.length)
+    add("bloquant", "RN6", "aucun libellé d'erreur du service CHERCHÉ — chercher zéro libellé et n'en trouver aucun ne prouve rien : le service écrit ses erreurs DANS la page, et un export peut réussir en les rendant à la place des données", ou);
+  const trouves = Array.isArray(m.libelles_erreur_trouves) ? m.libelles_erreur_trouves : [];
+  if (trouves.length)
+    add("bloquant", "RN6", `${trouves.length} libellé(s) d'erreur du service dans le texte rendu : ${trouves.slice(0, 3).map(x => `« ${typeof x === "string" ? x : x?.libelle} »`).join(" · ")} — la page porte du texte, et c'est du texte d'erreur`, ou);
+  if (!F.some(f => f.regle === "RN6" && f.where === ou))
+    add("info", "RN6", `export prouvé sur le fichier TÉLÉCHARGÉ : ${sec} s (borne ${borne}), ${oct} octets (plancher ${plancher}), ${pagesExport.length} page(s) lue(s), ${cherches.length} libellé(s) d'erreur cherché(s), 0 trouvé`, ou);
 });
+// Aucune mesure nulle part : le verdict de rendu repose sur de la prose. Constat, jamais blocage —
+// la doctrine dit qu'un rendu non joué reste `non_juge` et SE DIT, et une règle qui refuserait ici
+// une livraison entière se ferait désactiver le jour même.
+if (gestes.length && !mesures)
+  add("avertissement", "RN6", "aucun geste ne porte de `mesure_export` — le verdict de rendu repose sur une phrase ; le geste qui prouve le rendu se déclare `nature: \"export_rendu\"` et rend ses nombres (durée, octets, texte par page, libellés d'erreur cherchés et trouvés)", file);
 
 out(F.some(f => f.sev === "bloquant") ? "FAIL" : "PASS", F.some(f => f.sev === "bloquant") ? 1 : 0, {
   compte: {
     pages: pages.length, visuels_porteurs_de_donnees: visuelsDonnees, projections_jugees: projectionsJugees,
     champs_inconnus: champsInconnus, projections_inactives: inactives,
-    objets_inventaire: parObjet.size, gestes_de_verification: gestes.length,
+    objets_inventaire: parObjet.size, gestes_de_verification: gestes.length, mesures_d_export: mesures,
   },
 });

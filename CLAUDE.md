@@ -45,12 +45,14 @@ node oracles/oracle-restituer.mjs <rapport.md> [--strict] [--glossaire <chemin>]
                                                           # le corps CITE les décisions d'architecture
                                                           # déclarées par le modèle pointé (TF-1170)
 node oracles/oracle-contractualiser.mjs <contrat.json>    # C1-C5 : schéma + SLA + propriétaire + version
-node oracles/oracle-rendre.mjs <rendu.json>               # RN1-RN5 : liaisons visuel → objet du modèle,
+node oracles/oracle-rendre.mjs <rendu.json>               # RN1-RN6 : liaisons visuel → objet du modèle,
                                                           # mesures référencées existantes, visuels vides,
-                                                          # et geste de vérification du RENDU déclaré
-node oracles/oracle-reconstruire.mjs <reconstruction.json> # RS1-RS6 : la mise en page d'un rapport fourni
+                                                          # geste de vérification du RENDU déclaré (RN5) et
+                                                          # sa mesure d'export JUGÉE (RN6, TF-1188)
+node oracles/oracle-reconstruire.mjs <reconstruction.json> # RS1-RS7 : la mise en page d'un rapport fourni
                                                           # en entrée est CONSERVÉE (pages, visuels, géométrie
-                                                          # au pixel, ressources) ; repli généré = déclaré
+                                                          # au pixel, plan, ressources) ; repli généré =
+                                                          # déclaré ; RS7 : en-têtes comptés à l'OCCURRENCE
 node oracles/oracle-delimiter.mjs <perimetre.json>        # DL1-DL6 : le périmètre livré est ce que les
                                                           # VISUELS LISENT ; l'excédent non motivé est refusé
 node oracles/oracle-enchainer.mjs <chaine.json>           # CH1-CH6 : chaîne de travail déclarée — étapes
@@ -269,6 +271,31 @@ largeur, hauteur, ordre, visibilité) ; **RS4** visuels (bijection par page, typ
 (≥ 4 mots, convention CV4/RA4) ; **RS6** ressources portées ET référencées (une ressource copiée
 que rien ne référence est un fond que le lecteur ne verra jamais). Quatre fixtures, deux sens
 chacune : `reconstruction-{verte,rouge}.json` et `reconstruction-repli-{verte,rouge}.json`.
+
+## RN6 et RS7 (TF-1188, 18/09/2026) — le résultat d'un geste se chiffre, et un champ se compte à l'occurrence
+
+Le protocole de qualification a été exécuté sur un rapport réel le 18/09, et les trois contrôles qu'il
+réclamait ont été écrits chez le produit puis joués. Confrontés à ce que cette forge portait depuis la
+veille : la **fidélité de mise en page au pixel** était déjà tenue (`oracle-reconstruire`, RS3 pages,
+RS4 visuels, RS6 ressources) ; deux choses ne l'étaient pas.
+
+- `oracle-rendre` **RN6** — RN5 exige un résultat ÉCRIT, et une phrase écrite se contente de « export
+  Succeeded ». C'est littéralement ce que le service affichait le 15/09 sur un PDF de **1 415 octets**
+  et **zéro caractère**. Un geste qui déclare `nature: "export_rendu"` porte donc son bloc
+  `mesure_export`, confronté à ses propres bornes : fichier réellement **téléchargé** (le statut du
+  service n'est pas le fichier), durée sous la borne déclarée, octets au-dessus du plancher déclaré,
+  chaque page du fichier exporté porte du texte, et aucun des libellés d'erreur **cherchés** n'est
+  trouvé — chercher zéro libellé et n'en trouver aucun ne prouve rien. Mesure du 18/09 après
+  correction : 27,0 s, 449 705 octets, 1 page, 2 235 caractères, 0 libellé. Aucun geste d'export
+  déclaré : **avertissement**, jamais blocage — un rendu non joué se DIT.
+- `oracle-reconstruire` **RS7** — le périmètre à l'**occurrence**. La recette du produit comptait 75
+  objets de modèle distincts et 70 couples (page, en-tête) distincts, quand le rapport affichait **83
+  occurrences** : deux occurrences partageant un en-tête comptaient pour une, et un champ perdu dont
+  l'en-tête existe ailleurs sur la même page passait inaperçu. Quand les deux relevés déclarent leurs
+  `projections`, les en-têtes se comparent en multiset par page ; une occurrence perdue ou ajoutée se
+  déclare dans `ecarts_assumes`, sinon elle bloque. **RS4** compare en outre le **plan** d'un visuel
+  quand la source le déclare : deux visuels superposés au plan inversé se cachent l'un l'autre sans
+  un pixel d'écart.
 
 ## Migrer un rapport vers un nouveau modèle (TF-1179, 17/09/2026) — la procédure, et son contrôle
 
