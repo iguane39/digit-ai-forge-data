@@ -81,9 +81,16 @@
       }
     },
     {
-      "id": "E10", "rang": 10,
+      "id": "E11", "rang": 10,
+      "etape": "Qualifier la bascule : le rapport migré peut-il remplacer l'original",
+      "entree": "les sorties de E1 à E9, dimension par dimension, avec leurs verdicts et leurs chiffres",
+      "sortie": "une qualification-rapport@1 : six dimensions, leur angle mort, et un verdict de bascule composé",
+      "porteur": { "type": "oracle", "chemin": "oracles/oracle-qualifier.mjs", "regles": ["QR1", "QR2", "QR3", "QR4", "QR5", "QR6"] }
+    },
+    {
+      "id": "E10", "rang": 11,
       "etape": "Restituer le travail au commanditaire",
-      "entree": "les sorties de E1 à E9",
+      "entree": "les sorties de E1 à E9 et le verdict de bascule rendu par E11",
       "sortie": "un rapport dont chaque chiffre est ancré et dont les décisions sont citées",
       "porteur": { "type": "oracle", "chemin": "oracles/oracle-restituer.mjs", "regles": ["R1", "R2", "R3", "R4", "R5", "R7", "R9"] }
     }

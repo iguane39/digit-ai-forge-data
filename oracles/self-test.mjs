@@ -107,6 +107,13 @@ const CAS = [
   // cinq mots dont la trace n'atterrit nulle part (CH5), et trois étapes que le document lu par
   // les humains ne cite pas (CH6).
   { oracle: "oracle-enchainer.mjs", verte: "chaine-verte.json", rouge: "chaine-rouge.json", regles: ["CH1", "CH2", "CH3", "CH4", "CH5", "CH6"] },
+  // qualifier (TF-1186, 19/09) : la rouge EST le défaut mesuré — cinq dimensions déclarées vertes,
+  // la sixième absente du document (QR1, avec une ancre sans auteur), un angle mort en un mot (QR2),
+  // une preuve qui cite une règle que son porteur ne porte pas et une autre dont le porteur n'existe
+  // pas (QR3), les interactions déclarées conformes sur la foi d'un export PDF et outillées de trois
+  // gestes seulement (QR4), un écart « assumé » que nulle décision n'a tranché et une dimension
+  // conforme qui porte un écart non assumé (QR5), et par-dessus « remplaçable » (QR6).
+  { oracle: "oracle-qualifier.mjs", verte: "qualification-rapport-verte.json", rouge: "qualification-rapport-rouge.json", regles: ["QR1", "QR2", "QR3", "QR4", "QR5", "QR6"] },
 ];
 
 console.log("SELF-TEST forge-data — discipline aux niveaux des 4 barres (fixtures synthétiques)\n");
@@ -1165,6 +1172,68 @@ try {
   fs.rmSync(tmpPerim, { recursive: true, force: true });
 }
 
+// ---- QR6 : le verdict de bascule se COMPOSE, il ne se pose pas (TF-1186, 19/09/2026) ----
+// C'est la règle qui porte tout l'item, et la boucle des CAS ne la prouve qu'à moitié : elle montre
+// que QR6 se déclenche, pas qu'elle se déclenche POUR LA BONNE RAISON. Les mutations ci-dessous
+// partent de la fixture VERTE — un document honnête, cinq dimensions renseignées, une sixième non
+// jugeable — et changent UN champ. Le fait qu'elles protègent : cinq mesures vertes et une
+// dimension muette produisent exactement la même illusion qu'un rapport recetté qui n'affiche rien.
+console.log(String.fromCharCode(10) + "QR6 (TF-1186) — cinq dimensions vertes et une muette ne valent pas une garantie" + String.fromCharCode(10));
+const tmpQual = fs.mkdtempSync(path.join(os.tmpdir(), "forge-data-qualif-"));
+try {
+  const base = () => JSON.parse(fs.readFileSync(fx("qualification-rapport-verte.json"), "utf8"));
+  // La copie mutée vit hors du dépôt : sa racine reste celle de la forge, sinon les porteurs
+  // deviendraient introuvables et chaque mutation échouerait sur QR3 au lieu de sa propre règle.
+  const ecrire = (nom, doc) => {
+    doc.racine = path.join(ici, "..");
+    const p = path.join(tmpQual, nom); fs.writeFileSync(p, JSON.stringify(doc)); return p;
+  };
+
+  // Le verdict seul est relevé à « remplaçable » : rien d'autre ne change, et le document devient
+  // faux. C'est le geste exact qu'aucun contrôle ne rattrapait — la question du commanditaire était
+  // tranchée par une phrase posée au-dessus de mesures qui ne la portaient pas.
+  const m1 = base(); m1.bascule.verdict = "remplacable"; delete m1.bascule.conditions;
+  const r1 = lance("oracle-qualifier.mjs", ecrire("bascule-posee.json", m1));
+  const d1 = [...new Set((r1.r.findings || []).filter(f => f.sev === "bloquant").map(f => f.regle))];
+  ok(r1.exit === 1 && JSON.stringify(d1) === JSON.stringify(["QR6"]) &&
+     (r1.r.findings || []).some(f => f.regle === "QR6" && /non jugeable ici/.test(f.msg)),
+    `QR6 · « remplaçable » posé sur un document dont trois dimensions ne sont pas prouvées : FAIL sur QR6 seul, et le message dit pourquoi le verdict est INATTEIGNABLE — obtenu ${JSON.stringify(d1)}`);
+
+  // Une réserve qu'aucune condition ne lève : « sous conditions » avec une liste incomplète se lit
+  // comme un oui pour la réserve manquante — la dimension muette, de nouveau, d'un cran plus loin.
+  const m2 = base(); m2.bascule.conditions = m2.bascule.conditions.filter(c => c.id !== "C-2");
+  const r2 = lance("oracle-qualifier.mjs", ecrire("reserve-orpheline.json", m2));
+  const q2 = (r2.r.findings || []).filter(f => f.regle === "QR6" && f.sev === "bloquant");
+  ok(r2.exit === 1 && q2.length === 1 && /interactions/.test(q2[0].msg),
+    `QR6 · une réserve qu'aucune condition ne lève est NOMMÉE (« interactions ») — une liste incomplète de conditions est un oui déguisé (obtenu ${q2.map(f => f.msg.slice(0, 30)).join(",") || "rien"})`);
+
+  // Et le sens inverse, celui qui garde la règle utilisable : une condition qui pointe une réserve
+  // inexistante est refusée aussi — sinon il suffirait d'allonger la liste pour tout couvrir.
+  const m3 = base(); m3.bascule.conditions[0].leve = ["rendu"];
+  const r3 = lance("oracle-qualifier.mjs", ecrire("condition-dans-le-vide.json", m3));
+  ok(r3.exit === 1 && (r3.r.findings || []).some(f => f.regle === "QR6" && /pointe dans le vide/.test(f.msg)),
+    "QR6 · une condition qui prétend lever une dimension déjà conforme est refusée — sinon la liste se remplit de conditions qui ne lèvent rien");
+
+  // QR2 · l'angle mort d'une dimension PROUVÉE CONFORME. C'est là qu'il compte le plus et c'est là
+  // qu'on le supprime en premier : un contrôle vert donne l'impression de n'avoir rien à taire.
+  const m4 = base(); m4.dimensions.find(x => x.dimension === "rendu").angle_mort = "aucun";
+  const r4 = lance("oracle-qualifier.mjs", ecrire("angle-mort-efface.json", m4));
+  const d4 = [...new Set((r4.r.findings || []).filter(f => f.sev === "bloquant").map(f => f.regle))];
+  ok(r4.exit === 1 && JSON.stringify(d4) === JSON.stringify(["QR2"]),
+    `QR2 · l'angle mort effacé d'une dimension conforme fait échouer le document, sur QR2 et rien d'autre — obtenu ${JSON.stringify(d4)}`);
+
+  // QR3 · la preuve cite son porteur ET ses règles, et l'oracle les retrouve DANS le fichier. Une
+  // règle renommée laisse la dimension s'en réclamer pour toujours (convention CH4, TF-1179).
+  const m5 = base(); m5.dimensions.find(x => x.dimension === "perimetre").preuve.regles = ["DL3", "DL9"];
+  const r5 = lance("oracle-qualifier.mjs", ecrire("regle-survivante.json", m5));
+  ok(r5.exit === 1 && (r5.r.findings || []).some(f => f.regle === "QR3" && /DL9/.test(f.msg) && /oracle-delimiter/.test(f.msg)),
+    "QR3 · une règle citée que son porteur ne porte pas est nommée AVEC son porteur — un identifiant de règle survit à sa règle");
+  ok((lance("oracle-qualifier.mjs", fx("qualification-rapport-verte.json")).r.qualification || {}).regles_verifiees === 11,
+    "QR3 · verte : les 11 règles citées par les dimensions sont RETROUVÉES dans les fichiers de leurs porteurs, jamais crues sur parole");
+} finally {
+  fs.rmSync(tmpQual, { recursive: true, force: true });
+}
+
 // ---- RN6 / RS4-plan / RS7 : les trois contrôles rapportés par RF-29 (TF-1188, 18/09/2026) ----
 // Le retour dit trois choses mesurées chez un produit, et deux d'entre elles n'étaient couvertes par
 // aucune règle d'ici. La boucle des CAS prouve que les règles se DÉCLENCHENT ; ce bloc prouve ce
@@ -1254,10 +1323,10 @@ console.log(String.fromCharCode(10) + "CH3/CH6 (TF-1179) — la procédure de mi
 {
   const pChaine = path.join(ici, "..", "references", "migration-rapport-powerbi.chaine.json");
   const v = lance("oracle-enchainer.mjs", pChaine);
-  ok(v.exit === 0 && v.r.verdict === "PASS" && v.r.chaine.etapes === 10 && v.r.chaine.etapes_absentes_du_document === 0,
-    `CH6 · la procédure de migration : 10 étapes déclarées, toutes citées par le document lu par les humains — obtenu ${v.r.verdict} ${JSON.stringify(v.r.chaine && { etapes: v.r.chaine.etapes, absentes: v.r.chaine.etapes_absentes_du_document })}`);
-  ok(v.r.chaine.porteurs.geste_humain === 3 && v.r.chaine.regles_verifiees === 39,
-    `CH4/CH5 · les 39 règles citées par les étapes EXISTENT dans leur porteur, et les 3 gestes qui ne se mécanisent pas déclarent leur enregistreur — obtenu ${JSON.stringify(v.r.chaine && { gestes: v.r.chaine.porteurs.geste_humain, regles: v.r.chaine.regles_verifiees })}`);
+  ok(v.exit === 0 && v.r.verdict === "PASS" && v.r.chaine.etapes === 11 && v.r.chaine.etapes_absentes_du_document === 0,
+    `CH6 · la procédure de migration : 11 étapes déclarées (E11, la qualification de bascule, s'insère avant la restitution — TF-1186), toutes citées par le document lu par les humains — obtenu ${v.r.verdict} ${JSON.stringify(v.r.chaine && { etapes: v.r.chaine.etapes, absentes: v.r.chaine.etapes_absentes_du_document })}`);
+  ok(v.r.chaine.porteurs.geste_humain === 3 && v.r.chaine.regles_verifiees === 45,
+    `CH4/CH5 · les 45 règles citées par les étapes EXISTENT dans leur porteur, et les 3 gestes qui ne se mécanisent pas déclarent leur enregistreur — obtenu ${JSON.stringify(v.r.chaine && { gestes: v.r.chaine.porteurs.geste_humain, regles: v.r.chaine.regles_verifiees })}`);
 
   const tmpCh = fs.mkdtempSync(path.join(os.tmpdir(), "forge-data-chaine-"));
   try {

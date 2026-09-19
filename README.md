@@ -42,6 +42,7 @@ node oracles/oracle-reconcilier.mjs fixtures/reconciliation-verte.json        # 
 node oracles/oracle-couvrir.mjs fixtures/couverture-verte.json                # CV1-CV6, mapping mesuré contre l'inventaire de sa source (TF-0911)
 node oracles/oracle-delimiter.mjs fixtures/perimetre-verte.json               # DL1-DL6, le périmètre livré est ce que les visuels lisent ; excédent non motivé refusé (TF-1180)
 node oracles/oracle-enchainer.mjs references/migration-rapport-powerbi.chaine.json   # CH1-CH6, chaque étape de la procédure de migration nomme un porteur qui existe (TF-1179)
+node oracles/oracle-qualifier.mjs fixtures/qualification-rapport-verte.json   # QR1-QR6, un rapport migré peut-il REMPLACER l'original : six dimensions, leur angle mort, un verdict de bascule composé (TF-1186)
 node scripts/importer.mjs fixtures/schema-postgres-verte.sql --sortie-dir <dossier>
 node scripts/importer.mjs fixtures/schema-databricks-verte.sql --sortie-dir <dossier>   # dialecte Databricks (SHOW CREATE TABLE), TF-0858
 node scripts/traduire-unity-catalog.mjs fixtures/unity-catalog-verte.json --sortie <fichier.json>
@@ -67,7 +68,7 @@ python scripts/verifier_unites_parquet.py --self-test   # TF-1065 : type parquet
   chantier réel, anonymisés, avec portée (générique / contingente).
 - `references/STANDARDS-DATA.md` — standards retenus/écartés, sources primaires, confiance.
 - `references/MIGRATION-RAPPORT-POWERBI.md` — procédure de migration d'un rapport vers un
-  nouveau modèle : 10 étapes et le contrôle de chacune, 14 règles, arbre de diagnostic, ce que
+  nouveau modèle : 11 étapes et le contrôle de chacune, 14 règles, arbre de diagnostic, ce que
   chaque contrôle prouve et ne prouve pas ; déclaration machine jugée par `oracle-enchainer`.
 - `references/profils-moteur/` — référentiels versionnés par moteur de base de données
   (Postgres, Oracle, Azure SQL, Databricks) : dialecte de contraintes, mapping de types,

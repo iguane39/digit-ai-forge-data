@@ -25,7 +25,7 @@ La déclaration machine de cette procédure vit à côté : `references/migratio
 jugée par `node oracles/oracle-enchainer.mjs` — chaque étape ci-dessous y nomme un porteur qui
 existe, et le contrôle refuse une étape dont le porteur n'existe pas.
 
-## Les dix étapes, et le contrôle qui juge chacune
+## Les onze étapes, et le contrôle qui juge chacune
 
 | # | Étape | Entrée | Sortie | Le contrôle qui la juge |
 |---|---|---|---|---|
@@ -38,11 +38,22 @@ existe, et le contrôle refuse une étape dont le porteur n'existe pas.
 | **E7** | Prouver le rendu par l'export téléchargé et LU | le rapport publié | le verdict de rendu (durée, octets, texte extrait) | geste humain, consigné et daté — `oracle-rendre` RN5 |
 | **E8** | Réconcilier les chiffres | les mesures du modèle et celles de la couche amont | `reconciliation@1` | `oracles/oracle-reconcilier.mjs` — RC1-RC6, sous tolérance déclarée |
 | **E9** | Diagnostiquer par banc et bissection | un symptôme de rendu | la cause nommée, ou l'hypothèse écartée avec sa mesure | geste humain, consigné — `oracle-rendre` RN5 |
-| **E10** | Restituer | tout ce qui précède | le rapport remis au commanditaire | `oracles/oracle-restituer.mjs` — R1-R5, R7, R9 |
+| **E11** | Qualifier la bascule | E1 à E9, dimension par dimension | `qualification-rapport@1` : six dimensions, leur angle mort, un verdict de remplacement | `oracles/oracle-qualifier.mjs` — QR1-QR6 : le verdict se compose des dimensions, il ne se pose pas au-dessus (TF-1186) |
+| **E10** | Restituer | tout ce qui précède, verdict de bascule compris | le rapport remis au commanditaire | `oracles/oracle-restituer.mjs` — R1-R5, R7, R9 |
 
 L'ordre n'est pas décoratif. **E1 et E2 précèdent E3** : le périmètre relevé après la conception est
 le périmètre du modèle, c'est-à-dire tout ce qui existe. **E7 suit E6 et ne se déduit pas de E5** :
-un contrôle qui lit le fichier prouve la forme du fichier, jamais ce que le lecteur voit.
+un contrôle qui lit le fichier prouve la forme du fichier, jamais ce que le lecteur voit. **E11
+précède E10** : la restitution rapporte un verdict de bascule, elle ne le fabrique pas en chemin.
+
+La question du commanditaire — puis-je remplacer l'ancien par le nouveau — est celle que E11 tranche,
+et elle n'avait ni format, ni contrat, ni juge tant que la chaîne s'arrêtait à la réconciliation.
+Cinq mesures dispersées ne composent rien : 22 contrôles de recette PASS et 7 d'audit verts ont
+coexisté avec un rapport qui n'affichait rien. E11 exige donc que chaque dimension dise à quoi elle
+tient, qu'elle écrive son **angle mort**, et que le verdict de bascule — remplaçable / remplaçable
+sous conditions énumérées / non remplaçable — se déduise des six. Conséquence assumée : tant que la
+dimension « interactions » reste non jugeable par construction, « remplaçable » tout court est
+inatteignable, et le meilleur verdict possible nomme les gestes qu'un humain doit jouer côte à côte.
 
 ## Les quatorze règles
 
@@ -122,6 +133,7 @@ cause écrite — jamais une quatrième hypothèse plausible substituée à une 
 | `oracle-reconcilier` (RC) | que deux lots de mesures concordent sous tolérance déclarée | que les deux lots portent sur le même périmètre filtré |
 | `oracle-restituer` (R) | que les chiffres du rapport sont ancrés et les décisions citées | que les chiffres sont justes |
 | `oracle-enchainer` (CH) | que chaque étape de cette procédure nomme un porteur qui existe | que la procédure a été suivie — un contrôle ne remplace pas un geste |
+| `oracle-qualifier` (QR) | que les six dimensions sont qualifiées, que chacune écrit son angle mort, et que le verdict de bascule se déduit d'elles | que ce que chaque dimension affirme est VRAI aujourd'hui : il vérifie qu'un porteur existe et porte la règle citée, jamais que ce porteur rendrait le même verdict maintenant |
 
 ## Ce qui reste hors de cette forge
 

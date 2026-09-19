@@ -57,6 +57,9 @@ node oracles/oracle-delimiter.mjs <perimetre.json>        # DL1-DL6 : le périm�
                                                           # VISUELS LISENT ; l'excédent non motivé est refusé
 node oracles/oracle-enchainer.mjs <chaine.json>           # CH1-CH6 : chaîne de travail déclarée — étapes
                                                           # ordonnées, chacune avec un porteur qui EXISTE
+node oracles/oracle-qualifier.mjs <qualification.json>    # QR1-QR6 : un rapport migré peut-il REMPLACER
+                                                          # l'original — six dimensions, leur angle mort,
+                                                          # un verdict de bascule COMPOSÉ
 node oracles/oracle-couvrir.mjs <couverture.json>         # CV1-CV6 : mapping mesuré contre l'inventaire de sa source
 node oracles/oracle-evoluer.mjs <evolutions.json>         # EV1-EV7 : projection des évolutions d'une couche, provenance typée,
                                                           # comptes recalculés, arbre schéma › table › colonne
@@ -272,6 +275,38 @@ largeur, hauteur, ordre, visibilité) ; **RS4** visuels (bijection par page, typ
 que rien ne référence est un fond que le lecteur ne verra jamais). Quatre fixtures, deux sens
 chacune : `reconstruction-{verte,rouge}.json` et `reconstruction-repli-{verte,rouge}.json`.
 
+## Le verbe qualifier (TF-1186, 19/09/2026) — cinq dimensions vertes et une muette ne valent pas une garantie
+
+La chaîne de migration s'arrêtait à la réconciliation des chiffres : rien ne disait, et aucun contrôle
+ne prouvait, qu'un rapport migré PEUT REMPLACER l'original. Les mesures existaient — rendu, périmètre,
+chiffres, mise en page, comportement — **dispersées**, sans composition et sans verdict de bascule. Et
+une sixième dimension n'a aucun oracle possible : segments, signet, tri de colonne, largeurs, format
+conditionnel, info-bulles et mise en évidence croisée ne survivent pas à l'export, seul chemin par
+lequel un agent voit un rapport publié. Coût déjà payé : 22 contrôles de recette PASS et 7 d'audit
+verts coexistaient avec un rapport qui n'affichait rien.
+
+`oracle-qualifier.mjs <qualification.json>`, format `forge-data/qualification-rapport@1` — **QR1**
+forme, l'ANCRE de la comparaison (le rapport d'origine, son instantané daté, qui l'a relevé), le
+candidat, et les **six dimensions** du jeu fermé, chacune une fois : une dimension omise se lit comme
+une dimension verte ; **QR2** chaque dimension porte son **angle mort** écrit (≥ 6 mots) — la colonne
+que RF-27 exigeait, nommée « angle mort » parce que « ce que l'oracle ne prouve pas » annonce au lieu
+de dire (plancher d'écriture, RF-29) ; **QR3** chaque classe porte sa pièce — `conforme_prouve` un
+porteur qui EXISTE dont chaque règle citée se retrouve dans son fichier (convention CH4), avec verdict,
+chiffre et date ; `ecart_assume` au moins un écart ; `non_jugeable_ici` le geste humain qui le lèverait
+et son enregistreur (doctrine RN5/CH5) ; **QR4** la dimension `interactions` est non jugeable **par
+construction** et rend de 5 à 8 gestes numérotés à jouer côte à côte ; **QR5** chaque écart porte son
+id, son libellé et sa classe, un écart assumé nomme la décision qui l'a produit, et une dimension
+conforme ne peut pas porter un écart non assumé ; **QR6** le verdict de bascule — remplaçable /
+remplaçable sous conditions énumérées / non remplaçable — se **compose** des dimensions au lieu de se
+poser au-dessus : chaque dimension non conforme et chaque écart non assumé est couvert par une
+condition qui le cite, et toute condition résout.
+
+Conséquence assumée, et c'est la doctrine : tant que les interactions restent non jugeables ici,
+« remplaçable » tout court est **inatteignable**, et le meilleur verdict possible nomme les gestes que
+l'humain doit jouer. L'étape correspondante est **E11** de `references/MIGRATION-RAPPORT-POWERBI.md`,
+insérée avant la restitution — la restitution rapporte un verdict de bascule, elle ne le fabrique pas
+en chemin.
+
 ## RN6 et RS7 (TF-1188, 18/09/2026) — le résultat d'un geste se chiffre, et un champ se compte à l'occurrence
 
 Le protocole de qualification a été exécuté sur un rapport réel le 18/09, et les trois contrôles qu'il
@@ -303,12 +338,12 @@ Migrer un rapport était une chaîne promise dont aucune étape n'était écrite
 découvertes une à une par l'échec. Trois jours, 3 défauts vus par l'humain avant tout oracle,
 3 fausses pistes mesurées avant la cause, 4 lots de retours avant que la procédure existe.
 
-La procédure vit en référence : **`references/MIGRATION-RAPPORT-POWERBI.md`** — 10 étapes ordonnées
+La procédure vit en référence : **`references/MIGRATION-RAPPORT-POWERBI.md`** — 11 étapes ordonnées
 (relever les champs affichés, délimiter le périmètre, concevoir le modèle, transposer la mise en
 page, recetter les liaisons, publier et reposer les identifiants, prouver le rendu par l'export lu,
-réconcilier, diagnostiquer par banc, restituer), chacune avec son entrée, sa sortie et **le contrôle
-qui la juge** ; 14 règles ; l'arbre de diagnostic symptôme → cause ; le tableau de ce que chaque
-contrôle prouve et **ne prouve pas**. Sa déclaration machine est
+réconcilier, diagnostiquer par banc, **qualifier la bascule**, restituer), chacune avec son entrée, sa
+sortie et **le contrôle qui la juge** ; 14 règles ; l'arbre de diagnostic symptôme → cause ; le tableau
+de ce que chaque contrôle prouve et **ne prouve pas**. Sa déclaration machine est
 `references/migration-rapport-powerbi.chaine.json`.
 
 `oracle-enchainer.mjs <chaine.json>`, format `forge-data/chaine@1` — **CH1** forme (chaque étape a
