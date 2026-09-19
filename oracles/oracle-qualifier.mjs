@@ -34,12 +34,22 @@
 //     candidat: "<le rapport migré, celui qui remplacerait>",
 //     dimensions: [ { dimension: "rendu"|"perimetre"|"chiffres"|"mise_en_page"|"interactions"|
 //                                "comportement",
-//                     classe: "conforme_prouve"|"ecart_assume"|"non_jugeable_ici",
+//                     classe: "conforme_prouve"|"ecart_assume"|"definition_changee"|
+//                             "non_jugeable_ici",
 //                     angle_mort: "…",                 ≥ 6 mots, OBLIGATOIRE partout (QR2)
 //                     preuve?:   { porteur, regles: [...], verdict, chiffre, date },
 //                     geste_humain?: { geste, enregistre_par: { chemin, regle } },
 //                     gestes?:   [ { numero, geste } ],  5 à 8 pour « interactions » (QR4)
-//                     ecarts?:   [ { id, libelle, classe: "assume"|"non_assume", decision_ref? } ] } ],
+//                     ecarts?:   [ { id, libelle,
+//                                    classe: "assume"|"definition_changee"|"non_assume",
+//                                    decision_ref?,            exigé par « assume »
+//                                    recalcul_cible?,          la cible RECALCULE ce que la source stockait
+//                                    definition_origine?, definition_cible?, question_a_trancher?,
+//                                    statut?: "a_trancher"|"tranchee",
+//                                    accord?: { par, date },   exigé par « tranchee »
+//                                    test_fractions?: { entites_examinees, entites_fractions_entieres,
+//                                                       denominateur, seuil_fractions_pct,
+//                                                       part_declaree?, diagnostic } } ] } ],
 //     bascule: { verdict: "remplacable"|"remplacable_sous_conditions"|"non_remplacable",
 //                conditions?: [ { id, condition, porte_par, leve: [ … ] } ] } }
 //
@@ -61,12 +71,32 @@
 //        jouer côte à côte, numéros contigus — une liste sans numéro ne se coche pas ;
 //   QR5  ÉCARTS : id unique, libellé (≥ 4 mots), classe du jeu fermé ; un écart `assume` porte le
 //        `decision_ref` de la décision qui l'a produit — assumé par qui, sinon ; et une dimension
-//        déclarée `conforme_prouve` qui porte un écart NON assumé se contredit elle-même ;
+//        déclarée `conforme_prouve` qui porte un écart non assumé, ou une définition changée
+//        encore à trancher, se contredit elle-même ;
 //   QR6  BASCULE COMPOSÉE, JAMAIS POSÉE : `remplacable` est refusé dès qu'une dimension n'est pas
-//        `conforme_prouve` ou qu'un écart reste non assumé ; `remplacable_sous_conditions` exige
-//        des conditions ÉNUMÉRÉES (≥ 4 mots, avec qui la porte) qui couvrent CHAQUE dimension non
-//        conforme et CHAQUE écart non assumé, et dont chaque cible résout (défaut symétrique
-//        de DL5/CV3) ; `non_remplacable` exige qu'il y ait réellement de quoi refuser.
+//        `conforme_prouve` ou qu'une RÉSERVE subsiste ; `remplacable_sous_conditions` exige des
+//        conditions ÉNUMÉRÉES (≥ 4 mots, avec qui la porte) qui couvrent CHAQUE dimension non
+//        conforme et CHAQUE réserve, et dont chaque cible résout (défaut symétrique de DL5/CV3) ;
+//        `non_remplacable` exige qu'il y ait réellement de quoi refuser. Une réserve, c'est un
+//        écart `non_assume` ou un écart `definition_changee` encore `a_trancher` ;
+//   QR7  DÉFINITION CHANGÉE (TF-1190, retour Produit-62 RF-31 du 18/09/2026). Un chiffre qui
+//        diffère parce que la couche cible RECALCULE ce que la source STOCKAIT n'est ni un écart
+//        assumé ni un défaut : il demande un arbitrage métier et AUCUNE correction. Le ranger en
+//        défaut envoie une équipe corriger ce qui n'est pas cassé — sur 4 écarts remontés au même
+//        bac « écart non assumé », 2 étaient de ceux-là. La classe `definition_changee` porte donc
+//        la DÉFINITION D'ORIGINE, la DÉFINITION CIBLE et la QUESTION À TRANCHER (≥ 4 mots
+//        chacune), plus un `statut` du jeu fermé {a_trancher, tranchee} — et `tranchee` exige
+//        l'ACCORD DU COMMANDITAIRE, nommé et DATÉ : une définition changée que nul n'a acceptée
+//        n'est pas tranchée, elle est oubliée. Réciproquement, un écart qui déclare
+//        `recalcul_cible: true` NE PEUT PAS être rangé ailleurs : c'est très exactement le geste
+//        qui a coûté le retour ;
+//   QR8  LE TEST DES FRACTIONS RÉGULIÈRES, RECALCULÉ. Quand la cible recalcule un agrégat sur une
+//        fenêtre temporelle, la proportion d'entités dont l'écart tombe sur un nombre ENTIER de
+//        fractions de cette fenêtre sépare les deux cas : 122 sur 122 (tous des douzièmes) signe
+//        un recalcul sur fenêtre incomplète, 5 sur 316 signe une définition réellement différente.
+//        La part est RECALCULÉE et confrontée à la part déclarée (0,1 point, convention CV6/DL6),
+//        et le `diagnostic` déclaré est confronté au `seuil_fractions_pct` — seuil DÉCLARÉ, jamais
+//        deviné (même convention que `tolerance_px` de RS1).
 // non_juge : la JUSTESSE de ce que chaque dimension affirme — l'oracle vérifie qu'un porteur existe
 // et qu'il porte la règle citée, jamais que le verdict rapporté est celui qu'il rendrait aujourd'hui ;
 // rejouer les porteurs est le geste du qualificateur, et leur date est écrite pour ça ; la pertinence
@@ -81,16 +111,19 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const DOM = "Bascule d'un rapport migré : six dimensions, leur angle mort, et un verdict de remplacement composé (QR1-QR6)";
+const DOM = "Bascule d'un rapport migré : six dimensions, leur angle mort, la définition changée distinguée du défaut, et un verdict de remplacement composé (QR1-QR8)";
 const NON_JUGE = [
   "la JUSTESSE de ce que chaque dimension affirme : l'oracle vérifie qu'un porteur EXISTE et qu'il porte la règle citée, jamais que le verdict rapporté est celui qu'il rendrait aujourd'hui — rejouer les porteurs est le geste du qualificateur, et la date de chaque preuve est écrite pour ça",
-  "la pertinence métier d'une décision qui assume un écart : l'oracle exige son identifiant, il ne l'arbitre pas (convention CV4)",
+  "la pertinence métier d'une décision qui assume un écart, ni la réponse à une question de définition : l'oracle exige l'identifiant de la décision, les deux définitions et l'accord daté, il n'arbitre aucun des trois (convention CV4)",
+  "que le test des fractions régulières soit l'explication JUSTE d'un écart : l'oracle recalcule la part déclarée et la confronte au seuil déclaré, il ne mesure aucune donnée — les comptes lui sont rapportés, et c'est le qualificateur qui les produit",
   "ce que chaque porteur juge de son côté — `oracles/oracle-rendre.mjs`, `oracles/oracle-delimiter.mjs`, `oracles/oracle-reconstruire.mjs` et `oracles/oracle-reconcilier.mjs` de ce dépôt ont leurs propres règles et leurs propres fixtures",
   "les INTERACTIONS elles-mêmes (segments, signet, tri au clic, largeurs, format conditionnel, info-bulles, mise en évidence croisée) : aucun contrôle de ce parc ne les atteint, elles ne survivent pas à l'export — QR4 exige qu'elles soient déclarées non jugeables et outillées de gestes numérotés, c'est tout ce qu'une machine peut en faire",
 ];
 const DIMENSIONS = ["rendu", "perimetre", "chiffres", "mise_en_page", "interactions", "comportement"];
-const CLASSES = ["conforme_prouve", "ecart_assume", "non_jugeable_ici"];
-const CLASSES_ECART = ["assume", "non_assume"];
+const CLASSES = ["conforme_prouve", "ecart_assume", "definition_changee", "non_jugeable_ici"];
+const CLASSES_ECART = ["assume", "definition_changee", "non_assume"];
+const STATUTS_DEFINITION = ["a_trancher", "tranchee"];
+const DIAGNOSTICS_FRACTIONS = ["fenetre_incomplete", "definition_differente"];
 const BASCULES = ["remplacable", "remplacable_sous_conditions", "non_remplacable"];
 const DATE_ISO = /^\d{4}-\d{2}-\d{2}/;
 const ici = path.dirname(fileURLToPath(import.meta.url));
@@ -103,7 +136,7 @@ const add = (sev, regle, msg, where) => F.push({ sev, regle, msg, where });
 let qualification = null;
 const out = (verdict, code) => {
   process.stdout.write(JSON.stringify({ oracle: "oracle-qualifier", domaine: DOM, artefact: file || null,
-    verdict, qualification, findings: F.length ? F : [{ sev: "info", regle: "—", msg: "QR1-QR6 sans écart", where: file }],
+    verdict, qualification, findings: F.length ? F : [{ sev: "info", regle: "—", msg: "QR1-QR8 sans écart", where: file }],
     non_juge: NON_JUGE }, null, jsonOnly ? 0 : 2));
   process.exit(code);
 };
@@ -146,8 +179,9 @@ if (absentes.length)
   add("bloquant", "QR1", `${absentes.length} dimension(s) non qualifiée(s) : ${absentes.map(x => `« ${x} »`).join(" · ")} — une dimension omise se lit comme une dimension verte, et c'est ainsi que cinq contrôles PASS ont accompagné un rapport qui n'affichait rien`, "dimensions");
 
 // ---- QR2 à QR5 · dimension par dimension -------------------------------------------------------
-const nonConformes = [], ecartsNonAssumes = [];
+const nonConformes = [], reserves = [];
 let preuvesVerifiees = 0, reglesVerifiees = 0, gestesNumerotes = 0, ecartsTotal = 0;
+let definitionsChangees = 0, definitionsTranchees = 0, testsFractions = 0;
 for (const [nom, x] of parDim) {
   const ou = x.ou;
 
@@ -239,19 +273,75 @@ for (const [nom, x] of parDim) {
     if (!CLASSES_ECART.includes(ce)) { add("bloquant", "QR5", `écart « ${id || i + 1} » : classe « ${e?.classe} » hors du jeu fermé {${CLASSES_ECART.join(", ")}}`, oue); return; }
     if (ce === "assume" && !String(e?.decision_ref || "").trim())
       add("bloquant", "QR5", `écart « ${id} » déclaré ASSUMÉ sans \`decision_ref\` — assumé par qui, et quand ? Sans l'identifiant de la décision, « assumé » veut dire « personne ne l'a regardé »`, oue);
-    if (ce === "non_assume") ecartsNonAssumes.push(`${nom}:${id || i + 1}`);
+    if (ce === "non_assume") reserves.push(`${nom}:${id || i + 1}`);
+
+    // ---- QR7 · la définition changée, qui n'est ni un écart assumé ni un défaut ----------------
+    // Le geste qui a coûté le retour : la vue cible recalcule un montant annuel que la source
+    // stockait figé, et l'écart part au bac des défauts. Il n'y a rien à corriger — il y a une
+    // question à poser. Un écart qui déclare le recalcul NE PEUT donc PAS être rangé ailleurs.
+    if (e?.recalcul_cible === true && ce !== "definition_changee")
+      add("bloquant", "QR7", `écart « ${id} » déclare que la couche cible RECALCULE ce que la source stockait, et il est rangé « ${ce} » — un chiffre qui répond à une autre question n'est ni un écart assumé ni un défaut : il demande un arbitrage métier et aucune correction, et le ranger en défaut envoie corriger ce qui n'est pas cassé`, oue);
+    if (ce === "definition_changee") {
+      definitionsChangees++;
+      for (const [champ, libelle] of [["definition_origine", "la définition D'ORIGINE (ce que la source stockait)"],
+                                      ["definition_cible", "la définition CIBLE (ce que la couche cible recalcule)"],
+                                      ["question_a_trancher", "la QUESTION à trancher"]]) {
+        if (mots(e?.[champ]) < 4)
+          add("bloquant", "QR7", `écart « ${id} » classé « definition_changee » : ${libelle} tient en ${mots(e?.[champ])} mot(s) — sans les DEUX définitions écrites, personne ne peut dire laquelle des deux répond à la question du commanditaire`, oue);
+      }
+      const statut = String(e?.statut || "").trim();
+      if (!STATUTS_DEFINITION.includes(statut))
+        add("bloquant", "QR7", `écart « ${id} » : statut « ${e?.statut} » hors du jeu fermé {${STATUTS_DEFINITION.join(", ")}} — une définition changée est tranchée ou elle ne l'est pas, et cette différence décide du verdict de bascule`, oue);
+      else if (statut === "tranchee") {
+        const acc = e?.accord && typeof e.accord === "object" ? e.accord : null;
+        if (!acc || !String(acc.par || "").trim() || !DATE_ISO.test(String(acc.date || "")))
+          add("bloquant", "QR7", `écart « ${id} » déclaré TRANCHÉ sans l'accord du commanditaire nommé et daté (\`accord.par\`, \`accord.date\` ISO) — une définition changée que nul n'a acceptée n'est pas tranchée, elle est oubliée`, oue);
+        else definitionsTranchees++;
+      }
+      if (statut !== "tranchee") reserves.push(`${nom}:${id || i + 1}`);
+    }
+
+    // ---- QR8 · le test des fractions régulières, recalculé et jamais recopié -------------------
+    const tf = e?.test_fractions && typeof e.test_fractions === "object" ? e.test_fractions : null;
+    if (tf) {
+      testsFractions++;
+      const exam = Number(tf.entites_examinees), entieres = Number(tf.entites_fractions_entieres);
+      const den = tf.denominateur, seuil = Number(tf.seuil_fractions_pct);
+      let part = null;
+      if (!Number.isFinite(exam) || exam <= 0) add("bloquant", "QR8", `écart « ${id} » : \`entites_examinees\` « ${tf.entites_examinees} » absent ou nul — une part sans population n'existe pas`, oue);
+      else if (!Number.isFinite(entieres) || entieres < 0 || entieres > exam) add("bloquant", "QR8", `écart « ${id} » : ${tf.entites_fractions_entieres} entité(s) à fraction entière sur ${exam} examinée(s) — un compte hors bornes dit que les deux nombres ne viennent pas de la même mesure`, oue);
+      else part = Math.round((entieres / exam) * 1000) / 10;
+      if (!Number.isInteger(den) || den < 2) add("bloquant", "QR8", `écart « ${id} » : \`denominateur\` « ${tf.denominateur} » absent ou inférieur à 2 — la fenêtre se découpe en un nombre entier de fractions (12 pour une année en mois), et ce nombre se déclare`, oue);
+      if (!Number.isFinite(seuil) || seuil <= 0 || seuil > 100) add("bloquant", "QR8", `écart « ${id} » : \`seuil_fractions_pct\` « ${tf.seuil_fractions_pct} » absent ou hors bornes — le seuil qui sépare « fenêtre incomplète » de « définition différente » se DÉCLARE, il ne se devine pas`, oue);
+      if (part !== null && tf.part_declaree !== undefined) {
+        const pd = Number(tf.part_declaree);
+        if (!Number.isFinite(pd)) add("bloquant", "QR8", `écart « ${id} » : \`part_declaree\` « ${tf.part_declaree} » non numérique`, oue);
+        else if (Math.abs(pd - part) > 0.1)
+          add("bloquant", "QR8", `écart « ${id} » : part déclarée ${pd} % contre ${part} % recalculée (${entieres}/${exam}) — un taux recopié d'une analyse précédente est exactement ce qui fait ranger un écart dans le mauvais bac`, oue);
+      }
+      const diag = String(tf.diagnostic || "").trim();
+      if (!DIAGNOSTICS_FRACTIONS.includes(diag))
+        add("bloquant", "QR8", `écart « ${id} » : diagnostic « ${tf.diagnostic} » hors du jeu fermé {${DIAGNOSTICS_FRACTIONS.join(", ")}} — le test sépare deux causes, et il dit laquelle`, oue);
+      else if (part !== null && Number.isFinite(seuil)) {
+        const attendu = part >= seuil ? "fenetre_incomplete" : "definition_differente";
+        if (diag !== attendu)
+          add("bloquant", "QR8", `écart « ${id} » : diagnostic « ${diag} » alors que ${part} % des entités tombent sur une fraction entière, pour un seuil déclaré à ${seuil} % — la mesure dit « ${attendu} », et une conclusion qui contredit sa propre mesure se corrige avant d'être lue`, oue);
+      }
+    }
   });
-  if (classe === "conforme_prouve" && ecarts.some(e => e?.classe === "non_assume"))
-    add("bloquant", "QR5", `dimension « ${nom} » déclarée CONFORME alors qu'elle porte un écart non assumé — une dimension ne peut pas être à la fois prouvée conforme et en défaut`, ou);
+  if (classe === "conforme_prouve" && ecarts.some(e => e?.classe === "non_assume" || (e?.classe === "definition_changee" && e?.statut !== "tranchee")))
+    add("bloquant", "QR5", `dimension « ${nom} » déclarée CONFORME alors qu'elle porte un écart non assumé ou une définition changée encore à trancher — une dimension ne peut pas être à la fois prouvée conforme et en attente`, ou);
   if (classe === "ecart_assume" && !ecarts.length)
     add("bloquant", "QR3", `dimension « ${nom} » classée « ecart_assume » sans aucun écart déclaré — un écart assumé qu'on ne nomme pas n'est pas assumé, il est perdu`, ou);
+  if (classe === "definition_changee" && !ecarts.some(e => e?.classe === "definition_changee"))
+    add("bloquant", "QR3", `dimension « ${nom} » classée « definition_changee » sans aucun écart de cette classe — la dimension dit qu'une définition a changé, et aucun écart ne dit laquelle`, ou);
 }
 
 // ---- QR6 · le verdict de bascule se COMPOSE ----------------------------------------------------
 const b = d.bascule && typeof d.bascule === "object" ? d.bascule : null;
 const verdictBascule = String(b?.verdict || "").trim();
 const conditions = Array.isArray(b?.conditions) ? b.conditions : [];
-const aLever = [...nonConformes.map(x => x), ...ecartsNonAssumes];
+const aLever = [...nonConformes.map(x => x), ...reserves];
 if (!b) add("bloquant", "QR6", "bloc « bascule » absent — la migration se termine par une question de remplacement, et c'est la seule que ce document doit trancher", file);
 else if (!BASCULES.includes(verdictBascule))
   add("bloquant", "QR6", `verdict de bascule « ${b.verdict} » hors du jeu fermé {${BASCULES.join(", ")}} — « globalement satisfaisant » n'est pas une réponse à « puis-je remplacer l'ancien par le nouveau »`, "bascule");
@@ -275,7 +365,7 @@ else {
 
   if (verdictBascule === "remplacable" && aLever.length)
     add("bloquant", "QR6",
-      `bascule « remplaçable » alors que ${nonConformes.length} dimension(s) ne sont pas prouvées conformes (${nonConformes.map(x => `« ${x} »`).join(" · ") || "aucune"}) et ${ecartsNonAssumes.length} écart(s) restent non assumés — ` +
+      `bascule « remplaçable » alors que ${nonConformes.length} dimension(s) ne sont pas prouvées conformes (${nonConformes.map(x => `« ${x} »`).join(" · ") || "aucune"}) et ${reserves.length} réserve(s) subsistent (écart non assumé, ou définition changée encore à trancher) — ` +
       `le verdict se COMPOSE des dimensions, il ne se pose pas au-dessus d'elles ; tant qu'une dimension est non jugeable ici, le meilleur verdict atteignable est « remplaçable sous conditions énumérées »`,
       "bascule");
   if (verdictBascule === "remplacable_sous_conditions") {
@@ -294,7 +384,9 @@ qualification = {
   conformes_prouvees: parDim.size - nonConformes.length, non_conformes: nonConformes,
   preuves_verifiees: preuvesVerifiees, regles_verifiees: reglesVerifiees,
   gestes_d_interaction: gestesNumerotes,
-  ecarts: ecartsTotal, ecarts_non_assumes: ecartsNonAssumes.length,
+  ecarts: ecartsTotal, reserves: reserves.length,
+  definitions_changees: definitionsChangees, definitions_tranchees: definitionsTranchees,
+  tests_fractions: testsFractions,
   bascule: verdictBascule || null, conditions: conditions.length,
 };
 if (!F.some(f => f.sev === "bloquant") && parDim.size === DIMENSIONS.length)

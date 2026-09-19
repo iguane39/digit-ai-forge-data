@@ -114,6 +114,13 @@ const CAS = [
   // gestes seulement (QR4), un écart « assumé » que nulle décision n'a tranché et une dimension
   // conforme qui porte un écart non assumé (QR5), et par-dessus « remplaçable » (QR6).
   { oracle: "oracle-qualifier.mjs", verte: "qualification-rapport-verte.json", rouge: "qualification-rapport-rouge.json", regles: ["QR1", "QR2", "QR3", "QR4", "QR5", "QR6"] },
+  // qualifier, classe « définition changée » (TF-1190, 19/09) : la rouge EST le défaut mesuré, les
+  // quatre écarts partis au même bac — un recalcul de la couche cible rangé « assumé » sans la
+  // définition d'aucun des deux côtés, une définition changée dont la cible et la question manquent,
+  // une autre déclarée tranchée sans l'accord du commanditaire (QR7), et un test de fractions dont
+  // la part est recopiée (100 % contre 1,6 % recalculés) et dont la conclusion contredit sa propre
+  // mesure (QR8). Paire dédiée : sans elle, ces deux règles ne seraient jouées par personne.
+  { oracle: "oracle-qualifier.mjs", verte: "qualification-definition-verte.json", rouge: "qualification-definition-rouge.json", regles: ["QR7", "QR8"] },
 ];
 
 console.log("SELF-TEST forge-data — discipline aux niveaux des 4 barres (fixtures synthétiques)\n");
@@ -1232,6 +1239,62 @@ try {
     "QR3 · verte : les 11 règles citées par les dimensions sont RETROUVÉES dans les fichiers de leurs porteurs, jamais crues sur parole");
 } finally {
   fs.rmSync(tmpQual, { recursive: true, force: true });
+}
+
+// ---- QR7 : « pas chargé » et « pas la même définition » ne vont pas au même bac (TF-1190) ----
+// Sur 4 écarts de chiffres remontés comme défauts, 2 n'en étaient pas : la couche cible RECALCULE ce
+// que la source STOCKAIT, et le chiffre publié n'est pas faux — il répond à une autre question. Les
+// ranger en défaut aurait envoyé une équipe corriger ce qui n'est pas cassé, et une liste de défauts
+// dont la moitié n'en sont pas perd sa crédibilité entière. Ce bloc prouve les deux moitiés : le
+// mauvais bac est REFUSÉ, et la définition tranchée puis ACCEPTÉE cesse de peser sur la bascule.
+console.log(String.fromCharCode(10) + "QR7/QR8 (TF-1190) — la définition changée n'est ni un écart assumé ni un défaut" + String.fromCharCode(10));
+const tmpDef = fs.mkdtempSync(path.join(os.tmpdir(), "forge-data-definition-"));
+try {
+  const base = () => JSON.parse(fs.readFileSync(fx("qualification-definition-verte.json"), "utf8"));
+  const ecrire = (nom, doc) => {
+    doc.racine = path.join(ici, "..");
+    const p = path.join(tmpDef, nom); fs.writeFileSync(p, JSON.stringify(doc)); return p;
+  };
+  const ecartsDe = doc => doc.dimensions.find(x => x.dimension === "chiffres").ecarts;
+
+  // Le geste exact qui a coûté le retour : le même écart, reclassé « assumé », définitions
+  // retirées. Une décision est citée, tout a l'air en ordre — et deux écarts sur quatre partent
+  // chercher un bug là où il n'y a qu'une question à poser.
+  const m1 = base();
+  const e1 = ecartsDe(m1).find(e => e.id === "EC-1");
+  e1.classe = "assume"; e1.decision_ref = "D-43";
+  delete e1.definition_origine; delete e1.definition_cible; delete e1.question_a_trancher;
+  delete e1.statut; delete e1.accord;
+  const r1 = lance("oracle-qualifier.mjs", ecrire("ecart-au-mauvais-bac.json", m1));
+  const d1 = [...new Set((r1.r.findings || []).filter(f => f.sev === "bloquant").map(f => f.regle))];
+  ok(r1.exit === 1 && JSON.stringify(d1) === JSON.stringify(["QR7"]) &&
+     (r1.r.findings || []).some(f => f.regle === "QR7" && /corriger ce qui n'est pas cassé/.test(f.msg)),
+    `QR7 · un recalcul de la couche cible rangé « assumé », sans la définition d'aucun des deux côtés : FAIL sur QR7 seul — obtenu ${JSON.stringify(d1)}`);
+
+  // Sens vert, et c'est le gain : une définition changée TRANCHÉE et acceptée par le commanditaire,
+  // à la date écrite, ne pèse plus sur le verdict de bascule — elle ne demandait aucune correction.
+  const v = lance("oracle-qualifier.mjs", fx("qualification-definition-verte.json"));
+  ok(v.exit === 0 && v.r.qualification.definitions_changees === 2 && v.r.qualification.definitions_tranchees === 1 &&
+     v.r.qualification.reserves === 2,
+    `QR7 · verte : 2 définitions changées dont 1 TRANCHÉE et datée ; celle-là n'est plus une réserve, et 2 réserves subsistent sur 4 écarts — obtenu ${JSON.stringify({ d: v.r.qualification.definitions_changees, t: v.r.qualification.definitions_tranchees, r: v.r.qualification.reserves })}`);
+  const m2 = base();
+  delete ecartsDe(m2).find(e => e.id === "EC-1").accord;
+  const r2 = lance("oracle-qualifier.mjs", ecrire("tranchee-sans-accord.json", m2));
+  ok(r2.exit === 1 && (r2.r.findings || []).some(f => f.regle === "QR7" && /n'est pas tranchée, elle est oubliée/.test(f.msg)),
+    "QR7 · la même définition déclarée tranchée SANS l'accord daté du commanditaire est refusée — c'est l'accord qui la fait cesser de peser, pas le mot");
+
+  // QR8 · la part se RECALCULE. Le test des fractions régulières est ce qui a séparé les deux causes
+  // sur le cas réel (122/122 contre 5/316) ; une part recopiée le rendrait muet dans les deux sens.
+  const m3 = base();
+  ecartsDe(m3).find(e => e.id === "EC-2").test_fractions.entites_fractions_entieres = 300;
+  const r3 = lance("oracle-qualifier.mjs", ecrire("part-recopiee.json", m3));
+  const q3 = (r3.r.findings || []).filter(f => f.regle === "QR8" && f.sev === "bloquant");
+  ok(r3.exit === 1 && q3.some(f => /1\.6 %/.test(f.msg) && /94\.9/.test(f.msg)),
+    `QR8 · la part déclarée (1,6 %) est confrontée à la part RECALCULÉE (300/316 = 94,9 %) — un taux recopié d'une analyse précédente fait ranger l'écart dans le mauvais bac (obtenu ${q3.map(f => f.msg.slice(0, 40)).join(" | ") || "rien"})`);
+  ok(r3.exit === 1 && q3.some(f => /contredit sa propre mesure/.test(f.msg)),
+    "QR8 · et le diagnostic qui contredit sa propre mesure est refusé : au-dessus du seuil déclaré, la mesure dit « fenêtre incomplète », quoi qu'en conclue le rédacteur");
+} finally {
+  fs.rmSync(tmpDef, { recursive: true, force: true });
 }
 
 // ---- RN6 / RS4-plan / RS7 : les trois contrôles rapportés par RF-29 (TF-1188, 18/09/2026) ----

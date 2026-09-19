@@ -1,0 +1,190 @@
+{
+  "_fait": "la fixture rouge EST le defaut mesure : les quatre ecarts partis au meme bac. Un recalcul de la couche cible range en « assume » sans la definition d aucun des deux cotes, une definition changee dont la cible et la question manquent, une autre declaree tranchee sans l accord du commanditaire, et un test de fractions dont la part est recopiee d une analyse precedente et dont la conclusion contredit sa propre mesure.",
+  "format": "forge-data/qualification-rapport@1",
+  "id": "qualification_definition_meme_bac",
+  "date": "2026-09-18",
+  "racine": "..",
+  "ancre": {
+    "origine": "entree/Rapport locatif (fixture).pbix — instantane fourni au mandat",
+    "instantane": "2025-12-08",
+    "releve_par": "lecture du fichier d'origine (fixture synthetique)"
+  },
+  "candidat": "sortie/Projet Power BI (fixture) — rapport migre, publie le 2026-09-18",
+  "dimensions": [
+    {
+      "dimension": "rendu",
+      "classe": "conforme_prouve",
+      "angle_mort": "l'export lu est celui d'une seule page a une seule date : une page qui casserait demain n'est pas couverte",
+      "preuve": {
+        "porteur": "oracles/oracle-rendre.mjs",
+        "regles": [
+          "RN5",
+          "RN6"
+        ],
+        "verdict": "PASS",
+        "chiffre": "export en 22,4 s sous la borne de 60 s, 101 376 octets, 2 pages lues, 0 libelle d'erreur",
+        "date": "2026-09-18"
+      }
+    },
+    {
+      "dimension": "perimetre",
+      "classe": "conforme_prouve",
+      "angle_mort": "le releve d'usage fait foi : un visuel oublie au releve rend ses colonnes excedentaires a tort",
+      "preuve": {
+        "porteur": "oracles/oracle-delimiter.mjs",
+        "regles": [
+          "DL3",
+          "DL4"
+        ],
+        "verdict": "PASS",
+        "chiffre": "26 objets livres, 26 lus, 0 excedent",
+        "date": "2026-09-18"
+      }
+    },
+    {
+      "dimension": "chiffres",
+      "classe": "ecart_assume",
+      "angle_mort": "la reconciliation compare des valeurs sous tolerance : elle ne dit pas que les deux lots portent sur le meme perimetre filtre",
+      "ecarts": [
+        {
+          "id": "EC-1",
+          "libelle": "le chiffre d affaires certifie de l annee precedente differe sur 122 baux",
+          "classe": "assume",
+          "decision_ref": "D-43",
+          "recalcul_cible": true
+        },
+        {
+          "id": "EC-2",
+          "libelle": "le loyer variable de l annee precedente differe sur 5 baux",
+          "classe": "definition_changee",
+          "recalcul_cible": true,
+          "definition_origine": "la source stockait un montant variable arrete a la main par le gestionnaire",
+          "statut": "a_trancher",
+          "test_fractions": {
+            "entites_examinees": 316,
+            "entites_fractions_entieres": 5,
+            "denominateur": 12,
+            "seuil_fractions_pct": 90,
+            "part_declaree": 100,
+            "diagnostic": "fenetre_incomplete"
+          }
+        },
+        {
+          "id": "EC-3",
+          "libelle": "les montants annuels de charges sont recalcules par la vue cible",
+          "classe": "definition_changee",
+          "recalcul_cible": true,
+          "definition_origine": "la source stockait une charge annuelle figee au budget vote",
+          "definition_cible": "la vue cible somme les charges mensuelles reellement appelees sur la periode",
+          "question_a_trancher": "le budget vote reste-t-il la reference ou la somme appelee devient-elle la definition",
+          "statut": "tranchee"
+        },
+        {
+          "id": "EC-4",
+          "libelle": "la garantie bancaire demandee est vide sur tout le modele publie",
+          "classe": "non_assume"
+        }
+      ]
+    },
+    {
+      "dimension": "mise_en_page",
+      "classe": "conforme_prouve",
+      "angle_mort": "la geometrie comparee est celle des fichiers : polices, couleurs et largeurs de colonnes restent hors de cette mesure",
+      "preuve": {
+        "porteur": "oracles/oracle-reconstruire.mjs",
+        "regles": [
+          "RS3",
+          "RS4",
+          "RS7"
+        ],
+        "verdict": "PASS",
+        "chiffre": "6 visuels compares au pixel, 0 ecart, 8 occurrences d'en-tete des deux cotes",
+        "date": "2026-09-18"
+      }
+    },
+    {
+      "dimension": "interactions",
+      "classe": "non_jugeable_ici",
+      "angle_mort": "aucun controle de ce parc n'atteint une interaction : segments, signet et tri au clic ne survivent pas a l'export",
+      "geste_humain": {
+        "geste": "ouvrir les deux rapports cote a cote dans le service et rejouer les cinq gestes numerotes ci-dessous en notant ce que chacun affiche",
+        "enregistre_par": {
+          "chemin": "oracles/oracle-rendre.mjs",
+          "regle": "RN5"
+        }
+      },
+      "gestes": [
+        {
+          "numero": 1,
+          "geste": "selectionner une periode au segment et verifier que le tableau se filtre des deux cotes"
+        },
+        {
+          "numero": 2,
+          "geste": "activer le signet de reinitialisation et verifier le retour a l'etat initial"
+        },
+        {
+          "numero": 3,
+          "geste": "trier par loyer annuel decroissant et comparer les dix premieres lignes"
+        },
+        {
+          "numero": 4,
+          "geste": "survoler une cellule de loyer et comparer le contenu de l'info-bulle"
+        },
+        {
+          "numero": 5,
+          "geste": "cliquer une barre de synthese et verifier la mise en evidence croisee sur le tableau"
+        }
+      ]
+    },
+    {
+      "dimension": "comportement",
+      "classe": "non_jugeable_ici",
+      "angle_mort": "le temps d'actualisation depend de la capacite du service au moment de la mesure, et aucun controle hors ligne ne l'approche",
+      "geste_humain": {
+        "geste": "mesurer trois fois le temps d'actualisation du modele publie et le comparer a celui de l'original",
+        "enregistre_par": {
+          "chemin": "oracles/oracle-rendre.mjs",
+          "regle": "RN5"
+        }
+      }
+    }
+  ],
+  "bascule": {
+    "verdict": "remplacable_sous_conditions",
+    "conditions": [
+      {
+        "id": "C-1",
+        "condition": "le commanditaire tranche la definition du loyer variable de l annee precedente",
+        "porte_par": "commanditaire du rapport",
+        "leve": [
+          "chiffres",
+          "chiffres:EC-2"
+        ]
+      },
+      {
+        "id": "C-2",
+        "condition": "la table de garantie bancaire est chargee et le chiffre est reconcilie a nouveau",
+        "porte_par": "equipe de la couche de donnees",
+        "leve": [
+          "chiffres:EC-4"
+        ]
+      },
+      {
+        "id": "C-3",
+        "condition": "les cinq gestes d interaction sont joues cote a cote et leur releve est joint au dossier",
+        "porte_par": "recette du produit",
+        "leve": [
+          "interactions"
+        ]
+      },
+      {
+        "id": "C-4",
+        "condition": "les temps d actualisation sont mesures trois fois et compares a ceux de l original",
+        "porte_par": "recette du produit",
+        "leve": [
+          "comportement"
+        ]
+      }
+    ]
+  }
+}

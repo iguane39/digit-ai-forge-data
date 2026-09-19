@@ -38,7 +38,7 @@ existe, et le contrôle refuse une étape dont le porteur n'existe pas.
 | **E7** | Prouver le rendu par l'export téléchargé et LU | le rapport publié | le verdict de rendu (durée, octets, texte extrait) | geste humain, consigné et daté — `oracle-rendre` RN5 |
 | **E8** | Réconcilier les chiffres | les mesures du modèle et celles de la couche amont | `reconciliation@1` | `oracles/oracle-reconcilier.mjs` — RC1-RC6, sous tolérance déclarée |
 | **E9** | Diagnostiquer par banc et bissection | un symptôme de rendu | la cause nommée, ou l'hypothèse écartée avec sa mesure | geste humain, consigné — `oracle-rendre` RN5 |
-| **E11** | Qualifier la bascule | E1 à E9, dimension par dimension | `qualification-rapport@1` : six dimensions, leur angle mort, un verdict de remplacement | `oracles/oracle-qualifier.mjs` — QR1-QR6 : le verdict se compose des dimensions, il ne se pose pas au-dessus (TF-1186) |
+| **E11** | Qualifier la bascule | E1 à E9, dimension par dimension | `qualification-rapport@1` : six dimensions, leur angle mort, un verdict de remplacement | `oracles/oracle-qualifier.mjs` — QR1-QR8 : le verdict se compose des dimensions, il ne se pose pas au-dessus (TF-1186) ; la définition changée se distingue du défaut (QR7/QR8, TF-1190) |
 | **E10** | Restituer | tout ce qui précède, verdict de bascule compris | le rapport remis au commanditaire | `oracles/oracle-restituer.mjs` — R1-R5, R7, R9 |
 
 L'ordre n'est pas décoratif. **E1 et E2 précèdent E3** : le périmètre relevé après la conception est
@@ -116,6 +116,7 @@ inatteignable, et le meilleur verdict possible nomme les gestes qu'un humain doi
 | Le rapport publié affiche les données d'avant | identifiants de source non reposés après `updateDefinition` (R5) | E6 |
 | Le modèle est lourd à actualiser et personne ne sait pourquoi | périmètre pris au modèle et non aux visuels (R7/R8) | E2 (DL4) |
 | Les chiffres ne correspondent pas à ceux du commanditaire | mesures redéfinies, ou extrait de référence filtré sans que ce soit dit | E8 (RC), et `scripts/isoler-lignes-non-donnees.mjs` |
+| Un écart de chiffre que personne n'arrive à corriger | la couche cible RECALCULE ce que la source stockait : le chiffre n'est pas faux, il répond à une autre question | E11 (QR7), et le test des fractions régulières (QR8) |
 
 Un symptôme dont la cause n'est pas dans cette table se traite par E9 : banc, bissection, et la
 cause écrite — jamais une quatrième hypothèse plausible substituée à une mesure.
@@ -134,6 +135,7 @@ cause écrite — jamais une quatrième hypothèse plausible substituée à une 
 | `oracle-restituer` (R) | que les chiffres du rapport sont ancrés et les décisions citées | que les chiffres sont justes |
 | `oracle-enchainer` (CH) | que chaque étape de cette procédure nomme un porteur qui existe | que la procédure a été suivie — un contrôle ne remplace pas un geste |
 | `oracle-qualifier` (QR) | que les six dimensions sont qualifiées, que chacune écrit son angle mort, et que le verdict de bascule se déduit d'elles | que ce que chaque dimension affirme est VRAI aujourd'hui : il vérifie qu'un porteur existe et porte la règle citée, jamais que ce porteur rendrait le même verdict maintenant |
+| `oracle-qualifier` (QR7/QR8) | qu'un écart né d'un RECALCUL de la couche cible est rangé en « définition changée », avec les deux définitions, la question à trancher et, s'il est tranché, l'accord daté du commanditaire | quelle définition est la BONNE : l'oracle exige les deux et l'accord, il n'arbitre ni l'une ni l'autre ; et le test des fractions régulières lui est rapporté, il ne mesure aucune donnée |
 
 ## Ce qui reste hors de cette forge
 

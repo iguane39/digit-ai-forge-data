@@ -57,9 +57,10 @@ node oracles/oracle-delimiter.mjs <perimetre.json>        # DL1-DL6 : le périm�
                                                           # VISUELS LISENT ; l'excédent non motivé est refusé
 node oracles/oracle-enchainer.mjs <chaine.json>           # CH1-CH6 : chaîne de travail déclarée — étapes
                                                           # ordonnées, chacune avec un porteur qui EXISTE
-node oracles/oracle-qualifier.mjs <qualification.json>    # QR1-QR6 : un rapport migré peut-il REMPLACER
+node oracles/oracle-qualifier.mjs <qualification.json>    # QR1-QR8 : un rapport migré peut-il REMPLACER
                                                           # l'original — six dimensions, leur angle mort,
-                                                          # un verdict de bascule COMPOSÉ
+                                                          # un verdict de bascule COMPOSÉ, et la
+                                                          # DÉFINITION CHANGÉE distinguée du défaut
 node oracles/oracle-couvrir.mjs <couverture.json>         # CV1-CV6 : mapping mesuré contre l'inventaire de sa source
 node oracles/oracle-evoluer.mjs <evolutions.json>         # EV1-EV7 : projection des évolutions d'une couche, provenance typée,
                                                           # comptes recalculés, arbre schéma › table › colonne
@@ -298,8 +299,23 @@ construction** et rend de 5 à 8 gestes numérotés à jouer côte à côte ; **
 id, son libellé et sa classe, un écart assumé nomme la décision qui l'a produit, et une dimension
 conforme ne peut pas porter un écart non assumé ; **QR6** le verdict de bascule — remplaçable /
 remplaçable sous conditions énumérées / non remplaçable — se **compose** des dimensions au lieu de se
-poser au-dessus : chaque dimension non conforme et chaque écart non assumé est couvert par une
-condition qui le cite, et toute condition résout.
+poser au-dessus : chaque dimension non conforme et chaque réserve est couverte par une
+condition qui la cite, et toute condition résout.
+
+**QR7 et QR8 (TF-1190, retour RF-31)** — il manquait au contrat la classe **« définition changée »**.
+Un chiffre qui diffère parce que la couche cible RECALCULE ce que la source STOCKAIT n'est ni un écart
+assumé ni un défaut : il demande un arbitrage métier et **aucune correction**. Sur 4 écarts remontés au
+même bac, 2 étaient de ceux-là, et les ranger en défaut aurait envoyé une équipe corriger ce qui n'est
+pas cassé. **QR7** : la classe porte la définition d'origine, la définition cible et la question à
+trancher (≥ 4 mots chacune), plus un `statut` du jeu fermé {a_trancher, tranchee} — et `tranchee` exige
+l'**accord du commanditaire, nommé et daté**, sans quoi elle n'est pas tranchée, elle est oubliée.
+Réciproquement, un écart qui déclare `recalcul_cible: true` ne peut pas être rangé ailleurs. Effet sur
+la bascule : une définition tranchée et acceptée cesse d'être une réserve, celle qui reste à trancher
+en est une. **QR8** : le test mécanisable qui sépare les deux causes — quand la cible recalcule un
+agrégat sur une fenêtre temporelle, la part d'entités dont l'écart tombe sur un nombre **entier** de
+fractions de cette fenêtre est RECALCULÉE (jamais recopiée, convention CV6/DL6) et confrontée à un
+seuil **déclaré** : 122 sur 122 signe un recalcul sur fenêtre incomplète, 5 sur 316 une définition
+réellement différente. Un diagnostic qui contredit sa propre mesure est refusé.
 
 Conséquence assumée, et c'est la doctrine : tant que les interactions restent non jugeables ici,
 « remplaçable » tout court est **inatteignable**, et le meilleur verdict possible nomme les gestes que
