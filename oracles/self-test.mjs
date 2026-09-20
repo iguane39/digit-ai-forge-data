@@ -12,6 +12,11 @@ import { fileURLToPath } from "node:url";
 
 const ici = path.dirname(fileURLToPath(import.meta.url));
 const fx = f => path.join(ici, "..", "fixtures", f);
+// TF-1196 — le périmètre des oracles « registres machine » se LIT sur le disque, comme le fait
+// déjà la boucle voisine TF-0916 (plus bas) pour le non_juge : un oracle neuf n'entre plus par
+// une liste écrite à la main qui se périme au premier ajout (oracle-qualifier.mjs, livré le
+// 19/09, en était absent sans que rien le dise — même classe de dérive que TF-1044).
+const oraclesMachineSurDisque = (dir) => fs.readdirSync(dir).filter(f => /^oracle-.+\.mjs$/.test(f)).sort();
 let pass = 0, echec = 0;
 const ok = (b, m) => { console.log(`  [${b ? "PASS" : "FAIL"}] ${m}`); b ? pass++ : echec++; };
 const lance = (oracle, cible) => {
@@ -258,9 +263,13 @@ console.log(String.fromCharCode(10) + "M2/M5 (TF-1044) — `granularite` alias d
 // campagne du 16/09/2026).
 console.log(String.fromCharCode(10) + "Garde de non-régression — « grain » hors citation dans les registres machine (TF-1044)" + String.fromCharCode(10));
 {
+  // TF-1196 : la part « oracles » de la liste se DÉRIVE du disque (tous les oracle-*.mjs du
+  // dépôt) au lieu de se choisir à la main — un oracle neuf y entre sans édition de cette liste.
+  // La part hors oracle (self-test.mjs lui-même, scripts et références où « grain » peut aussi
+  // fuiter en prose) reste déclarée : ni un oracle, ni couverte par le motif ci-dessus.
   const FICHIERS_MACHINE = [
-    "oracles/oracle-modeliser.mjs", "oracles/oracle-tracer.mjs", "oracles/oracle-rapprocher.mjs",
-    "oracles/oracle-restituer.mjs", "oracles/self-test.mjs",
+    ...oraclesMachineSurDisque(ici).map(f => `oracles/${f}`),
+    "oracles/self-test.mjs",
     "scripts/traduire-modele-semantique.mjs", "scripts/traduire-unity-catalog.mjs",
     "references/STANDARDS-DATA.md", "references/profils-moteur/LISEZMOI.md", "references/profils-moteur/databricks.md",
   ];
@@ -314,6 +323,22 @@ console.log(String.fromCharCode(10) + "Garde de non-régression — « grain » 
   const verteCitation = grainNu(proseDe("x.mjs", "// la cle JSON `grain` et le terme « grain » machine restent admis en citation"));
   ok(verteCitation.length === 0,
     `garde vocabulaire · sens vert : citation en accents graves ET en guillemets épargnée — obtenu ${verteCitation.length} (attendu 0)`);
+
+  // TF-1196 · cas de banc, deux sens : un oracle NEUF posé sur le disque est pris par la garde
+  // sans qu'aucune liste soit éditée à la main, et un fichier posé qui n'est PAS un oracle
+  // n'y entre pas à tort.
+  const bancDir = fs.mkdtempSync(path.join(os.tmpdir(), "forge-data-fichiers-machine-"));
+  try {
+    fs.writeFileSync(path.join(bancDir, "self-test.mjs"), "// pas un oracle, ne doit pas etre pris pour un oracle");
+    fs.writeFileSync(path.join(bancDir, "oracle-neuf-du-banc.mjs"), "// oracle neuf pose sur le disque au moment du banc, jamais ajoute a une liste");
+    const trouve = oraclesMachineSurDisque(bancDir);
+    ok(trouve.includes("oracle-neuf-du-banc.mjs"),
+      `TF-1196 · sens vert : un oracle neuf posé sur le disque entre dans le périmètre de la garde sans édition de liste — obtenu ${JSON.stringify(trouve)}`);
+    ok(!trouve.includes("self-test.mjs"),
+      `TF-1196 · sens rouge : un fichier posé qui n'est pas un oracle-*.mjs n'entre pas dans le périmètre — obtenu ${JSON.stringify(trouve)}`);
+  } finally {
+    fs.rmSync(bancDir, { recursive: true, force: true });
+  }
 }
 
 // ---- CV5/CV6 : le CHIFFRE de la couverture, deux sens (TF-0911) ----
