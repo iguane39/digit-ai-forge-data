@@ -1,0 +1,62 @@
+{
+  "format": "forge-data/perimetre@1",
+  "id": "perimetre_migration_ventes_fixture",
+  "releve": {
+    "par": "traduire-modele-semantique --usage-restitution (relevé sur le fichier d'origine, fixture synthétique)",
+    "date": "2026-09-17",
+    "source": "rapport d'origine fourni en entrée du mandat (fixture)"
+  },
+  "mise_en_page": {
+    "format": "forge-data/mise-en-page@1",
+    "rapport": "Rapport ventes d'origine (fixture)",
+    "pages": [
+      {
+        "page": "Synthese",
+        "visuels": [
+          { "visuel": "Axe temps", "projections": [ { "champ": "Calendrier.annee" } ] },
+          { "visuel": "Segments", "projections": [ { "champ": "Client.segment" } ] },
+          { "visuel": "Panier moyen (carte)", "projections": [ { "champ": "Ventes[Panier moyen]" } ] },
+          { "visuel": "Logo", "porte_donnees": false, "projections": [] }
+        ]
+      }
+    ]
+  },
+  "usage": {
+    "format": "forge-data/usage-restitution@1",
+    "id": "usage_modele_origine_fixture",
+    "modele": "modele d'origine (fixture)",
+    "populations": {
+      "affichee": [ "Calendrier.annee", "Client.segment" ],
+      "lue_par_mesure": [ "Ventes.montant_ht" ],
+      "jamais_lue": [ "Ventes.cout_transport", "Fournisseur.nom" ]
+    },
+    "champs_inconnus": [],
+    "compte": { "colonnes_modele": 5, "affichee": 2, "lue_par_mesure": 1, "jamais_lue": 2, "tables_jamais_lues": [ "Fournisseur" ] }
+  },
+  "livre": [
+    { "objet": "Ventes", "type": "table" },
+    { "objet": "Ventes.montant_ht", "type": "colonne" },
+    { "objet": "Ventes.cle_client", "type": "colonne" },
+    { "objet": "Ventes.date", "type": "colonne" },
+    { "objet": "Ventes[Panier moyen]", "type": "mesure" },
+    { "objet": "Ventes[CA HT]", "type": "mesure" },
+    { "objet": "Client", "type": "table" },
+    { "objet": "Client.cle_client", "type": "colonne" },
+    { "objet": "Client.segment", "type": "colonne" },
+    { "objet": "Client.identifiant_source", "type": "colonne" },
+    { "objet": "Calendrier", "type": "table" },
+    { "objet": "Calendrier.date", "type": "colonne" },
+    { "objet": "Calendrier.annee", "type": "colonne" }
+  ],
+  "lectures_declarees": [
+    { "objet": "Ventes.cle_client", "type": "relation", "par": "Client" },
+    { "objet": "Client.cle_client", "type": "relation", "par": "Ventes" },
+    { "objet": "Ventes.date", "type": "relation", "par": "Calendrier" },
+    { "objet": "Calendrier.date", "type": "relation", "par": "Ventes" },
+    { "objet": "Ventes[CA HT]", "type": "mesure_intermediaire", "par": "Ventes[Panier moyen]" }
+  ],
+  "exclusions": [
+    { "portee": "Client.identifiant_source", "motif": "clé naturelle conservée pour la traçabilité vers la source, jamais affichée" }
+  ],
+  "taux_declare": 100
+}

@@ -1,0 +1,89 @@
+{
+  "_fait": "la fixture rouge EST le defaut mesure : cinq dimensions declarees vertes, une dimension absente, et un verdict « remplacable » pose au-dessus au lieu d'etre compose — 22 controles de recette PASS et 7 d'audit verts coexistaient avec un rapport qui n'affichait rien.",
+  "format": "forge-data/qualification-rapport@1",
+  "id": "qualification_rapport_locatif_cinq_verts",
+  "date": "2026-09-18",
+  "racine": "..",
+  "ancre": {
+    "origine": "entree/Rapport locatif (fixture).pbix",
+    "instantane": "2025-12-08"
+  },
+  "candidat": "sortie/Projet Power BI (fixture) — rapport migre",
+  "dimensions": [
+    {
+      "dimension": "rendu",
+      "classe": "conforme_prouve",
+      "angle_mort": "rien",
+      "preuve": {
+        "porteur": "oracles/oracle-rendre.mjs",
+        "regles": ["RN9"],
+        "verdict": "PASS",
+        "chiffre": "22 controles de recette PASS sur le fichier du projet",
+        "date": "2026-09-15"
+      }
+    },
+    {
+      "dimension": "perimetre",
+      "classe": "conforme_prouve",
+      "angle_mort": "le releve d'usage fait foi, un visuel oublie au releve fausse les deux sens de la mesure",
+      "preuve": {
+        "porteur": "oracles/oracle-perimetre.mjs",
+        "regles": ["P5", "P6"],
+        "verdict": "PASS",
+        "chiffre": "70 couples (page, en-tete) distincts couverts sur 70",
+        "date": "2026-09-15"
+      }
+    },
+    {
+      "dimension": "chiffres",
+      "classe": "ecart_assume",
+      "angle_mort": "la reconciliation compare des valeurs sous tolerance, elle ne dit rien du perimetre filtre de chaque cote",
+      "ecarts": [
+        {
+          "id": "EC-1",
+          "libelle": "la garantie bancaire demandee est vide sur tout le modele publie",
+          "classe": "assume"
+        }
+      ]
+    },
+    {
+      "dimension": "mise_en_page",
+      "classe": "conforme_prouve",
+      "angle_mort": "la geometrie comparee est celle des fichiers, jamais celle de l'ecran servi au lecteur",
+      "preuve": {
+        "porteur": "oracles/oracle-reconstruire.mjs",
+        "regles": ["RS3", "RS4"],
+        "verdict": "PASS",
+        "chiffre": "en-tetes repris au caractere pres, 70 sur 70",
+        "date": "2026-09-15"
+      },
+      "ecarts": [
+        {
+          "id": "EC-2",
+          "libelle": "le bouton de reinitialisation a disparu de la page principale",
+          "classe": "non_assume"
+        }
+      ]
+    },
+    {
+      "dimension": "interactions",
+      "classe": "conforme_prouve",
+      "angle_mort": "les interactions ont ete regardees sur l'export PDF du rapport publie, page par page",
+      "preuve": {
+        "porteur": "oracles/oracle-rendre.mjs",
+        "regles": ["RN5"],
+        "verdict": "PASS",
+        "chiffre": "1 page exportee, 2 235 caracteres extraits",
+        "date": "2026-09-15"
+      },
+      "gestes": [
+        { "numero": 1, "geste": "verifier que les segments filtrent le tableau comme a l'origine" },
+        { "numero": 2, "geste": "verifier que le signet de reinitialisation remet les segments a zero" },
+        { "numero": 3, "geste": "verifier que le tri par colonne donne le meme ordre des deux cotes" }
+      ]
+    }
+  ],
+  "bascule": {
+    "verdict": "remplacable"
+  }
+}

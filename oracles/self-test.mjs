@@ -33,16 +33,19 @@ const CAS = [
   // d'antériorité de T7, où la règle ne rend qu'un `info`. Sans ces fixtures-là, la branche PASS
   // de T7 ne serait jouée par personne — et sa branche FAIL non plus.
   { oracle: "oracle-tracer.mjs", verte: "lineage-environnement-verte.json", rouge: "lineage-environnement-rouge.json", regles: ["T7"] },
-  // T8 (TF-0974, 14/09) : cibles structurées — la rouge porte une cible sans colonnes ni
-  // `entier: true`, une cible `entier: true` au motif trop court, et une cible sans table nommée.
+  // T8 (TF-0974, 14/09/2026) : cibles structurées du périmètre servi. La rouge porte une cible
+  // sans colonne ni `entier: true`, et une cible `entier: true` au motif trop court (2 mots).
   { oracle: "oracle-tracer.mjs", verte: "lineage-cibles-verte.json", rouge: "lineage-cibles-rouge.json", regles: ["T8"] },
   { oracle: "oracle-restituer.mjs", verte: "rapport-verte.md", rouge: "rapport-rouge.md", regles: ["R2", "R3", "R4"] },
   { oracle: "oracle-contractualiser.mjs", verte: "contrat-verte.json", rouge: "contrat-rouge.json", regles: ["C2", "C3", "C4", "C5"] },
   // Lots L3, L4, L7 de l'étude d'opportunité du pilot (07/09/2026, mandat D-5 puis GO A-24 à A-26).
-  // modéliser (TF-0860) : la rouge porte un fait sans grain, une mesure d'agrégation inconnue, une
+  // modéliser (TF-0860) : la rouge porte un fait sans granularité, une mesure d'agrégation inconnue, une
   // dimension définie deux fois, une clé de substitution égale à la clé naturelle, un type de
   // changement hors jeu, aucune dimension temps, un processus absent de la matrice en bus.
-  { oracle: "oracle-modeliser.mjs", verte: "modele-dimensionnel-verte.json", rouge: "modele-dimensionnel-rouge.json", regles: ["M2", "M3", "M4", "M5", "M6"] },
+  // M7 (TF-1170, 17/09) s'ajoute : la rouge porte un fait sans « pourquoi » ni `decision_ref`, un
+  // fait dont le « pourquoi » tient en 4 mots et dont le `decision_ref` ne résout à rien, et une
+  // décision sans QUI, sans date ISO et au QUOI de 2 mots.
+  { oracle: "oracle-modeliser.mjs", verte: "modele-dimensionnel-verte.json", rouge: "modele-dimensionnel-rouge.json", regles: ["M2", "M3", "M4", "M5", "M6", "M7"] },
   // transformer (TF-0861) : cible = dossier des artefacts de l'outil (manifest, run_results, catalog).
   { oracle: "oracle-transformer.mjs", verte: "transformation-verte", rouge: "transformation-rouge", regles: ["TR2", "TR3", "TR4", "TR5", "TR6"] },
   // réconcilier (TF-0864) : tolérance absente, cible sans namespace, mesure sans homologue, écart.
@@ -67,14 +70,57 @@ const CAS = [
   // restituer R7 : un rapport de mapping qui pointe une mesure de couverture existante PASSE ;
   // celui qui se dit exhaustif en pointant le vide ÉCHOUE — sur R7 et sur R7 seulement.
   { oracle: "oracle-restituer.mjs", verte: "rapport-couverture-verte.md", rouge: "rapport-couverture-rouge.md", regles: ["R7"] },
-  // rapprocher (TF-0975, 14/09) : la rouge porte une entrée de dictionnaire qui invente son
-  // intitulé ET son objet, un objet du modèle à la fois rapproché et déclaré absent, un objet
-  // du modèle ni rapproché ni déclaré absent, et un taux déclaré à 100 % qui en vaut 50.
-  { oracle: "oracle-rapprocher.mjs", verte: "rapprochement-verte.json", rouge: "rapprochement-rouge.json", regles: ["RP3", "RP4", "RP7"] },
-  // usage-restitution (TF-0971, 14/09) : la rouge porte une colonne à la fois affichée et jamais
-  // lue (partition rompue), une entrée sans séparateur table.membre, et deux comptes qui divergent
-  // de la liste qu'ils prétendent résumer.
-  { oracle: "oracle-usage-restitution.mjs", verte: "usage-restitution-verte.json", rouge: "usage-restitution-rouge.json", regles: ["U2", "U3", "U4"] },
+  // restituer R9 (TF-1170, 17/09) : un rapport de modélisation qui cite les décisions déclarées par
+  // le modèle qu'il pointe PASSE ; celui qui en laisse une au seul ledger ÉCHOUE — sur R9 et sur R9
+  // seulement. C'est le défaut exact de RF-18 : la décision était lisible d'une machine (le modèle
+  // jugé conforme) et invisible du lecteur, qui l'a dénoncée comme un défaut neuf jours plus tard.
+  { oracle: "oracle-restituer.mjs", verte: "rapport-modele-verte.md", rouge: "rapport-modele-rouge.md", regles: ["R9"] },
+  // rapprocher (TF-0975, 14/09) : la rouge porte un intitulé d'extrait ni apparié ni déclaré en
+  // écart (RA2), un concept de dictionnaire qui cite un intitulé absent des deux sources (RA3),
+  // et une absence sans motif écrit ni visuel (RA4, deux findings).
+  { oracle: "oracle-rapprocher.mjs", verte: "rapprochement-verte.json", rouge: "rapprochement-rouge.json", regles: ["RA2", "RA3", "RA4"] },
+  // reconstruire (TF-1176, 17/09) : la rouge EST le défaut mesuré — une page en 1600 × 900 contre
+  // 1280 × 720 à l'origine (RS3), trois visuels réalignés en haut de page (RS4), le titre et le
+  // bouton de réinitialisation disparus sans un mot (RS5), un écart « assumé » en deux mots (RS5),
+  // le thème copié mais jamais référencé et deux ressources perdues (RS6).
+  // RS7 (TF-1188, 18/09) s'y ajoute : « Loyer annuel » affiché DEUX fois à l'origine et une seule au
+  // produit — une occurrence perdue qu'un décompte d'en-têtes DISTINCTS ne voit pas (défaut RF-29).
+  { oracle: "oracle-reconstruire.mjs", verte: "reconstruction-verte.json", rouge: "reconstruction-rouge.json", regles: ["RS3", "RS4", "RS5", "RS6", "RS7"] },
+  // rendre (TF-1175, 17/09) : la rouge porte un champ projeté absent de l'inventaire du modèle
+  // (RN2), une projection écrite en mesure mais inventoriée en colonne (RN3), un visuel porteur
+  // de données sans aucune projection affichée (RN4), et un geste de vérification du rendu en
+  // deux mots, sans date (RN5) — c'est-à-dire un livrable déclaré rendu sur la seule lecture de
+  // son fichier, le défaut exact de RF-21.
+  // RN6 (TF-1188, 18/09) s'y ajoute : la rouge porte AUSSI le geste d'export du 15/09 tel qu'il a été
+  // rendu — `Succeeded` en 569 s, 1 415 octets, une page à ZÉRO caractère, aucun libellé d'erreur
+  // cherché, et le fichier jamais téléchargé. Sans RN6, ce geste-là passait RN5 sans un mot.
+  { oracle: "oracle-rendre.mjs", verte: "rendu-verte.json", rouge: "rendu-rouge.json", regles: ["RN2", "RN3", "RN4", "RN5", "RN6"] },
+  // délimiter (TF-1180, 17/09) : la rouge EST le défaut mesuré, en petit — le périmètre pris au
+  // MODÈLE et non aux visuels. Relevé sans auteur (DL2), un champ que le lecteur voyait absent du
+  // périmètre livré (DL3), une table entière et trois colonnes que personne ne lit plus une
+  // exclusion en deux mots (DL4), une correspondance et une lecture déclarée qui pointent hors du
+  // modèle publié (DL5), et un taux de 100 % là où il en vaut 50 (DL6).
+  { oracle: "oracle-delimiter.mjs", verte: "perimetre-verte.json", rouge: "perimetre-rouge.json", regles: ["DL2", "DL3", "DL4", "DL5", "DL6"] },
+  // enchaîner (TF-1179, 17/09) : la rouge est la chaîne telle qu'elle s'écrit quand personne ne la
+  // vérifie — une étape dont on ne sait pas ce qu'elle rend (CH1), deux étapes au même rang (CH2),
+  // un oracle qui n'existe pas (CH3), une règle qui a survécu à sa règle (CH4), un geste humain en
+  // cinq mots dont la trace n'atterrit nulle part (CH5), et trois étapes que le document lu par
+  // les humains ne cite pas (CH6).
+  { oracle: "oracle-enchainer.mjs", verte: "chaine-verte.json", rouge: "chaine-rouge.json", regles: ["CH1", "CH2", "CH3", "CH4", "CH5", "CH6"] },
+  // qualifier (TF-1186, 19/09) : la rouge EST le défaut mesuré — cinq dimensions déclarées vertes,
+  // la sixième absente du document (QR1, avec une ancre sans auteur), un angle mort en un mot (QR2),
+  // une preuve qui cite une règle que son porteur ne porte pas et une autre dont le porteur n'existe
+  // pas (QR3), les interactions déclarées conformes sur la foi d'un export PDF et outillées de trois
+  // gestes seulement (QR4), un écart « assumé » que nulle décision n'a tranché et une dimension
+  // conforme qui porte un écart non assumé (QR5), et par-dessus « remplaçable » (QR6).
+  { oracle: "oracle-qualifier.mjs", verte: "qualification-rapport-verte.json", rouge: "qualification-rapport-rouge.json", regles: ["QR1", "QR2", "QR3", "QR4", "QR5", "QR6"] },
+  // qualifier, classe « définition changée » (TF-1190, 19/09) : la rouge EST le défaut mesuré, les
+  // quatre écarts partis au même bac — un recalcul de la couche cible rangé « assumé » sans la
+  // définition d'aucun des deux côtés, une définition changée dont la cible et la question manquent,
+  // une autre déclarée tranchée sans l'accord du commanditaire (QR7), et un test de fractions dont
+  // la part est recopiée (100 % contre 1,6 % recalculés) et dont la conclusion contredit sa propre
+  // mesure (QR8). Paire dédiée : sans elle, ces deux règles ne seraient jouées par personne.
+  { oracle: "oracle-qualifier.mjs", verte: "qualification-definition-verte.json", rouge: "qualification-definition-rouge.json", regles: ["QR7", "QR8"] },
 ];
 
 console.log("SELF-TEST forge-data — discipline aux niveaux des 4 barres (fixtures synthétiques)\n");
@@ -88,24 +134,6 @@ for (const cas of CAS) {
   ok(!manquantes.length, `${cas.oracle} · règles déclenchées ${cas.regles.join(",")}${manquantes.length ? " — manquantes : " + manquantes.join(",") : ""}`);
   ok((r.r.findings || []).every(f => f.where && f.msg), `${cas.oracle} · findings localisants`);
   ok(Array.isArray(r.r.non_juge) && r.r.non_juge.length > 0, `${cas.oracle} · non_juge déclaré`);
-}
-
-// ---- RP6 : écarts côté extrait, TOUJOURS informationnels (TF-0975) ----
-// RP6 n'apparaît pas dans les règles bloquantes ci-dessus par construction : c'est le sens qui
-// compte, et sans cette branche il ne serait joué par personne. Un intitulé de l'extrait sans
-// équivalent au modèle est une DÉCOUVERTE (« écart de plein droit »), jamais une raison de FAIL —
-// aussi bien sur la verte (1 écart) que sur la rouge (1 écart, pour une raison différente : la
-// contradiction RP4 y retire « A.x » de son statut rapproché).
-console.log(String.fromCharCode(10) + "RP6 (TF-0975) — écarts côté extrait, toujours informationnels" + String.fromCharCode(10));
-{
-  const v = lance("oracle-rapprocher.mjs", fx("rapprochement-verte.json")).r;
-  const rp6v = (v.findings || []).filter(f => f.regle === "RP6");
-  ok(rp6v.length === 1 && rp6v[0].sev === "info" && /Segment client/.test(rp6v[0].msg),
-    `RP6 · verte : 1 écart côté extrait NOMMÉ, en info — obtenu ${JSON.stringify(rp6v)}`);
-  const r = lance("oracle-rapprocher.mjs", fx("rapprochement-rouge.json")).r;
-  const rp6r = (r.findings || []).filter(f => f.regle === "RP6");
-  ok(rp6r.length === 1 && rp6r[0].sev === "info",
-    `RP6 · rouge : l'écart côté extrait reste en INFO même quand le document FAIL par ailleurs (RP3/RP4/RP7) — obtenu ${JSON.stringify(rp6r)}`);
 }
 
 // ---- R5 : couverture des nombres de prose, DEUX SENS (TF-0378) ----
@@ -177,6 +205,115 @@ console.log(String.fromCharCode(10) + "R8 (TF-0936) — terme machine du glossai
   ok(g.format === "forge-data/glossaire-restitution@1" && /^\d{4}-\d{2}-\d{2}$/.test(g.date) && g.source &&
      g.termes.some(t => t.machine === "grain" && t.rendu === "granularité" && t.motif),
     "R8 · le glossaire est une donnée éditable, DATÉE et SOURCÉE, dont chaque terme porte son motif (loi n° 4)");
+  // TF-1044 (14/09/2026) — la portée_machine est resserrée à la seule clé JSON `grain`, et R8
+  // devient BLOQUANT quand le PRODUIT déclare son propre lexique (--glossaire) avec
+  // "bloquant": true sur un terme précis. Le glossaire de la forge, lui, reste à false.
+  ok(g.termes.some(t => t.machine === "grain" && t.bloquant === false) &&
+     /la seule clé JSON `grain`/.test(g.termes[0].portee_machine || ""),
+    "R8 · portée_machine resserrée à la seule clé JSON `grain` (TF-1044) ; `bloquant` explicite à false côté forge");
+  const lanceGlossaire = (cible, glossaire) => {
+    try { return { exit: 0, r: JSON.parse(execFileSync(process.execPath, [path.join(ici, "oracle-restituer.mjs"), cible, "--json-only", "--glossaire", glossaire], { encoding: "utf8" })) }; }
+    catch (e) { return { exit: e.status, r: JSON.parse(String(e.stdout || "{}")) }; }
+  };
+  const rBloquant = lanceGlossaire(fx("rapport-rouge.md"), fx("glossaire-restitution-bloquant.json"));
+  const rb8 = r8de(rBloquant.r);
+  ok(rBloquant.exit === 1 && rBloquant.r.verdict === "FAIL" && rb8.length === 1 && rb8[0].sev === "bloquant",
+    `R8 · TF-1044 : le MÊME rapport, avec le glossaire d'un produit qui déclare "bloquant": true, ÉCHOUE sur R8 — obtenu exit=${rBloquant.exit} verdict=${rBloquant.r.verdict} sev=${rb8[0]?.sev}`);
+}
+
+// ---- M2/M5 : `granularite` alias de `grain`, clé nominale de modele-dimensionnel@2 (TF-1044) ----
+// Le second retour (10/09) a montré que « grain » fuyait aussi hors des rapports (DDL, mapping,
+// chargement). Le format lui-même reste sur `grain` (@1, rétro-compatibilité), mais `granularite`
+// devient un alias accepté partout, et la clé NOMINALE d'un @2 — jamais un renommage qui casserait
+// les artefacts existants.
+console.log(String.fromCharCode(10) + "M2/M5 (TF-1044) — `granularite` alias de `grain`, clé nominale de modele-dimensionnel@2" + String.fromCharCode(10));
+{
+  const g2 = lance("oracle-modeliser.mjs", fx("modele-dimensionnel-granularite-verte.json"));
+  ok(g2.exit === 0 && g2.r.verdict === "PASS",
+    `M2/M5 · un modele-dimensionnel@2 écrit entièrement en \`granularite\` (fait ET dimension temps) PASSE — obtenu ${g2.r.verdict}`);
+  const gDiv = lance("oracle-modeliser.mjs", fx("modele-dimensionnel-granularite-divergence.json"));
+  const m2div = (gDiv.r.findings || []).filter(f => f.regle === "M2");
+  ok(gDiv.exit === 0 && gDiv.r.verdict === "PASS" && m2div.length === 1 && m2div[0].sev === "avertissement" && /granularite \(clé nominale/.test(m2div[0].msg),
+    `M2/M5 · \`grain\` et \`granularite\` déclarés avec des valeurs DIFFÉRENTES sur le même fait : avertissement nommé, \`granularite\` fait foi, jamais un FAIL — obtenu verdict=${gDiv.r.verdict} findings=${m2div.map(f => f.sev).join(",") || "aucun"}`);
+  // Le format @1 historique (clé `grain` seule) continue de PASSER sans aucune retouche —
+  // c'est la rétro-compatibilité que TF-1044 s'interdit de casser.
+  const v1 = lance("oracle-modeliser.mjs", fx("modele-dimensionnel-verte.json"));
+  ok(v1.exit === 0 && v1.r.verdict === "PASS", "M2/M5 · le format @1 historique (clé `grain` seule) continue de PASSER sans retouche");
+}
+
+// ---- Garde de non-régression : « grain » (prose) ne doit pas revenir dans les registres
+// machine hors citation (TF-1044, 16/09/2026) ----
+// Deux fois le même défaut, sur deux registres différents : TF-0936 avait clos une correction
+// que TF-1044 a dû rejouer six jours plus tard sur un DDL, un mapping et un chargement — la
+// correction n'était descendue nulle part, faute de juge qui la rejoue. Celui-ci scanne les
+// COMMENTAIRES et messages des fichiers listés ci-dessous : un « grain » NU (hors citation entre
+// accents graves ou guillemets, hors identifiant de code tel que `const grain`, `obj.grain` ou
+// `["grain", …]`) y est une régression de prose. Portée volontairement ÉTROITE : elle ne lit que
+// les COMMENTAIRES `//`, jamais le CODE — c'est la frontière la plus sûre entre prose et
+// identifiant, et la seule qu'un script simple puisse tracer sans reproduire l'incident TF-0927
+// (un anonymiseur qui avait remplacé un nom À L'INTÉRIEUR d'un identifiant, rendant une suite de
+// tests non collectable dix-huit jours). Ce que cette garde NE couvre PAS : un « grain » nu logé
+// dans un MESSAGE de chaîne au milieu d'une ligne de code (hors commentaire) — c'est le manque
+// que l'étude d'opportunité TF-0155 doit outiller (oracle-vocabulaire.mjs, esquissé au rapport de
+// campagne du 16/09/2026).
+console.log(String.fromCharCode(10) + "Garde de non-régression — « grain » hors citation dans les registres machine (TF-1044)" + String.fromCharCode(10));
+{
+  const FICHIERS_MACHINE = [
+    "oracles/oracle-modeliser.mjs", "oracles/oracle-tracer.mjs", "oracles/oracle-rapprocher.mjs",
+    "oracles/oracle-restituer.mjs", "oracles/self-test.mjs",
+    "scripts/traduire-modele-semantique.mjs", "scripts/traduire-unity-catalog.mjs",
+    "references/STANDARDS-DATA.md", "references/profils-moteur/LISEZMOI.md", "references/profils-moteur/databricks.md",
+  ];
+  // La prose d'un fichier : commentaires `//` pour les .mjs (jamais le code — c'est la frontière
+  // qui évite TF-0927), tout le texte hors blocs de code pour les .md. Puis on retire les
+  // citations — accents graves, guillemets français, ET double quotes JSON (un commentaire qui
+  // montre un extrait de schéma, ex. `"grain": "une ligne par …"`, cite la clé, il ne l'emploie
+  // pas) — admises comme MENTION du terme, jamais comme intention de l'auteur, avant de chercher
+  // le mot.
+  const proseDe = (chemin, texte) => {
+    const lignes = [];
+    if (chemin.endsWith(".mjs")) {
+      for (const l of texte.split(/\r?\n/)) {
+        const t = l.trim();
+        if (t.startsWith("//")) lignes.push(t.slice(2));
+      }
+    } else {
+      let dansBloc = false;
+      for (const l of texte.split(/\r?\n/)) {
+        if (/^\s*(```|~~~)/.test(l)) { dansBloc = !dansBloc; continue; }
+        if (!dansBloc) lignes.push(l);
+      }
+    }
+    return lignes.join(String.fromCharCode(10))
+      .replace(/`[^`]*`/g, " ")     // citation en accents graves
+      .replace(/«[^»]*»/g, " ")     // mention entre guillemets français
+      .replace(/"[^"]*"/g, " ");    // citation JSON (clé ou valeur d'un extrait de schéma)
+  };
+  const grainNu = (prose) => [...prose.matchAll(/(?<![\p{L}\p{N}_])grains?(?![\p{L}\p{N}_])/giu)];
+
+  const casses = [];
+  for (const rel of FICHIERS_MACHINE) {
+    const texte = fs.readFileSync(path.join(ici, "..", rel), "utf8");
+    const trouves = grainNu(proseDe(rel, texte));
+    if (trouves.length) casses.push(`${rel} (${trouves.length})`);
+  }
+  ok(casses.length === 0,
+    casses.length
+      ? `garde vocabulaire · RÉGRESSION sur ${casses.length} fichier(s) : ${casses.join(" · ")} — « grain » nu doit se lire « granularité » hors citation`
+      : `garde vocabulaire · 0 « grain » nu hors citation sur ${FICHIERS_MACHINE.length} fichiers des registres machine`);
+
+  // Sens rouge : une prose synthétique qui PORTE « grain » nu doit être détectée — sans ce sens,
+  // la garde pourrait ne plus rien détecter en silence (la leçon R8/EC-7 : une règle qui ne PEUT
+  // jamais échouer n'a jamais prouvé qu'elle savait échouer).
+  const rougeMjs = grainNu(proseDe("x.mjs", "// le fait declare son grain en une phrase" + String.fromCharCode(10) + "const grain = 1;"));
+  ok(rougeMjs.length === 1,
+    `garde vocabulaire · sens rouge (commentaire .mjs) : « grain » nu DÉTECTÉ dans le commentaire, le CODE ignoré — obtenu ${rougeMjs.length}`);
+  const rougeMd = grainNu(proseDe("x.md", "Le grain de la table est declare ici." + String.fromCharCode(10) + "```js" + String.fromCharCode(10) + "const grain = 1;" + String.fromCharCode(10) + "```"));
+  ok(rougeMd.length === 1,
+    `garde vocabulaire · sens rouge (.md) : « grain » nu détecté en prose, le bloc de code ignoré — obtenu ${rougeMd.length}`);
+  const verteCitation = grainNu(proseDe("x.mjs", "// la cle JSON `grain` et le terme « grain » machine restent admis en citation"));
+  ok(verteCitation.length === 0,
+    `garde vocabulaire · sens vert : citation en accents graves ET en guillemets épargnée — obtenu ${verteCitation.length} (attendu 0)`);
 }
 
 // ---- CV5/CV6 : le CHIFFRE de la couverture, deux sens (TF-0911) ----
@@ -389,7 +526,7 @@ try {
   ok(!tn.r.fichier_produit, "traduire-unity-catalog · sans namespace : aucun lineage inventé");
   ok(tv.r.voie === "system-tables", "traduire-unity-catalog · la voie system-tables est DÉTECTÉE et déclarée au manifeste (jamais devinée en silence)");
 
-  // ---- TF-0893 : seconde voie d'entrée — API REST lineage-tracking, grain TABLE ----
+  // ---- TF-0893 : seconde voie d'entrée — API REST lineage-tracking, granularité TABLE ----
   // Le fait mesuré : sur un workspace réel, `SELECT … FROM system.access.table_lineage` rend
   // INSUFFICIENT_PERMISSIONS (SQLSTATE 42501) tandis que l'API répond avec les droits ordinaires
   // du jeton. Le verbe n'avait que l'entrée qui ne répond pas — 30 objets transcrits à la main.
@@ -410,7 +547,7 @@ try {
     ok(lg.entrees.some(e => e.dataset === "main.servi.ventes_mensuelles") && lg.sorties.some(s => s.dataset === "main.servi.ventes_mensuelles_agregees"),
       "traduire-unity-catalog/api · un downstream devient une SORTIE et la table interrogée une entrée (sens inverse de l'arête)");
     ok(lg.confiance.niveau === 0 && lg.transformations.every(t => t.type === "runtime"),
-      `traduire-unity-catalog/api · grain table → confiance.niveau 0 (REX X6 : 1-2-3 sont des grains colonne), transformations runtime — obtenu niveau ${lg.confiance.niveau}`);
+      `traduire-unity-catalog/api · granularité table → confiance.niveau 0 (REX X6 : 1-2-3 sont des granularités colonne), transformations runtime — obtenu niveau ${lg.confiance.niveau}`);
     ok(lg.colonnes === undefined, "traduire-unity-catalog/api · aucun champ `colonnes` inventé — cette voie ne voit pas la colonne");
     ok(lg.transformations.some(t => t.etape === "notebook_4210") && lg.transformations.some(t => t.etape === "job_77012"),
       "traduire-unity-catalog/api · les entités d'exécution (notebook, job) deviennent les étapes déclarées");
@@ -442,7 +579,7 @@ try {
 
 // ---- verbe traduire-modele-semantique (TF-0894) : le brouillon dit ce qu'il ne sait pas ----
 // L'enjeu de ce verbe n'est pas de produire un modèle : c'est de produire un modèle qui ne
-// MENT PAS sur ce que TMDL ne porte pas. Un brouillon qui aurait rempli le grain, la clé
+// MENT PAS sur ce que TMDL ne porte pas. Un brouillon qui aurait rempli la granularité, la clé
 // naturelle et la matrice en bus de valeurs vraisemblables PASSERAIT oracle-modeliser — et
 // c'est très exactement le défaut que TF-0911 vient de coûter (trois PASS sur un livrable
 // incomplet). Les deux sens sont donc : sans complément, l'oracle réclame EXACTEMENT les
@@ -468,15 +605,16 @@ try {
       "traduire-modele-semantique · l'agrégation se lit à la tête du DAX (SUM → somme, DISTINCTCOUNT → compte_distinct, jamais l'inverse)");
     ok(mes.find(x => x.nom === "Panier moyen").agregation === undefined,
       "traduire-modele-semantique · une mesure dont le DAX ne commence pas par une agrégation reste SANS agrégation — deviner « somme » sur un DIVIDE serait faux et invérifiable");
-    ok(dimCal.cle_naturelle === undefined && m.matrice_bus === undefined && m.faits[0].grain === undefined,
-      "traduire-modele-semantique · clé naturelle, grain et matrice en bus restent ABSENTS — TMDL ne les porte pas, et un placeholder vraisemblable ferait PASSER l'oracle en mentant");
+    ok(dimCal.cle_naturelle === undefined && m.matrice_bus === undefined && m.faits[0].grain === undefined
+       && m.decisions === undefined && m.faits[0].pourquoi === undefined,
+      "traduire-modele-semantique · clé naturelle, granularité, matrice en bus, décisions et « pourquoi » du fait restent ABSENTS — TMDL ne les porte pas, et un placeholder vraisemblable ferait PASSER l'oracle en mentant (M7, TF-1170)");
     // Le point qui compte : l'oracle réclame EXACTEMENT ce que le verbe a annoncé manquant.
     const r = lance("oracle-modeliser.mjs", pBrouillon);
     const durs = [...new Set((r.r.findings || []).filter(f => f.sev === "bloquant").map(f => f.regle))].sort();
-    ok(r.exit === 1 && JSON.stringify(durs) === JSON.stringify(["M2", "M4", "M5", "M6"]),
-      `traduire-modele-semantique → oracle-modeliser : FAIL sur M2, M4, M5, M6 et RIEN d'autre — la liste des règles rouges est celle des champs déclarés « à compléter » (obtenu ${JSON.stringify(durs)})`);
+    ok(r.exit === 1 && JSON.stringify(durs) === JSON.stringify(["M2", "M4", "M5", "M6", "M7"]),
+      `traduire-modele-semantique → oracle-modeliser : FAIL sur M2, M4, M5, M6, M7 et RIEN d'autre — la liste des règles rouges est celle des champs déclarés « à compléter » (obtenu ${JSON.stringify(durs)})`);
     const annonces = (b.r.a_completer || []).join(" ");
-    ok(["M2", "M4", "M5", "M6"].every(x => annonces.includes(`(${x})`)),
+    ok(["M2", "M4", "M5", "M6", "M7"].every(x => annonces.includes(`(${x})`)),
       "traduire-modele-semantique · chaque règle rouge est nommée dans `a_completer` — le lecteur du brouillon sait quoi faire sans exécuter l'oracle");
   }
   // Sens 2 — avec le complément humain, le round-trip PASSE sans retouche (patron d'importer).
@@ -552,7 +690,7 @@ try {
     `projeter-evolutions · la provenance d'une colonne déplacée RÉSOUT son objet d'origine en catalogue, schéma, table et colonne — obtenu ${JSON.stringify(objet1("ventes.clients", "id_client"))}`);
   ok(ligne("servi.ventes_mensuelles", "total_ht").provenance.type === "objets_resolus" &&
      ligne("servi.ventes_mensuelles", "total_ht").provenance.objets.some(o => o.table === "exports_pgi" && o.schema === "brut" && o.source_de_l_explication === "mapping"),
-    "projeter-evolutions · une table déclarée en sortie du lineage RÉSOUT ses ENTRÉES déclarées en objets (grain table : la colonne reste null, jamais inventée)");
+    "projeter-evolutions · une table déclarée en sortie du lineage RÉSOUT ses ENTRÉES déclarées en objets (granularité table : la colonne reste null, jamais inventée)");
   ok(objet1("ventes.ventes", "id_commande").source_de_l_explication === "commentaire_ddl" &&
      /caisse/.test(objet1("ventes.ventes", "id_commande").explication),
     "projeter-evolutions · le commentaire DDL reste la source la plus proche du producteur : il EXPLIQUE le rôle de l'objet résolu (8 des 33 emplois du retour venaient de là)");
@@ -808,128 +946,468 @@ try {
   fs.rmSync(tmp4, { recursive: true, force: true });
 }
 
-// ---- traduire-modele-semantique --resolution-dax (TF-0972, 14/09) ---------------------------
-// La verte porte les TROIS mécanismes du contrat dans un même modèle : une référence QUALIFIÉE
-// dont la casse diffère de la déclaration (Indexation), une référence NON QUALIFIÉE qui désigne
-// une mesure d'une AUTRE table que la porteuse (Certified Turnover → Invoiced_Rent puis
-// Indexation), et la FERMETURE TRANSITIVE qui résout ces deux mesures jusqu'à leurs colonnes.
-// La rouge porte les deux défauts que le contrat DOIT nommer : deux tables qui définissent
-// chacune une mesure « Foo » rendent une référence non qualifiée AMBIGUË, et une référence vers
-// rien de connu est NON RÉSOLUE — jamais silencieuse.
-const tmp7 = fs.mkdtempSync(path.join(os.tmpdir(), "forge-data-resolution-dax-"));
+// ---- isoler-lignes-non-donnees (TF-0976, 14/09/2026) : le pied « Filtres appliqués » est une
+// DONNÉE, pas un déchet — deux sorties (lignes, contexte_de_l_extrait), jamais une seule ----
+// Mesure réelle : lecture naïve 21 559 lignes contre 21 557 réelles (une ligne vide et un pied
+// par feuille), et le pied porte les prédicats qui disent que l'extrait est un instantané FILTRÉ.
+console.log(String.fromCharCode(10) + "isoler-lignes-non-donnees (TF-0976) — pied « Filtres appliqués » lu comme donnée, deux sorties" + String.fromCharCode(10));
+{
+  const v = lanceScript("isoler-lignes-non-donnees.mjs", [fx("extrait-pied-verte.csv")]);
+  ok(v.exit === 0 && v.r.sortie === "OK" && v.r.compte.lignes_lues === 4 && v.r.compte.lignes_donnees === 2,
+    `isoler-lignes-non-donnees · verte : 4 lignes lues, 2 lignes de DONNÉES (la ligne vide et le pied sont exclus) — obtenu ${JSON.stringify(v.r.compte)}`);
+  ok(v.r.compte.par_type.ligne_vide_terminale === 1 && v.r.compte.par_type.pied_filtres_appliques === 1,
+    "isoler-lignes-non-donnees · les DEUX lignes non-données sont typées (ligne_vide_terminale, pied_filtres_appliques), jamais confondues");
+  ok(!!v.r.contexte_de_l_extrait && v.r.contexte_de_l_extrait.predicats.length === 2 &&
+     v.r.contexte_de_l_extrait.predicats.some(p => p.champ === "Period" && p.predicat === "n'est pas nul") &&
+     v.r.contexte_de_l_extrait.predicats.some(p => p.champ === "Country_" && p.predicat === "n'est pas vide"),
+    `isoler-lignes-non-donnees · contexte_de_l_extrait NOMME les prédicats du pied (le champ ET la condition), pas seulement leur texte brut — obtenu ${JSON.stringify(v.r.contexte_de_l_extrait?.predicats)}`);
+  ok(v.r.document.lignes.length === 2 && v.r.document.lignes[0].Period === "202606" && v.r.document.lignes[0].Country_ === "FR",
+    "isoler-lignes-non-donnees · les lignes de données rendues sont bien celles d'AVANT le pied, avec l'en-tête pour clé");
+
+  const tmp5 = fs.mkdtempSync(path.join(os.tmpdir(), "forge-data-isoler-"));
+  const totauxCsv = path.join(tmp5, "totaux.csv");
+  fs.writeFileSync(totauxCsv, "Period,Montant" + String.fromCharCode(10) + "202606,1000" + String.fromCharCode(10) + "202606,2000" + String.fromCharCode(10) + "Total,3000" + String.fromCharCode(10));
+  const t = lanceScript("isoler-lignes-non-donnees.mjs", [totauxCsv]);
+  ok(t.exit === 0 && t.r.compte.lignes_donnees === 2 && t.r.compte.par_type.ligne_totaux === 1 && t.r.contexte_de_l_extrait === null,
+    `isoler-lignes-non-donnees · une ligne « Total » est exclue et TYPÉE ligne_totaux ; sans pied « Filtres appliqués », contexte_de_l_extrait reste null (jamais inventé) — obtenu ${JSON.stringify(t.r.compte)}`);
+  fs.rmSync(tmp5, { recursive: true, force: true });
+
+  // Rouge : un fichier réduit à son en-tête, sans aucune ligne de donnée. Refus propre — un
+  // fichier vide isolé rendrait 100 % de rien, exactement le silence que ce verbe corrige ailleurs.
+  const r = lanceScript("isoler-lignes-non-donnees.mjs", [fx("extrait-pied-rouge.csv")]);
+  ok(r.exit === 2 && r.r.sortie === "ECHEC" && !r.r.document,
+    `isoler-lignes-non-donnees · rouge (en-tête seul) : refus propre (exit 2), aucun extrait inventé — obtenu sortie=${r.r.sortie}`);
+}
+
+// ---- traduire-modele-semantique --resolution-references (TF-0972, 14/09/2026) : une resolution
+// NOMMEE, insensible a la casse, table porteuse puis modele entier, fermeture transitive ----
+// Mesure reelle (Produit-62, RD-10) : une comparaison sensible a la casse perdait une reference
+// de colonne d'indice ; une recherche limitee a la table porteuse ne remontait que 2 colonnes
+// sur 8 pour une mesure qui en referencait une autre, VIVANT DANS UNE AUTRE TABLE.
+console.log(String.fromCharCode(10) + "traduire-modele-semantique --resolution-references (TF-0972) — casse, ordre de recherche, fermeture transitive" + String.fromCharCode(10));
+{
+  const r = lanceScript("traduire-modele-semantique.mjs", ["--modele", fx("modele-resolution-verte"), "--resolution-references"]);
+  ok(r.exit === 0 && r.r.sortie === "OK", "--resolution-references · fixture verte produit un relevé (exit 0)");
+  ok(r.r.compte.references === 5 && r.r.compte.resolues === 3 && r.r.compte.non_resolues === 1 && r.r.compte.ambigues === 1,
+    `--resolution-references · les 5 références du modèle sont classées SANS reste (3 résolues, 1 ambiguë, 1 non résolue) — obtenu ${JSON.stringify(r.r.compte)}`);
+  const doc = r.r.document;
+  const mesure = cle => doc.mesures.find(m => m.mesure === cle);
+  ok(mesure("Indexation[Indexation Indice]").references[0].resolution.statut === "resolue" &&
+     mesure("Indexation[Indexation Indice]").references[0].resolution.objet === "Val_indice_indexation",
+    "--resolution-references · CASSE : « Indexation[VAL_INDICE_INDEXATION] » se résout sur la colonne « Val_indice_indexation » — un index sensible à la casse perdait cette référence (RD-10)");
+  ok(mesure("Certified_Turnover[AR1]").references[0].resolution.statut === "resolue" &&
+     mesure("Certified_Turnover[AR1]").references[0].resolution.table === "Invoiced_Rent" &&
+     mesure("Certified_Turnover[AR1]").references[0].resolution.type === "mesure",
+    "--resolution-references · RÉFÉRENCE NON QUALIFIÉE : « [Invoiced Rent N_] », absente de sa table porteuse, est résolue dans le RESTE DU MODÈLE (mesure d'une autre table) — l'ordre de résolution qui manquait au calcul manuel");
+  ok(JSON.stringify(mesure("Certified_Turnover[AR1]").colonnes_atteintes) === JSON.stringify(["Invoiced_Rent.Montant"]),
+    `--resolution-references · FERMETURE TRANSITIVE : AR1 ne référence qu'une MESURE, et atteint pourtant sa colonne de base (Invoiced_Rent.Montant) — obtenu ${JSON.stringify(mesure("Certified_Turnover[AR1]").colonnes_atteintes)}`);
+  ok(mesure("Certified_Turnover[Mesure Ambigue]").references[0].resolution.statut === "ambigue" &&
+     mesure("Certified_Turnover[Mesure Ambigue]").references[0].resolution.candidats.length === 2,
+    "--resolution-references · AMBIGUÏTÉ : « [Devise] », absente de sa table porteuse et présente dans DEUX autres tables, est déclarée AMBIGUË avec ses candidats nommés — jamais résolue au hasard");
+  ok(doc.journal.non_resolues.length === 1 && doc.journal.non_resolues[0].reference === "[Champ_Inexistant]" &&
+     doc.journal.ambigues.length === 1,
+    "--resolution-references · le JOURNAL porte les non-résolues ET les ambiguës, nommées, à côté du résultat — jamais un compte seul");
+
+  const videResol = fs.mkdtempSync(path.join(os.tmpdir(), "forge-data-resolution-vide-"));
+  const rr = lanceScript("traduire-modele-semantique.mjs", ["--modele", videResol, "--resolution-references"]);
+  ok(rr.exit === 2 && rr.r.sortie === "ECHEC" && !rr.r.document,
+    "--resolution-references · rouge : dossier sans fichier TMDL → refus propre (exit 2), aucune résolution inventée");
+  fs.rmSync(videResol, { recursive: true, force: true });
+}
+
+// ---- traduire-modele-semantique --usage-restitution (TF-0971, 14/09/2026) : trois populations,
+// jamais une seule mesure — la couverture se mesure D'ABORD sur ce qui est mobilisé ----
+// Mesure réelle (Produit-62, RD-9) : 66 colonnes seulement mobilisées sur 342 (21 projetées,
+// 45 lues par mesure), 276 jamais lues, 10 tables sur 27 inutilisées. Des 38 orphelines du
+// mapping, 20 sont réellement mobilisées et 18 ne le sont pas — la dette réelle est deux fois
+// plus petite que celle qu'`oracle-couvrir` seul annonce.
+console.log(String.fromCharCode(10) + "traduire-modele-semantique --usage-restitution (TF-0971) — trois populations + croisement couverture" + String.fromCharCode(10));
+{
+  const u = lanceScript("traduire-modele-semantique.mjs", ["--modele", fx("modele-semantique-verte"), "--usage-restitution", "--mise-en-page", fx("mise-en-page-verte.json"), "--orphelins", fx("orphelins-usage-verte.json")]);
+  ok(u.exit === 0 && u.r.sortie === "OK", "--usage-restitution · fixture verte produit un relevé (exit 0)");
+  ok(u.r.compte.colonnes_modele === 19 && u.r.compte.affichee === 4 && u.r.compte.lue_par_mesure === 2 && u.r.compte.jamais_lue === 13,
+    `--usage-restitution · les 19 colonnes du modèle se répartissent en TROIS populations sans reste (4 affichées, 2 lues par mesure, 13 jamais lues) — obtenu ${JSON.stringify(u.r.compte)}`);
+  const pop = u.r.document.populations;
+  ok(pop.affichee.includes("Calendrier.annee") && pop.affichee.includes("Client.segment"),
+    "--usage-restitution · AFFICHEE : une colonne projetée telle quelle par un visuel (Calendrier.annee, Client.segment) — nommée, pas seulement comptée");
+  ok(pop.lue_par_mesure.includes("Ventes.montant_ht") && pop.lue_par_mesure.includes("Ventes.id_commande") && !pop.affichee.includes("Ventes.montant_ht"),
+    "--usage-restitution · LUE_PAR_MESURE : « Ventes[Panier moyen] » n'est JAMAIS projetée en colonne, et pourtant ses DEUX colonnes de base (via DIVIDE sur deux autres mesures, fermeture transitive TF-0972) sont comptées lues");
+  ok(!pop.jamais_lue.includes("Ventes.montant_ht") && pop.jamais_lue.includes("Ventes.quantite"),
+    "--usage-restitution · JAMAIS_LUE : une colonne ni projetée ni atteinte par une mesure affichée (Ventes.quantite) — trois populations disjointes, jamais confondues");
+  ok(u.r.champs_inconnus.length === 1 && u.r.champs_inconnus[0].champ === "Ventes.champ_invente" && u.r.champs_inconnus[0].visuel === "Widget casse",
+    `--usage-restitution · un champ projeté qui ne résout à RIEN du modèle est nommé « champ_inconnu », jamais silencieusement ignoré — obtenu ${JSON.stringify(u.r.champs_inconnus)}`);
+  ok(!u.r.champs_inconnus.some(c => c.visuel === "Logo"),
+    "--usage-restitution · un visuel déclaré `porte_donnees: false` (Logo) ne projette RIEN — sa projection invalide n'est même pas signalée, elle est ignorée par construction");
+  const cc = u.r.document.croisement_couverture;
+  ok(cc.orphelins_declares === 3 && cc.orphelins_mobilises === 1 && cc.orphelins_non_mobilises === 2 && cc.detail.mobilises[0] === "Ventes.montant_ht",
+    `--usage-restitution · CROISEMENT COUVERTURE (règle opposable, TF-0971) : sur 3 orphelines déclarées par oracle-couvrir, 1 est réellement MOBILISÉE (lue_par_mesure) et 2 ne le sont pas — la dette bloquante n'est pas la dette annoncée — obtenu ${JSON.stringify(cc)}`);
+
+  // Rouge : une mise en page dans un format non reconnu → refus propre, aucun usage inventé.
+  const ur = lanceScript("traduire-modele-semantique.mjs", ["--modele", fx("modele-semantique-verte"), "--usage-restitution", "--mise-en-page", fx("mise-en-page-rouge.json")]);
+  ok(ur.exit === 2 && ur.r.sortie === "ECHEC" && !ur.r.document,
+    `--usage-restitution · rouge : mise en page au format non reconnu → refus propre (exit 2), aucun usage inventé — obtenu ${ur.r.erreur}`);
+}
+
+// ---- RS2 : la doctrine du repli, deux sens (TF-1176, 17/09/2026) ----
+// Une mise en page GÉNÉRÉE alors que le rapport d'origine est fourni n'est pas interdite : elle
+// est un REPLI, et un repli se déclare avec son motif. Les deux sens comptent également. Sens
+// vert : le repli motivé PASSE, et les écarts sont tout de même COMPTÉS et NOMMÉS — un repli qui
+// tairait ce qu'il coûte serait la même cécité, déplacée d'un cran. Sens rouge : le même document
+// sans motif ÉCHOUE sur RS2, et sur RS2 seulement — c'est le défaut d'origine, une mise en page
+// réinventée que personne n'a décidée, sous 23 contrôles PASS.
+console.log(String.fromCharCode(10) + "RS2 (TF-1176) — mise en page générée : un repli motivé, jamais un défaut par omission" + String.fromCharCode(10));
+{
+  const v = lance("oracle-reconstruire.mjs", fx("reconstruction-repli-verte.json"));
+  const av = (v.r.findings || []).filter(f => f.sev === "avertissement");
+  ok(v.exit === 0 && v.r.verdict === "PASS" && av.length > 0,
+    `RS2 · repli MOTIVÉ : PASS, et les ${av.length} écart(s) de mise en page restent comptés et nommés en avertissement — obtenu ${v.r.verdict}`);
+  ok(v.r.compte && v.r.compte.ecarts_geometrie === 8,
+    `RS2 · repli motivé : le COÛT du repli est chiffré (8 écarts de géométrie attendus) — obtenu ${JSON.stringify(v.r.compte && v.r.compte.ecarts_geometrie)}`);
+  const r = lance("oracle-reconstruire.mjs", fx("reconstruction-repli-rouge.json"));
+  const durs = [...new Set((r.r.findings || []).filter(f => f.sev === "bloquant").map(f => f.regle))];
+  ok(r.exit === 1 && r.r.verdict === "FAIL" && JSON.stringify(durs) === JSON.stringify(["RS2"]),
+    `RS2 · repli SANS motif : FAIL sur RS2 et sur RS2 seulement — obtenu ${r.r.verdict} ${JSON.stringify(durs)}`);
+  ok((r.r.findings || []).some(f => f.regle === "RS2" && f.sev === "info" && /personne ne l'a décidé/.test(f.msg)),
+    "RS2 · le verdict DIT que le repli n'a pas été décidé — un message qui féliciterait un repli non motivé serait pire que pas de message");
+}
+
+// ---- RN1/RN2 : la chaîne TMDL → inventaire → rendu se ferme SANS transcription (TF-1175) ----
+// L'inventaire du modèle est la SECONDE source sans laquelle RN2 ne peut rien dire — et une
+// seconde source recopiée à la main est l'endroit exact où le contrôle ment (leçon TF-0911,
+// mécanisée par TF-0917). `inventaire_ref` reprend donc le `couverture@1` que
+// `traduire-modele-semantique --inventaire` produit déjà, sans une ligne retapée. Le cas joué
+// ici est celui de la mise en page de fixture : un visuel projette un champ qui n'existe nulle
+// part dans le modèle, et un visuel SANS données en projette un autre — le premier est bloqué,
+// le second ignoré par construction.
+console.log(String.fromCharCode(10) + "RN1/RN2 (TF-1175) — inventaire repris du modèle, jamais retapé" + String.fromCharCode(10));
+const tmpRendu = fs.mkdtempSync(path.join(os.tmpdir(), "forge-data-rendu-"));
 try {
-  const pVerte = path.join(tmp7, "verte.json");
-  const v = lanceScript("traduire-modele-semantique.mjs", ["--modele", fx("modele-semantique-dax-verte"), "--resolution-dax", "--sortie", pVerte]);
-  ok(v.exit === 0 && v.r.sortie === "OK", "--resolution-dax · verte : exit 0");
-  ok(v.r.compte && v.r.compte.references_totales === 4 && v.r.compte.resolues === 4 && v.r.compte.non_resolues === 0 && v.r.compte.ambigues === 0 && v.r.compte.taux_resolution === 100,
-    `--resolution-dax · verte : 4/4 références résolues, taux 100 — obtenu ${JSON.stringify(v.r.compte)}`);
-  ok((v.r.avertissements || []).length === 0, "--resolution-dax · verte : aucun avertissement (rien à signaler quand tout résout)");
-  const doc = JSON.parse(fs.readFileSync(pVerte, "utf8"));
-  const mAr1 = doc.mesures.find(m => m.mesure === "Certified Turnover[AR1]");
-  ok(!!mAr1 && JSON.stringify(mAr1.colonnes) === JSON.stringify(["Indexation.Val_indice_indexation", "Invoiced_Rent.Amount"]),
-    `--resolution-dax · verte : « [Invoiced Rent N_] » et « [Indexation Indice] », non qualifiées et absentes de la table porteuse Certified Turnover, résolvent par le MODÈLE ENTIER puis se ferment sur leurs colonnes — obtenu ${JSON.stringify(mAr1 && mAr1.colonnes)}`);
-  ok(!!mAr1 && JSON.stringify(mAr1.mesures_traversees) === JSON.stringify(["Indexation[Indexation Indice]", "Invoiced_Rent[Invoiced Rent N_]"]),
-    "--resolution-dax · verte : les mesures traversées par la fermeture transitive sont nommées");
-  const mIndice = doc.mesures.find(m => m.mesure === "Indexation[Indexation Indice]");
-  ok(!!mIndice && JSON.stringify(mIndice.colonnes) === JSON.stringify(["Indexation.Val_indice_indexation"]),
-    "--resolution-dax · verte : « Indexation[VAL_INDICE_INDEXATION] » (référence en MAJUSCULES) résout la colonne déclarée « Val_indice_indexation » — DAX est insensible à la casse, l'index aussi");
-
-  const pRouge = path.join(tmp7, "rouge.json");
-  const r = lanceScript("traduire-modele-semantique.mjs", ["--modele", fx("modele-semantique-dax-rouge"), "--resolution-dax", "--sortie", pRouge]);
-  ok(r.exit === 0 && r.r.sortie === "OK", "--resolution-dax · rouge : un défaut de résolution n'est pas une erreur d'exécution — le générateur rend son verdict, il ne plante pas");
-  ok(r.r.compte && r.r.compte.references_totales === 4 && r.r.compte.resolues === 2 && r.r.compte.non_resolues === 1 && r.r.compte.ambigues === 1 && r.r.compte.taux_resolution === 50,
-    `--resolution-dax · rouge : 2/4 résolues, 1 ambiguë, 1 non résolue, taux 50 — obtenu ${JSON.stringify(r.r.compte)}`);
-  ok((r.r.avertissements || []).some(a => /AMBIGU/.test(a) && /\[Foo\]/.test(a)) && (r.r.avertissements || []).some(a => /NON RÉSOLUE/.test(a) && /NoSuchThing/.test(a)),
-    "--resolution-dax · rouge : les deux défauts sont NOMMÉS en avertissement, pas seulement comptés");
+  const pCouverture = path.join(tmpRendu, "couverture.json");
+  const inv = lanceScript("traduire-modele-semantique.mjs", ["--modele", fx("modele-semantique-verte"), "--inventaire",
+    "--namespace", "powerbi://fixture/instance-de-test", "--sortie", pCouverture]);
+  ok(inv.exit === 0 && fs.existsSync(pCouverture), "RN1 · l'inventaire du modèle est produit par le verbe (aucune transcription à la main)");
+  const pRendu = path.join(tmpRendu, "rendu.json");
+  fs.writeFileSync(pRendu, JSON.stringify({
+    format: "forge-data/rendu@1", id: "rendu_chaine_fermee",
+    mise_en_page: JSON.parse(fs.readFileSync(fx("mise-en-page-verte.json"), "utf8")),
+    inventaire_ref: "couverture.json",
+    gestes_de_verification: [{ geste: "export PDF depuis le service puis lecture de l'image du fichier exporté",
+      fait_le: "2026-09-17", resultat: "2 pages avec données, aucun libellé d'erreur du service" }],
+  }));
+  const r = lance("oracle-rendre.mjs", pRendu);
+  const durs = [...new Set((r.r.findings || []).filter(f => f.sev === "bloquant").map(f => f.regle))];
+  ok(r.exit === 1 && JSON.stringify(durs) === JSON.stringify(["RN2"]),
+    `RN1/RN2 · inventaire repris par \`inventaire_ref\` : FAIL sur RN2 et RIEN d'autre — obtenu ${JSON.stringify(durs)}`);
+  const rn2 = (r.r.findings || []).filter(f => f.regle === "RN2");
+  ok(rn2.length === 1 && rn2[0].msg.includes("Ventes.champ_invente") && /Widget casse/.test(rn2[0].where),
+    `RN1/RN2 · le champ fantôme est NOMMÉ avec son visuel — un compte anonyme ne se corrige pas (obtenu ${rn2.map(f => f.where).join(",") || "rien"})`);
+  ok(!rn2.some(f => /Logo/.test(f.where)),
+    "RN1/RN2 · le visuel déclaré `porte_donnees: false` (Logo) n'est jugé sur aucune liaison — juger un logo sur ses champs serait un faux positif, et un oracle à faux positifs se désactive");
 } finally {
-  fs.rmSync(tmp7, { recursive: true, force: true });
+  fs.rmSync(tmpRendu, { recursive: true, force: true });
 }
 
-// ---- isoler-contexte-extrait (TF-0976, 14/09) — pied « Filtres appliqués », totaux, vide ----
-// La verte porte le cas mesuré exactement : une ligne vide terminale puis un pied « Filtres
-// appliqués » dont les TROIS opérateurs cohabitent (est, n_est_pas, n_est_pas_vide). La rouge
-// ajoute une ligne de TOTAUX et une clause de pied NON RECONNUE, gardée et comptée plutôt que tue.
-console.log(String.fromCharCode(10) + "isoler-contexte-extrait (TF-0976) — pied « Filtres appliqués », totaux, ligne vide terminale" + String.fromCharCode(10));
-{
-  const tmp8 = fs.mkdtempSync(path.join(os.tmpdir(), "forge-data-contexte-extrait-"));
-  try {
-    const pVerte = path.join(tmp8, "verte.json");
-    const v = lanceScript("isoler-contexte-extrait.mjs", ["--fichier", fx("contexte-extrait-verte.csv"), "--sortie", pVerte]);
-    ok(v.exit === 0 && v.r.sortie === "OK", "isoler-contexte-extrait · verte : exit 0");
-    ok(v.r.compte && v.r.compte.lignes_donnees === 2 && v.r.compte.lignes_ecartees === 2 &&
-       v.r.compte.par_type.vide_terminale === 1 && v.r.compte.par_type.pied_filtres === 1,
-      `isoler-contexte-extrait · verte : 2 lignes de données, 1 vide terminale + 1 pied écartés — obtenu ${JSON.stringify(v.r.compte)}`);
-    ok(v.r.portee === "declaree", "isoler-contexte-extrait · verte : portée DÉCLARÉE (un pied a été lu)");
-    const docV = JSON.parse(fs.readFileSync(pVerte, "utf8"));
-    ok(docV.lignes.length === 2 && docV.lignes.every(l => Object.keys(l).length === 3),
-      "isoler-contexte-extrait · verte : les lignes de DONNÉES ne portent ni la ligne vide ni le pied — la modalité fantôme de la première colonne a disparu");
-    const preds = (docV.contexte_de_l_extrait || {}).predicats || [];
-    ok(preds.length === 3 &&
-       preds.some(p => p.champ === "Period" && p.operateur === "n_est_pas_nul" && p.valeur === null) &&
-       preds.some(p => p.champ === "Period" && p.operateur === "est" && p.valeur === "202606") &&
-       preds.some(p => p.champ === "Country_" && p.operateur === "n_est_pas_vide" && p.valeur === null),
-      `isoler-contexte-extrait · verte : les trois clauses du pied deviennent trois prédicats {champ, operateur, valeur} — obtenu ${JSON.stringify(preds)}`);
+// ---- DL4 : servir tout le modèle est l'excédent, et la chaîne le mesure sans transcription ----
+// (TF-1180, 17/09/2026) Le défaut mesuré tient en une phrase : le périmètre du rapport migré a été
+// pris au MODÈLE d'origine (342 colonnes) et non aux VISUELS (66 colonnes lues par 83 champs).
+// Le cas est rejoué ici à l'échelle de la fixture, et par la CHAÎNE, sans une ligne retapée :
+// `--inventaire` produit le périmètre qu'on publierait en servant tout le modèle, et
+// `--usage-restitution` produit ce que les visuels lisent vraiment. L'oracle soustrait.
+console.log(String.fromCharCode(10) + "DL4 (TF-1180) — servir tout le modèle : l'excédent se mesure, il ne se discute pas" + String.fromCharCode(10));
+const tmpPerim = fs.mkdtempSync(path.join(os.tmpdir(), "forge-data-perimetre-"));
+try {
+  const pCouv = path.join(tmpPerim, "couverture.json");
+  const inv = lanceScript("traduire-modele-semantique.mjs", ["--modele", fx("modele-semantique-verte"), "--inventaire",
+    "--namespace", "powerbi://fixture/instance-de-test", "--sortie", pCouv]);
+  const pUsage = path.join(tmpPerim, "usage.json");
+  const us = lanceScript("traduire-modele-semantique.mjs", ["--modele", fx("modele-semantique-verte"), "--usage-restitution",
+    "--mise-en-page", fx("mise-en-page-verte.json"), "--sortie", pUsage]);
+  ok(inv.exit === 0 && us.exit === 0 && fs.existsSync(pCouv) && fs.existsSync(pUsage),
+    "DL1 · le périmètre livré et l'usage relevé sont PRODUITS par le verbe (aucune transcription à la main, leçon TF-0911)");
 
-    const pRouge = path.join(tmp8, "rouge.json");
-    const r = lanceScript("isoler-contexte-extrait.mjs", ["--fichier", fx("contexte-extrait-rouge.csv"), "--sortie", pRouge]);
-    ok(r.exit === 0 && r.r.sortie === "OK", "isoler-contexte-extrait · rouge : exit 0 (un défaut de lecture n'est pas une erreur d'exécution)");
-    ok(r.r.compte && r.r.compte.lignes_donnees === 2 && r.r.compte.par_type.ligne_totaux === 1,
-      `isoler-contexte-extrait · rouge : la ligne « Total » est écartée et NOMMÉE, pas comptée comme donnée — obtenu ${JSON.stringify(r.r.compte)}`);
-    ok((r.r.avertissements || []).some(a => /NON RECONNUE/.test(a) && /bizarre/.test(a)),
-      "isoler-contexte-extrait · rouge : la clause de pied non reconnue est GARDÉE et signalée, jamais tue en silence");
-    const docR = JSON.parse(fs.readFileSync(pRouge, "utf8"));
-    ok((docR.contexte_de_l_extrait.predicats || []).some(p => p.operateur === "non_reconnu" && p.brut === "Period fait bizarre 202606"),
-      "isoler-contexte-extrait · rouge : le prédicat non reconnu porte son texte BRUT, pas une interprétation devinée");
+  const pPerim = path.join(tmpPerim, "perimetre.json");
+  fs.writeFileSync(pPerim, JSON.stringify({
+    format: "forge-data/perimetre@1", id: "perimetre_tout_le_modele",
+    releve: { par: "traduire-modele-semantique --usage-restitution", date: "2026-09-17", source: "modèle d'origine de la fixture" },
+    mise_en_page: JSON.parse(fs.readFileSync(fx("mise-en-page-verte.json"), "utf8")),
+    usage_ref: "usage.json", livre_ref: "couverture.json",
+  }));
+  const r = lance("oracle-delimiter.mjs", pPerim);
+  const durs = [...new Set((r.r.findings || []).filter(f => f.sev === "bloquant").map(f => f.regle))].sort();
+  ok(r.exit === 1 && JSON.stringify(durs) === JSON.stringify(["DL3", "DL4"]),
+    `DL4 · périmètre pris au MODÈLE : FAIL sur DL4 (excédent) et DL3 (champ affiché absent), et rien d'autre — obtenu ${JSON.stringify(durs)}`);
+  const p = r.r.perimetre;
+  ok(p && p.livres === 26 && p.lus === 11 && p.excedent === 15 && p.exclus === 0 && p.taux.lu === 42.3,
+    `DL4 · les comptes sont RECALCULÉS depuis les deux sources : 26 objets publiés, 11 lus, 15 en excédent, 42,3 % — obtenu ${JSON.stringify(p && { livres: p.livres, lus: p.lus, excedent: p.excedent, taux: p.taux.lu })}`);
+  const dl4 = (r.r.findings || []).filter(f => f.regle === "DL4" && f.sev === "bloquant");
+  ok(dl4.length === 1 && /13 colonne\(s\), 2 mesure\(s\)/.test(dl4[0].msg) && /Calendrier\.date_sk/.test(dl4[0].msg),
+    `DL4 · l'excédent est compté PAR TYPE et ses objets sont NOMMÉS — un total anonyme ne se retire pas (obtenu ${dl4.map(f => f.msg.slice(0, 80)).join(" | ") || "rien"})`);
+  // Ce que l'excédent contient ici dit la règle mieux qu'une phrase : trois clés de substitution
+  // et deux mesures intermédiaires, c'est-à-dire des objets NÉCESSAIRES que rien n'affiche. Ils ne
+  // se taisent pas et ne se devinent pas : ils se DÉCLARENT (`lectures_declarees`), et c'est ce
+  // que le périmètre réduit ci-dessous fait pour les mesures.
+  ok(/Client\.client_sk/.test(dl4[0].msg) && p.excedent_par_type.mesure === 2,
+    "DL4 · clés de substitution et mesures intermédiaires tombent en excédent tant que leur lecture n'est pas DÉCLARÉE — l'oracle ne devine aucune nécessité structurelle");
 
-    // Sens supplémentaire : SANS pied du tout, la portée reste INCONNUE et le dit — un extrait
-    // dont le contexte n'est pas déclaré n'est jamais supposé complet par défaut.
-    const pSansPied = path.join(tmp8, "sans-pied.csv");
-    fs.writeFileSync(pSansPied, "Period,Country_,Montant\n2026,FR,100\n2026,DE,200\n");
-    const s = lanceScript("isoler-contexte-extrait.mjs", ["--fichier", pSansPied]);
-    ok(s.exit === 0 && s.r.portee === "inconnue" && (s.r.avertissements || []).some(a => /PORTÉE.*INCONNUE/.test(a)),
-      "isoler-contexte-extrait · sans pied : portée INCONNUE déclarée en avertissement, jamais supposée complète par défaut");
-  } finally {
-    fs.rmSync(tmp8, { recursive: true, force: true });
-  }
+  // Le sens qui compte autant : le MÊME périmètre, réduit à ce que les visuels lisent et aux
+  // objets structurellement nécessaires, PASSE. Un oracle qui refuserait aussi le périmètre juste
+  // serait inapplicable, et se ferait désactiver le jour de sa première migration.
+  const couv = JSON.parse(fs.readFileSync(pCouv, "utf8"));
+  const usage = JSON.parse(fs.readFileSync(pUsage, "utf8"));
+  const lus = new Set([...usage.populations.affichee, ...usage.populations.lue_par_mesure].map(x => x.toLowerCase()));
+  const restreint = couv.source.inventaire.filter(o => {
+    const c = o.objet.toLowerCase();
+    return lus.has(c) || o.type === "mesure" || (o.type === "table" && [...lus].some(x => x.startsWith(c + ".")));
+  });
+  const pReduit = path.join(tmpPerim, "perimetre-reduit.json");
+  fs.writeFileSync(pReduit, JSON.stringify({
+    format: "forge-data/perimetre@1", id: "perimetre_reduit_a_ce_qui_est_lu",
+    releve: { par: "traduire-modele-semantique --usage-restitution", date: "2026-09-17", source: "modèle d'origine de la fixture" },
+    mise_en_page: {
+      format: "forge-data/mise-en-page@1", rapport: "mise en page de l'origine, visuels cassés écartés",
+      pages: JSON.parse(fs.readFileSync(fx("mise-en-page-verte.json"), "utf8")).pages
+        .map(pg => ({ ...pg, visuels: pg.visuels.filter(v => v.visuel !== "Widget casse") })),
+    },
+    usage_ref: "usage.json", livre: restreint,
+    lectures_declarees: restreint.filter(o => o.type === "mesure" && !lus.has(o.objet.toLowerCase()))
+      .map(o => ({ objet: o.objet, type: "mesure_intermediaire", par: "Ventes[Panier moyen]" })),
+  }));
+  const rv = lance("oracle-delimiter.mjs", pReduit);
+  ok(rv.exit === 0 && rv.r.verdict === "PASS" && rv.r.perimetre.excedent === 0,
+    `DL4 · le périmètre RÉDUIT à ce que les visuels lisent PASSE, zéro excédent — obtenu ${rv.r.verdict} ${JSON.stringify(rv.r.perimetre && rv.r.perimetre.excedent)}`);
+} finally {
+  fs.rmSync(tmpPerim, { recursive: true, force: true });
 }
 
-// ---- mesurer-usage-restitution (TF-0971, 14/09) — trois populations, jamais deux à la fois ----
-// La verte compose deux artefacts DÉJÀ produits par cette forge (un inventaire de modèle et une
-// résolution DAX, TF-0972) avec un projet PBIR synthétique à deux visuels : l'un affiche
-// directement « Ventes.quantite », l'autre affiche la mesure « Ventes[Panier moyen] » qui,
-// fermée transitivement, lit « Ventes.montant_ht » et « Ventes.id_commande » SANS les afficher
-// elles-mêmes. Le reste du modèle (3 colonnes) n'est JAMAIS lu. La rouge porte, dans le MÊME
-// projet, une référence vers une table inconnue du modèle fourni (« Fournisseur.nom »).
-console.log(String.fromCharCode(10) + "mesurer-usage-restitution (TF-0971) — trois populations : affichée, lue_par_mesure, jamais_lue" + String.fromCharCode(10));
-{
-  const tmp9 = fs.mkdtempSync(path.join(os.tmpdir(), "forge-data-usage-restitution-"));
-  try {
-    const pVerte = path.join(tmp9, "verte.json");
-    const v = lanceScript("mesurer-usage-restitution.mjs",
-      ["--modele", fx("usage-modele-verte.json"), "--resolution", fx("usage-resolution-dax-verte.json"), "--rapport", fx("rapport-pbir-verte"), "--sortie", pVerte]);
-    ok(v.exit === 0 && v.r.sortie === "OK", "mesurer-usage-restitution · verte : exit 0");
-    ok(v.r.compte && v.r.compte.affichee === 1 && v.r.compte.lue_par_mesure === 2 && v.r.compte.jamais_lue === 3 && v.r.compte.mesures_affichees === 1,
-      `mesurer-usage-restitution · verte : 1 affichée, 2 lues par mesure, 3 jamais lues, 1 mesure affichée — obtenu ${JSON.stringify(v.r.compte)}`);
-    const docV = JSON.parse(fs.readFileSync(pVerte, "utf8"));
-    ok(JSON.stringify(docV.populations.affichee) === JSON.stringify(["Ventes.quantite"]),
-      "mesurer-usage-restitution · verte : « Ventes.quantite » est AFFICHÉE (projetée telle quelle dans un visuel)");
-    ok(JSON.stringify(docV.populations.lue_par_mesure) === JSON.stringify(["Ventes.id_commande", "Ventes.montant_ht"]),
-      `mesurer-usage-restitution · verte : « Ventes.montant_ht » et « Ventes.id_commande » sont LUES PAR MESURE — jamais affichées elles-mêmes, atteintes par la fermeture transitive de « Ventes[Panier moyen] » — obtenu ${JSON.stringify(docV.populations.lue_par_mesure)}`);
-    ok(JSON.stringify(docV.populations.jamais_lue) === JSON.stringify(["Client.pays_facturation", "Client.segment", "Ventes.date_sk"]),
-      `mesurer-usage-restitution · verte : les 3 colonnes restantes du modèle sont JAMAIS LUES — obtenu ${JSON.stringify(docV.populations.jamais_lue)}`);
-    // Round-trip : la sortie du générateur PASSE l'oracle de cohérence structurelle sans retouche.
-    const ronde = lance("oracle-usage-restitution.mjs", pVerte);
-    ok(ronde.exit === 0 && ronde.r.verdict === "PASS", "mesurer-usage-restitution → oracle-usage-restitution : PASS sans retouche (round-trip)");
+// ---- QR6 : le verdict de bascule se COMPOSE, il ne se pose pas (TF-1186, 19/09/2026) ----
+// C'est la règle qui porte tout l'item, et la boucle des CAS ne la prouve qu'à moitié : elle montre
+// que QR6 se déclenche, pas qu'elle se déclenche POUR LA BONNE RAISON. Les mutations ci-dessous
+// partent de la fixture VERTE — un document honnête, cinq dimensions renseignées, une sixième non
+// jugeable — et changent UN champ. Le fait qu'elles protègent : cinq mesures vertes et une
+// dimension muette produisent exactement la même illusion qu'un rapport recetté qui n'affiche rien.
+console.log(String.fromCharCode(10) + "QR6 (TF-1186) — cinq dimensions vertes et une muette ne valent pas une garantie" + String.fromCharCode(10));
+const tmpQual = fs.mkdtempSync(path.join(os.tmpdir(), "forge-data-qualif-"));
+try {
+  const base = () => JSON.parse(fs.readFileSync(fx("qualification-rapport-verte.json"), "utf8"));
+  // La copie mutée vit hors du dépôt : sa racine reste celle de la forge, sinon les porteurs
+  // deviendraient introuvables et chaque mutation échouerait sur QR3 au lieu de sa propre règle.
+  const ecrire = (nom, doc) => {
+    doc.racine = path.join(ici, "..");
+    const p = path.join(tmpQual, nom); fs.writeFileSync(p, JSON.stringify(doc)); return p;
+  };
 
-    const pRouge = path.join(tmp9, "rouge.json");
-    const r = lanceScript("mesurer-usage-restitution.mjs",
-      ["--modele", fx("usage-modele-verte.json"), "--resolution", fx("usage-resolution-dax-verte.json"), "--rapport", fx("rapport-pbir-rouge"), "--sortie", pRouge]);
-    ok(r.exit === 0 && r.r.sortie === "OK", "mesurer-usage-restitution · rouge : une référence non résolue n'est pas une erreur d'exécution");
-    ok(r.r.compte && r.r.compte.references_non_resolues === 1, `mesurer-usage-restitution · rouge : 1 référence NON RÉSOLUE comptée — obtenu ${JSON.stringify(r.r.compte)}`);
-    ok((r.r.avertissements || []).some(a => /NON RÉSOLUE/.test(a) && /Fournisseur\.nom/.test(a)),
-      "mesurer-usage-restitution · rouge : « Fournisseur.nom », inconnue du modèle fourni, est NOMMÉE en avertissement — jamais silencieusement ignorée");
+  // Le verdict seul est relevé à « remplaçable » : rien d'autre ne change, et le document devient
+  // faux. C'est le geste exact qu'aucun contrôle ne rattrapait — la question du commanditaire était
+  // tranchée par une phrase posée au-dessus de mesures qui ne la portaient pas.
+  const m1 = base(); m1.bascule.verdict = "remplacable"; delete m1.bascule.conditions;
+  const r1 = lance("oracle-qualifier.mjs", ecrire("bascule-posee.json", m1));
+  const d1 = [...new Set((r1.r.findings || []).filter(f => f.sev === "bloquant").map(f => f.regle))];
+  ok(r1.exit === 1 && JSON.stringify(d1) === JSON.stringify(["QR6"]) &&
+     (r1.r.findings || []).some(f => f.regle === "QR6" && /non jugeable ici/.test(f.msg)),
+    `QR6 · « remplaçable » posé sur un document dont trois dimensions ne sont pas prouvées : FAIL sur QR6 seul, et le message dit pourquoi le verdict est INATTEIGNABLE — obtenu ${JSON.stringify(d1)}`);
+
+  // Une réserve qu'aucune condition ne lève : « sous conditions » avec une liste incomplète se lit
+  // comme un oui pour la réserve manquante — la dimension muette, de nouveau, d'un cran plus loin.
+  const m2 = base(); m2.bascule.conditions = m2.bascule.conditions.filter(c => c.id !== "C-2");
+  const r2 = lance("oracle-qualifier.mjs", ecrire("reserve-orpheline.json", m2));
+  const q2 = (r2.r.findings || []).filter(f => f.regle === "QR6" && f.sev === "bloquant");
+  ok(r2.exit === 1 && q2.length === 1 && /interactions/.test(q2[0].msg),
+    `QR6 · une réserve qu'aucune condition ne lève est NOMMÉE (« interactions ») — une liste incomplète de conditions est un oui déguisé (obtenu ${q2.map(f => f.msg.slice(0, 30)).join(",") || "rien"})`);
+
+  // Et le sens inverse, celui qui garde la règle utilisable : une condition qui pointe une réserve
+  // inexistante est refusée aussi — sinon il suffirait d'allonger la liste pour tout couvrir.
+  const m3 = base(); m3.bascule.conditions[0].leve = ["rendu"];
+  const r3 = lance("oracle-qualifier.mjs", ecrire("condition-dans-le-vide.json", m3));
+  ok(r3.exit === 1 && (r3.r.findings || []).some(f => f.regle === "QR6" && /pointe dans le vide/.test(f.msg)),
+    "QR6 · une condition qui prétend lever une dimension déjà conforme est refusée — sinon la liste se remplit de conditions qui ne lèvent rien");
+
+  // QR2 · l'angle mort d'une dimension PROUVÉE CONFORME. C'est là qu'il compte le plus et c'est là
+  // qu'on le supprime en premier : un contrôle vert donne l'impression de n'avoir rien à taire.
+  const m4 = base(); m4.dimensions.find(x => x.dimension === "rendu").angle_mort = "aucun";
+  const r4 = lance("oracle-qualifier.mjs", ecrire("angle-mort-efface.json", m4));
+  const d4 = [...new Set((r4.r.findings || []).filter(f => f.sev === "bloquant").map(f => f.regle))];
+  ok(r4.exit === 1 && JSON.stringify(d4) === JSON.stringify(["QR2"]),
+    `QR2 · l'angle mort effacé d'une dimension conforme fait échouer le document, sur QR2 et rien d'autre — obtenu ${JSON.stringify(d4)}`);
+
+  // QR3 · la preuve cite son porteur ET ses règles, et l'oracle les retrouve DANS le fichier. Une
+  // règle renommée laisse la dimension s'en réclamer pour toujours (convention CH4, TF-1179).
+  const m5 = base(); m5.dimensions.find(x => x.dimension === "perimetre").preuve.regles = ["DL3", "DL9"];
+  const r5 = lance("oracle-qualifier.mjs", ecrire("regle-survivante.json", m5));
+  ok(r5.exit === 1 && (r5.r.findings || []).some(f => f.regle === "QR3" && /DL9/.test(f.msg) && /oracle-delimiter/.test(f.msg)),
+    "QR3 · une règle citée que son porteur ne porte pas est nommée AVEC son porteur — un identifiant de règle survit à sa règle");
+  ok((lance("oracle-qualifier.mjs", fx("qualification-rapport-verte.json")).r.qualification || {}).regles_verifiees === 11,
+    "QR3 · verte : les 11 règles citées par les dimensions sont RETROUVÉES dans les fichiers de leurs porteurs, jamais crues sur parole");
+} finally {
+  fs.rmSync(tmpQual, { recursive: true, force: true });
+}
+
+// ---- QR7 : « pas chargé » et « pas la même définition » ne vont pas au même bac (TF-1190) ----
+// Sur 4 écarts de chiffres remontés comme défauts, 2 n'en étaient pas : la couche cible RECALCULE ce
+// que la source STOCKAIT, et le chiffre publié n'est pas faux — il répond à une autre question. Les
+// ranger en défaut aurait envoyé une équipe corriger ce qui n'est pas cassé, et une liste de défauts
+// dont la moitié n'en sont pas perd sa crédibilité entière. Ce bloc prouve les deux moitiés : le
+// mauvais bac est REFUSÉ, et la définition tranchée puis ACCEPTÉE cesse de peser sur la bascule.
+console.log(String.fromCharCode(10) + "QR7/QR8 (TF-1190) — la définition changée n'est ni un écart assumé ni un défaut" + String.fromCharCode(10));
+const tmpDef = fs.mkdtempSync(path.join(os.tmpdir(), "forge-data-definition-"));
+try {
+  const base = () => JSON.parse(fs.readFileSync(fx("qualification-definition-verte.json"), "utf8"));
+  const ecrire = (nom, doc) => {
+    doc.racine = path.join(ici, "..");
+    const p = path.join(tmpDef, nom); fs.writeFileSync(p, JSON.stringify(doc)); return p;
+  };
+  const ecartsDe = doc => doc.dimensions.find(x => x.dimension === "chiffres").ecarts;
+
+  // Le geste exact qui a coûté le retour : le même écart, reclassé « assumé », définitions
+  // retirées. Une décision est citée, tout a l'air en ordre — et deux écarts sur quatre partent
+  // chercher un bug là où il n'y a qu'une question à poser.
+  const m1 = base();
+  const e1 = ecartsDe(m1).find(e => e.id === "EC-1");
+  e1.classe = "assume"; e1.decision_ref = "D-43";
+  delete e1.definition_origine; delete e1.definition_cible; delete e1.question_a_trancher;
+  delete e1.statut; delete e1.accord;
+  const r1 = lance("oracle-qualifier.mjs", ecrire("ecart-au-mauvais-bac.json", m1));
+  const d1 = [...new Set((r1.r.findings || []).filter(f => f.sev === "bloquant").map(f => f.regle))];
+  ok(r1.exit === 1 && JSON.stringify(d1) === JSON.stringify(["QR7"]) &&
+     (r1.r.findings || []).some(f => f.regle === "QR7" && /corriger ce qui n'est pas cassé/.test(f.msg)),
+    `QR7 · un recalcul de la couche cible rangé « assumé », sans la définition d'aucun des deux côtés : FAIL sur QR7 seul — obtenu ${JSON.stringify(d1)}`);
+
+  // Sens vert, et c'est le gain : une définition changée TRANCHÉE et acceptée par le commanditaire,
+  // à la date écrite, ne pèse plus sur le verdict de bascule — elle ne demandait aucune correction.
+  const v = lance("oracle-qualifier.mjs", fx("qualification-definition-verte.json"));
+  ok(v.exit === 0 && v.r.qualification.definitions_changees === 2 && v.r.qualification.definitions_tranchees === 1 &&
+     v.r.qualification.reserves === 2,
+    `QR7 · verte : 2 définitions changées dont 1 TRANCHÉE et datée ; celle-là n'est plus une réserve, et 2 réserves subsistent sur 4 écarts — obtenu ${JSON.stringify({ d: v.r.qualification.definitions_changees, t: v.r.qualification.definitions_tranchees, r: v.r.qualification.reserves })}`);
+  const m2 = base();
+  delete ecartsDe(m2).find(e => e.id === "EC-1").accord;
+  const r2 = lance("oracle-qualifier.mjs", ecrire("tranchee-sans-accord.json", m2));
+  ok(r2.exit === 1 && (r2.r.findings || []).some(f => f.regle === "QR7" && /n'est pas tranchée, elle est oubliée/.test(f.msg)),
+    "QR7 · la même définition déclarée tranchée SANS l'accord daté du commanditaire est refusée — c'est l'accord qui la fait cesser de peser, pas le mot");
+
+  // QR8 · la part se RECALCULE. Le test des fractions régulières est ce qui a séparé les deux causes
+  // sur le cas réel (122/122 contre 5/316) ; une part recopiée le rendrait muet dans les deux sens.
+  const m3 = base();
+  ecartsDe(m3).find(e => e.id === "EC-2").test_fractions.entites_fractions_entieres = 300;
+  const r3 = lance("oracle-qualifier.mjs", ecrire("part-recopiee.json", m3));
+  const q3 = (r3.r.findings || []).filter(f => f.regle === "QR8" && f.sev === "bloquant");
+  ok(r3.exit === 1 && q3.some(f => /1\.6 %/.test(f.msg) && /94\.9/.test(f.msg)),
+    `QR8 · la part déclarée (1,6 %) est confrontée à la part RECALCULÉE (300/316 = 94,9 %) — un taux recopié d'une analyse précédente fait ranger l'écart dans le mauvais bac (obtenu ${q3.map(f => f.msg.slice(0, 40)).join(" | ") || "rien"})`);
+  ok(r3.exit === 1 && q3.some(f => /contredit sa propre mesure/.test(f.msg)),
+    "QR8 · et le diagnostic qui contredit sa propre mesure est refusé : au-dessus du seuil déclaré, la mesure dit « fenêtre incomplète », quoi qu'en conclue le rédacteur");
+} finally {
+  fs.rmSync(tmpDef, { recursive: true, force: true });
+}
+
+// ---- RN6 / RS4-plan / RS7 : les trois contrôles rapportés par RF-29 (TF-1188, 18/09/2026) ----
+// Le retour dit trois choses mesurées chez un produit, et deux d'entre elles n'étaient couvertes par
+// aucune règle d'ici. La boucle des CAS prouve que les règles se DÉCLENCHENT ; ce bloc prouve ce
+// qu'elles MESURENT, sur des mutations chirurgicales de la fixture VERTE — un seul champ change à
+// la fois, donc le FAIL obtenu ne peut venir que de lui.
+console.log(String.fromCharCode(10) + "RN6 / RS4-plan / RS7 (TF-1188) — l'export mesuré, le plan, et le périmètre à l'OCCURRENCE" + String.fromCharCode(10));
+const tmpQ = fs.mkdtempSync(path.join(os.tmpdir(), "forge-data-rf29-"));
+try {
+  // --- RN6 · le geste d'export rend ses NOMBRES, et ils sont confrontés à leurs bornes ----------
+  const v = lance("oracle-rendre.mjs", fx("rendu-verte.json"));
+  ok(v.exit === 0 && v.r.compte.mesures_d_export === 1 &&
+     (v.r.findings || []).some(f => f.regle === "RN6" && f.sev === "info" && /449|101376|octets/.test(f.msg)),
+    `RN6 · verte : l'export est prouvé sur le fichier TÉLÉCHARGÉ, et l'oracle rend ses nombres — obtenu ${v.r.compte.mesures_d_export} mesure(s)`);
+  const rn6Rouge = (lance("oracle-rendre.mjs", fx("rendu-rouge.json")).r.findings || []).filter(f => f.regle === "RN6" && f.sev === "bloquant");
+  ok(rn6Rouge.length === 5,
+    `RN6 · rouge : les CINQ défauts du geste du 15/09 sont nommés un à un (statut pris pour le fichier, 569 s, 1 415 octets, page à zéro caractère, aucun libellé cherché) — obtenu ${rn6Rouge.length}`);
+  ok(rn6Rouge.some(f => /1415|1 415/.test(f.msg)) && rn6Rouge.some(f => /zéro caractère|aucun caractère/.test(f.msg)),
+    "RN6 · rouge : le poids et la page vide sont CHIFFRÉS, pas seulement dénoncés — c'est le couple 1 415 octets / 0 caractère qui a coûté deux jours");
+  // Un geste qui se déclare « export_rendu » et ne rend aucun nombre est refusé : c'est la porte
+  // par laquelle « export Succeeded » rentrerait à nouveau, en une phrase bien écrite.
+  const sansMesure = JSON.parse(fs.readFileSync(fx("rendu-verte.json"), "utf8"));
+  delete sansMesure.gestes_de_verification[0].mesure_export;
+  const pSansMesure = path.join(tmpQ, "rendu-sans-mesure.json");
+  fs.writeFileSync(pSansMesure, JSON.stringify(sansMesure));
+  const sm = lance("oracle-rendre.mjs", pSansMesure);
+  const dursSm = [...new Set((sm.r.findings || []).filter(f => f.sev === "bloquant").map(f => f.regle))];
+  ok(sm.exit === 1 && JSON.stringify(dursSm) === JSON.stringify(["RN6"]),
+    `RN6 · un geste déclaré « export_rendu » SANS mesure échoue, sur RN6 et sur RN6 seulement — obtenu ${JSON.stringify(dursSm)}`);
+  // Sens inverse, celui qui garde la règle utilisable : un rendu dont AUCUN geste ne se déclare
+  // export ne bloque pas — il est AVERTI. La doctrine dit qu'un rendu non joué se DIT ; une règle
+  // qui refuserait ici toute livraison serait désactivée le jour même.
+  const sansNature = JSON.parse(JSON.stringify(sansMesure));
+  delete sansNature.gestes_de_verification[0].nature;
+  const pSansNature = path.join(tmpQ, "rendu-sans-nature.json");
+  fs.writeFileSync(pSansNature, JSON.stringify(sansNature));
+  const sn = lance("oracle-rendre.mjs", pSansNature);
+  const sn6 = (sn.r.findings || []).filter(f => f.regle === "RN6");
+  ok(sn.exit === 0 && sn6.length === 1 && sn6[0].sev === "avertissement",
+    `RN6 · aucun geste d'export déclaré : AVERTISSEMENT nommant la doctrine, jamais un blocage — obtenu exit=${sn.exit} ${sn6.map(f => f.sev).join(",") || "rien"}`);
+
+  // --- RS4 · le PLAN, seul champ muté : deux visuels superposés et inversés ---------------------
+  const planMute = JSON.parse(fs.readFileSync(fx("reconstruction-verte.json"), "utf8"));
+  planMute.produit.pages[0].visuels.find(x => x.visuel === "tableau_baux").plan = 9;
+  const pPlan = path.join(tmpQ, "reconstruction-plan.json");
+  fs.writeFileSync(pPlan, JSON.stringify(planMute));
+  const rp = lance("oracle-reconstruire.mjs", pPlan);
+  const dursPlan = [...new Set((rp.r.findings || []).filter(f => f.sev === "bloquant").map(f => f.regle))];
+  ok(rp.exit === 1 && JSON.stringify(dursPlan) === JSON.stringify(["RS4"]) && rp.r.compte.ecarts_geometrie === 1,
+    `RS4 · le PLAN seul inversé, géométrie identique au pixel : FAIL sur RS4 et rien d'autre — obtenu ${JSON.stringify(dursPlan)} ${rp.r.compte.ecarts_geometrie} écart(s)`);
+
+  // --- RS7 · une occurrence perdue dont l'en-tête existe ailleurs sur la même page ---------------
+  // C'est le cas exact que la recette du produit ne voyait pas : « Loyer annuel » est affiché deux
+  // fois, on en retire une, et le nombre d'en-têtes DISTINCTS de la page ne bouge pas d'un.
+  const occMute = JSON.parse(fs.readFileSync(fx("reconstruction-verte.json"), "utf8"));
+  const tbl = occMute.produit.pages[0].visuels.find(x => x.visuel === "tableau_baux");
+  tbl.projections = tbl.projections.slice(0, 3);
+  const distinctsAvant = new Set(occMute.source.pages[0].visuels.flatMap(x => (x.projections || []).map(p => p.entete))).size;
+  const distinctsApres = new Set(occMute.produit.pages[0].visuels.flatMap(x => (x.projections || []).map(p => p.entete))).size;
+  const pOcc = path.join(tmpQ, "reconstruction-occurrence.json");
+  fs.writeFileSync(pOcc, JSON.stringify(occMute));
+  const ro = lance("oracle-reconstruire.mjs", pOcc);
+  const dursOcc = [...new Set((ro.r.findings || []).filter(f => f.sev === "bloquant").map(f => f.regle))];
+  ok(distinctsAvant === distinctsApres,
+    `RS7 · le décompte d'en-têtes DISTINCTS ne bouge PAS (${distinctsAvant} des deux côtés) — c'est pourquoi la recette du produit comptait 70 couples distincts pour 83 occurrences affichées`);
+  ok(ro.exit === 1 && JSON.stringify(dursOcc) === JSON.stringify(["RS7"]) &&
+     ro.r.compte.occurrences_entete_source === 8 && ro.r.compte.occurrences_entete_produit === 7,
+    `RS7 · à l'OCCURRENCE, la perte se voit : 8 contre 7, FAIL sur RS7 et rien d'autre — obtenu ${JSON.stringify(dursOcc)} ${ro.r.compte.occurrences_entete_source}/${ro.r.compte.occurrences_entete_produit}`);
+  // Et la porte de sortie reste la même que pour tout écart de ce dépôt : une occurrence retirée
+  // EXPRÈS se déclare avec son motif, sinon écarté et OUBLIÉ sont indiscernables (convention RS5).
+  occMute.ecarts_assumes.push({ objet: "page Etat locatif › en-tête Loyer annuel",
+    motif: "la colonne de loyer était affichée deux fois dans le tableau d'origine, le doublon est retiré" });
+  fs.writeFileSync(pOcc, JSON.stringify(occMute));
+  const ra = lance("oracle-reconstruire.mjs", pOcc);
+  ok(ra.exit === 0 && ra.r.verdict === "PASS",
+    `RS7 · la même occurrence retirée AVEC son motif écrit PASSE — l'oracle exige une décision, pas la conservation (obtenu ${ra.r.verdict})`);
+} finally {
+  fs.rmSync(tmpQ, { recursive: true, force: true });
+}
+
+// ---- CH3/CH6 : la procédure de la forge passe SON PROPRE contrôle (TF-1179, 17/09/2026) ----
+// Un contrôle qui ne juge que ses fixtures ne prouve rien de l'artefact qu'il est censé tenir : la
+// procédure de migration écrite dans `references/` est donc JOUÉE ici, et sa déclaration machine
+// doit rester alignée sur le document que les humains lisent. Le sens rouge est joué sur cette
+// même procédure, mutée en mémoire : un porteur qui disparaît doit la faire échouer — sans quoi
+// la garde serait verte pour toujours, y compris le jour où un oracle est renommé.
+console.log(String.fromCharCode(10) + "CH3/CH6 (TF-1179) — la procédure de migration passe son propre contrôle" + String.fromCharCode(10));
+{
+  const pChaine = path.join(ici, "..", "references", "migration-rapport-powerbi.chaine.json");
+  const v = lance("oracle-enchainer.mjs", pChaine);
+  ok(v.exit === 0 && v.r.verdict === "PASS" && v.r.chaine.etapes === 11 && v.r.chaine.etapes_absentes_du_document === 0,
+    `CH6 · la procédure de migration : 11 étapes déclarées (E11, la qualification de bascule, s'insère avant la restitution — TF-1186), toutes citées par le document lu par les humains — obtenu ${v.r.verdict} ${JSON.stringify(v.r.chaine && { etapes: v.r.chaine.etapes, absentes: v.r.chaine.etapes_absentes_du_document })}`);
+  ok(v.r.chaine.porteurs.geste_humain === 3 && v.r.chaine.regles_verifiees === 45,
+    `CH4/CH5 · les 45 règles citées par les étapes EXISTENT dans leur porteur, et les 3 gestes qui ne se mécanisent pas déclarent leur enregistreur — obtenu ${JSON.stringify(v.r.chaine && { gestes: v.r.chaine.porteurs.geste_humain, regles: v.r.chaine.regles_verifiees })}`);
+
+  const tmpCh = fs.mkdtempSync(path.join(os.tmpdir(), "forge-data-chaine-"));
+  try {
+    const mut = JSON.parse(fs.readFileSync(pChaine, "utf8"));
+    mut.racine = path.join(ici, "..");   // la copie vit hors du dépôt : la racine reste celle de la forge
+    mut.document = path.join(ici, "..", "references", "MIGRATION-RAPPORT-POWERBI.md");
+    const cible = mut.etapes.find(e => e.porteur.type === "oracle");
+    cible.porteur.chemin = "oracles/oracle-qui-a-ete-renomme.mjs";
+    const pMut = path.join(tmpCh, "chaine-mutee.json");
+    fs.writeFileSync(pMut, JSON.stringify(mut));
+    const r = lance("oracle-enchainer.mjs", pMut);
+    const durs = [...new Set((r.r.findings || []).filter(f => f.sev === "bloquant").map(f => f.regle))];
+    ok(r.exit === 1 && JSON.stringify(durs) === JSON.stringify(["CH3"]),
+      `CH3 · la MÊME procédure dont un porteur a été renommé ÉCHOUE, sur CH3 et sur CH3 seulement — obtenu ${r.r.verdict} ${JSON.stringify(durs)}`);
+    ok((r.r.findings || []).some(f => f.regle === "CH3" && /oracle-qui-a-ete-renomme/.test(f.msg) && /E\d/.test(f.where)),
+      "CH3 · le porteur manquant est nommé AVEC son étape — une chaîne qui dirait seulement « un porteur manque » ne se répare pas");
   } finally {
-    fs.rmSync(tmp9, { recursive: true, force: true });
+    fs.rmSync(tmpCh, { recursive: true, force: true });
   }
 }
 

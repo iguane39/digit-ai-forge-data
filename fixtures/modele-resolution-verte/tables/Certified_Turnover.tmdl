@@ -1,0 +1,15 @@
+table Certified_Turnover
+	lineageTag: aaaaaaaa-0000-4000-8000-000000000003
+
+	column Loyer
+		dataType: decimal
+		summarizeBy: sum
+
+	measure AR1 = SUM([Invoiced Rent N_])
+		formatString: #,0.00
+
+	measure 'Mesure Ambigue' = SUM([Devise])
+		formatString: #,0.00
+
+	measure 'Mesure Perdue' = SUM([Champ_Inexistant])
+		formatString: #,0.00

@@ -1,0 +1,25 @@
+{
+  "format": "forge-data/modele-dimensionnel@2",
+  "id": "gold_ventes_v2_divergence",
+  "matrice_bus": [
+    { "processus": "ventes", "dimensions": ["date", "client"] }
+  ],
+  "decisions": [
+    { "id": "D-3", "qui": "commanditaire (fixture)", "date": "2026-09-07",
+      "quoi": "un fait par processus métier servi, jamais un fait unique fourre-tout" }
+  ],
+  "dimensions": [
+    { "nom": "date", "role": "temps", "granularite": "jour", "debut": "2024-01-01", "fin": "2026-12-31", "contigue": true,
+      "cle_substitution": "date_sk", "cle_naturelle": "date", "type_changement": 0, "attributs": ["annee", "mois", "jour"], "conforme": true },
+    { "nom": "client", "cle_substitution": "client_sk", "cle_naturelle": "id_client", "type_changement": 2, "attributs": ["statut", "segment"], "conforme": true }
+  ],
+  "faits": [
+    { "nom": "ventes", "processus": "ventes",
+      "grain": "une ligne par commande, par mois de facturation",
+      "granularite": "une ligne par ligne de commande livrée, par jour de livraison",
+      "pourquoi": "Ce fait sert le processus de vente : il répond aux questions de chiffre d'affaires livré par client et par jour.",
+      "decision_ref": "D-3",
+      "dimensions": ["date", "client"],
+      "mesures": [ { "nom": "montant_ht", "agregation": "somme" } ] }
+  ]
+}

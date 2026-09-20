@@ -1,20 +1,27 @@
 {
   "format": "forge-data/rapprochement@1",
-  "id": "rapprochement_fixture_rouge",
+  "id": "rapprochement_gold_ventes_extrait_2026_09",
   "modele": {
-    "nom": "modele_test",
-    "objets": ["A.x", "A.y", "B[Z]"]
+    "nom": "gold_ventes (modele de reconstruction)",
+    "objets": ["vente.montant_ht", "vente.quantite", "vente.marge_brute", "vente.cout_revient"]
   },
   "extrait": {
-    "nom": "export_test.csv",
-    "intitules": ["A.x", "Libellé Y"]
+    "nom": "export_rapport_client_2026_09.csv",
+    "intitules": ["montant_ht", "quantite", "Marge (%)", "Intitule Sans Modele", "Colonne Fantome"]
   },
   "dictionnaire": [
-    { "intitule_extrait": "Libellé Y", "objet_modele": "A.y", "motif": "correspondance testée par la fixture rouge du contrat écrit" },
-    { "intitule_extrait": "Fantome", "objet_modele": "C.inexistant", "motif": "entrée fictive pour tester le refus des inventions" }
+    { "concept": "taux_marge", "cote_modele": "vente.marge_brute", "cote_extrait": "Marge (%)" },
+    { "concept": "concept_invente", "cote_modele": "vente.montant_ht", "cote_extrait": "N'existe Pas Dans Extrait" }
   ],
-  "absences_modele": [
-    { "objet": "A.x", "motif": "absence declarant a tort un objet deja rapproche par ailleurs", "visuel": "visuel bidon pour le test" }
+  "correspondances": [
+    { "objet_modele": "vente.montant_ht", "intitule_extrait": "montant_ht", "via": "litteral" },
+    { "objet_modele": "vente.quantite", "intitule_extrait": "quantite", "via": "litteral" },
+    { "objet_modele": "vente.marge_brute", "intitule_extrait": "Marge (%)", "via": "dictionnaire", "concept": "taux_marge" }
   ],
-  "taux_declare": 100
+  "ecarts_extrait": [
+    { "intitule": "Intitule Sans Modele", "motif": "colonne calculee cote client, absente du modele source" }
+  ],
+  "absents_extrait": [
+    { "objet_modele": "vente.cout_revient", "motif": "trop technique", "visuel": "" }
+  ]
 }

@@ -12,7 +12,7 @@
 //       champ optionnel `etat` ∈ {constate, propose} (RD-4, 13/08) — un mapping proposé
 //       (colonne cible non encore alimentée) se déclare, absent = constate
 //       (comment ce lineage a été établi — REX X8) ;
-//   T6  (optionnel, rétro-compatible) grain colonne — champ `colonnes` : chaque entrée
+//   T6  (optionnel, rétro-compatible) granularité colonne — champ `colonnes` : chaque entrée
 //       référence une colonne de sortie déclarée (`sortie` = "<dataset>.<colonne>", le
 //       dataset devant figurer dans `sorties`) et au moins une colonne d'entrée déclarée
 //       (`entrees`, dataset figurant dans `entrees`) ; `transformation` optionnelle doit
@@ -23,22 +23,27 @@
 //       cette moitié perdue est précisément le « où ». Jugée à partir du 2026-08-24 sur
 //       l'`horodatage` du lineage lui-même : antériorité DÉCLARÉE plutôt qu'un corpus
 //       entier mis en échec rétroactivement (même arbitrage que R11 d'oracle-todo).
-//   T8  (optionnel, rétro-compatible) CIBLES STRUCTURÉES (TF-0974, 14/09/2026) — champ
-//       `cibles` : chaque entrée { table, colonnes?, granularite?, entier?, motif? } NOMME sa
-//       cible par ses champs, jamais par une phrase. Une cible qui ne nomme aucune colonne
-//       doit porter `entier: true` ET un `motif` écrit (≥ 4 mots, même convention que
-//       l'exclusion CV4 d'oracle-couvrir) — sans ça, une table décrite en prose sans détail se
-//       lisait comme « table entière » par ressemblance, exactement le sur-périmètre mesuré
-//       (74/74 colonnes gardées là où la décision demandait une réduction). La prose reste
-//       permise dans un champ `commentaire` qu'aucun outil ne lit.
+//   T8  (optionnel, rétro-compatible, TF-0974) — CIBLES STRUCTURÉES : champ `cibles`, une
+//       ligne par cible retenue au périmètre servi, `{ table, colonnes?, granularite?,
+//       entier?, motif? }`. Mesure du 08/09 (Produit-62, RD-11) : sur 34 lignes de mapping,
+//       13 DÉCRIVAIENT leur cible en prose (« dim_date (granularité jour, attributs
+//       year…) ») au lieu de la NOMMER — un outil qui doit en dériver une décision (ici, un
+//       périmètre réduit) ne lit pas une phrase. Une cible qui ne nomme AUCUNE colonne doit
+//       porter `entier: true` ET un `motif` d'au moins 4 mots (même convention que
+//       l'exclusion d'oracle-couvrir CV4) — sinon c'est l'endroit exact où une première règle
+//       essayée (« table nommée sans détail ⇒ table entière ») a gardé 74 colonnes sur 74 en
+//       silence, alors que la décision demandait de réduire. La prose reste admise dans un
+//       champ `commentaire` que T8 ne juge jamais — elle n'est pas interdite, seulement non
+//       opposable à la machine. Un lineage@1 sans `cibles` reste T1-T7 valide (v0).
 // non_juge : véracité du lineage déclaré vs réalité d'exécution (capture runtime, hors v0) ;
 // résolution colonne→colonne multi-saut (T6 vérifie la référence directe, pas le chemin
 // complet) ; le catalogue cible ; la JUSTESSE d'un `namespace` déclaré (T7 constate qu'il
-// est là et qu'il désigne une instance, jamais que c'est la bonne).
+// est là et qu'il désigne une instance, jamais que c'est la bonne) ; T8 : la pertinence
+// métier d'un `motif` d'entier — l'oracle exige le motif, il ne l'arbitre pas.
 // Usage : node oracle-tracer.mjs <lineage.json> [--json-only]
 import fs from "node:fs";
 
-const DOM = "Lineage déclaré complet (T1-T5, T6 optionnel grain colonne, T7 environnement des datasets, T8 optionnel cibles structurées — niveau OpenLineage)";
+const DOM = "Lineage déclaré complet (T1-T5, T6 optionnel granularité colonne, T7 environnement des datasets, T8 optionnel cibles structurées — niveau OpenLineage)";
 const NON_JUGE = [
   "véracité du lineage déclaré contre le plan réellement exécuté (capture runtime — niveau 3, hors v0)",
   "résolution colonne→colonne multi-saut (T6 vérifie que la référence directe existe, pas la chaîne complète)",
@@ -51,12 +56,11 @@ const NON_JUGE = [
     "jugement. La borne d'antériorité est déclarée, donc contournable ; elle est préférée à la " +
     "mise en échec rétroactive de tout lineage existant (R-33 bis : une règle bruyante se fait " +
     "contourner au lieu de se corriger)",
-  "T8 : la JUSTESSE d'un `entier: true` déclaré. L'oracle exige un motif écrit, il ne peut pas " +
-    "savoir si la table est réellement mobilisée en entier — même frontière que la règle CV4 de " +
-    "`oracles/oracle-couvrir.mjs` sur les exclusions motivées : le motif est exigé, jamais arbitré",
+  "T8 : la pertinence métier d'un motif d'`entier: true` — l'oracle exige le motif écrit, il ne " +
+    "l'arbitre pas (même limite que CV4 de `oracles/oracle-couvrir.mjs` sur une exclusion motivée)",
   "T8 : une cible dont le nom de table ne correspond à aucun dataset des `entrees`/`sorties` — " +
     "T8 juge la structure du référentiel de cibles, pas son rattachement au lineage porté par le " +
-    "même document (rôle qui appartiendrait à `oracles/oracle-couvrir.mjs`, pas à ce fichier)",
+    "même document",
 ];
 const args = process.argv.slice(2);
 const file = args.find(a => !a.startsWith("--"));
@@ -104,7 +108,7 @@ if (d.colonnes !== undefined) {
   const etapes = new Set((Array.isArray(d.transformations) ? d.transformations : []).map(t => t.etape));
   const datasetDe = ref => (typeof ref === "string" && ref.includes(".")) ? ref.slice(0, ref.lastIndexOf(".")) : "";
   if (!Array.isArray(d.colonnes) || !d.colonnes.length) {
-    add("bloquant", "T6", "colonnes déclaré mais vide — le grain colonne (OpenLineage columnLineage) n'ajoute rien à vide", file);
+    add("bloquant", "T6", "colonnes déclaré mais vide — la granularité colonne (OpenLineage columnLineage) n'ajoute rien à vide", file);
   } else d.colonnes.forEach((c, i) => {
     const ou = `colonnes #${i + 1}`;
     if (!c.sortie) add("bloquant", "T6", "colonne de sortie non référencée", ou);
@@ -182,38 +186,30 @@ if (!t7Juge) {
     add("info", "T7", "chaque dataset déclare son environnement (namespace désignant une instance)", file);
 }
 
-// ---- T8 — CIBLES STRUCTURÉES (TF-0974, 14/09/2026) ------------------------------------------
-// LE FAIT MESURÉ. Sur 34 lignes de mapping retenues pour un périmètre servi, 13 décrivaient leur
-// cible en PROSE — « dim_date (granularité jour, attributs year, month_number...) », ou la table
-// seule (« dim_country ») — plutôt que de la NOMMER. Une première règle essayée, « table nommée
-// sans détail => table entière », gardait 74 colonnes de fact_lease_month sur 74, exactement le
-// sur-périmètre que la décision demandait de réduire, en silence. Un référentiel dont un outil
-// doit dériver une décision se lit par ses CHAMPS, jamais par ses phrases.
+// ---- T8 — CIBLES STRUCTURÉES du périmètre servi (TF-0974, retour Produit-62 RD-11) -----------
+// Mesuré sur 34 lignes de mapping : 13 DÉCRIVAIENT leur cible (« dim_date (granularité jour,
+// attributs year, month_number...) ») au lieu de la NOMMER — un outil qui doit en dériver une
+// décision (ici, un périmètre réduit) ne lit pas une phrase. `cibles` est un champ NOMMANT,
+// jamais décrivant : une cible qui ne cite aucune colonne doit dire explicitement qu'elle vise
+// la table ENTIÈRE, avec son motif — sinon l'absence de détail se lit comme un oubli, jamais
+// comme une décision.
 if (d.cibles !== undefined) {
   if (!Array.isArray(d.cibles) || !d.cibles.length) {
-    add("bloquant", "T8", "cibles déclaré mais vide — un référentiel de cibles sans cible n'ajoute rien", file);
+    add("bloquant", "T8", "cibles déclaré mais vide — un périmètre servi sans cible nommée n'ajoute rien à vide", file);
   } else d.cibles.forEach((c, i) => {
     const ou = `cibles #${i + 1}`;
-    if (!c || typeof c.table !== "string" || !c.table.trim()) {
-      add("bloquant", "T8", "cible sans table nommée", ou);
-      return;
-    }
-    const colonnes = Array.isArray(c.colonnes) ? c.colonnes.filter(x => typeof x === "string" && x.trim()) : [];
-    if (colonnes.length) return; // cible nommée par ses colonnes : rien de plus à exiger
+    if (!c || !c.table) { add("bloquant", "T8", "cible sans table nommée", ou); return; }
+    const colonnes = Array.isArray(c.colonnes) ? c.colonnes.filter(Boolean) : [];
     const motif = typeof c.motif === "string" ? c.motif.trim() : "";
-    if (c.entier !== true) {
-      add("bloquant", "T8",
-        `cible « ${c.table} » ne nomme aucune colonne et ne porte pas \`entier: true\` — une table décrite ` +
-        "en prose sans détail se lisait comme « table entière » par ressemblance, et c'est exactement le " +
-        "sur-périmètre que ce champ existe pour interdire", ou);
-    } else if (motif.split(/\s+/).filter(Boolean).length < 4) {
-      add("bloquant", "T8",
-        `cible « ${c.table} » déclarée \`entier: true\` sans motif écrit (au moins 4 mots, même convention ` +
-        "que l'exclusion CV4 d'oracle-couvrir) — une table entière sans motif est un oubli déguisé en décision", ou);
+    if (!colonnes.length) {
+      if (c.entier !== true)
+        add("bloquant", "T8", `cible « ${c.table} » ne nomme aucune colonne sans porter \`entier: true\` — sans l'un ou l'autre, une table nommée sans détail est indiscernable d'un oubli`, ou);
+      else if (motif.split(/\s+/).filter(Boolean).length < 4)
+        add("bloquant", "T8", `cible « ${c.table} » déclarée \`entier: true\` sans motif écrit (au moins 4 mots) — un périmètre entier sans motif est une décision non opposable`, ou);
     }
   });
   if (!F.some(f => f.regle === "T8"))
-    add("info", "T8", "chaque cible se nomme par ses colonnes, ou par `entier: true` et son motif", file);
+    add("info", "T8", "chaque cible du périmètre servi nomme ses colonnes, ou se déclare entière avec son motif", file);
 }
 
 out(F.some(f => f.sev === "bloquant") ? "FAIL" : "PASS", F.some(f => f.sev === "bloquant") ? 1 : 0);

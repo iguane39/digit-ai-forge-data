@@ -1,0 +1,17 @@
+{
+  "format": "forge-data/mise-en-page@1",
+  "rapport": "Rapport ventes (fixture)",
+  "pages": [
+    {
+      "page": "Synthese",
+      "visuels": [
+        { "visuel": "Axe temps", "projections": [ { "champ": "Calendrier.annee" }, { "champ": "Calendrier.mois" } ] },
+        { "visuel": "Segments", "projections": [ { "champ": "Client.segment" } ] },
+        { "visuel": "Familles", "projections": [ { "champ": "Produit.famille" } ] },
+        { "visuel": "Panier moyen (carte)", "projections": [ { "champ": "Ventes[Panier moyen]" } ] },
+        { "visuel": "Logo", "porte_donnees": false, "projections": [ { "champ": "Ventes.champ_qui_n_existe_meme_pas" } ] },
+        { "visuel": "Widget casse", "projections": [ { "champ": "Ventes.champ_invente" } ] }
+      ]
+    }
+  ]
+}

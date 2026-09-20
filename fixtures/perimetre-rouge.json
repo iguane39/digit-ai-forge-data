@@ -1,0 +1,58 @@
+{
+  "format": "forge-data/perimetre@1",
+  "id": "perimetre_migration_ventes_rouge",
+  "_pourquoi": "Le défaut mesuré (Produit-62, RF-25) en petit : le périmètre a été pris au MODÈLE d'origine et non aux VISUELS — une table entière et deux colonnes que personne ne lit sont publiées, un champ que le lecteur voyait a disparu, le relevé n'a pas d'auteur, une justification pointe hors du modèle et le taux est recopié.",
+  "releve": {
+    "date": "2026-09-17",
+    "source": "modèle d'origine (et non le fichier d'origine relevé sur ses visuels)"
+  },
+  "mise_en_page": {
+    "format": "forge-data/mise-en-page@1",
+    "rapport": "Rapport ventes d'origine (fixture rouge)",
+    "pages": [
+      {
+        "page": "Synthese",
+        "visuels": [
+          { "visuel": "Segments", "projections": [ { "champ": "Client.segment" } ] },
+          { "visuel": "Familles", "projections": [ { "champ": "Produit.famille" } ] },
+          { "visuel": "Panier moyen (carte)", "projections": [ { "champ": "Ventes[Panier moyen]" } ] }
+        ]
+      }
+    ]
+  },
+  "usage": {
+    "format": "forge-data/usage-restitution@1",
+    "id": "usage_modele_origine_rouge",
+    "modele": "modele d'origine (fixture rouge)",
+    "populations": {
+      "affichee": [ "Client.segment", "Produit.famille" ],
+      "lue_par_mesure": [ "Ventes.montant_ht" ],
+      "jamais_lue": [ "Ventes.cout_transport", "Ventes.marge_theorique", "Fournisseur.nom", "Fournisseur.pays" ]
+    },
+    "champs_inconnus": [],
+    "compte": { "colonnes_modele": 7, "affichee": 2, "lue_par_mesure": 1, "jamais_lue": 4, "tables_jamais_lues": [ "Fournisseur" ] }
+  },
+  "livre": [
+    { "objet": "Ventes", "type": "table" },
+    { "objet": "Ventes.montant_ht", "type": "colonne" },
+    { "objet": "Ventes.cout_transport", "type": "colonne" },
+    { "objet": "Ventes.marge_theorique", "type": "colonne" },
+    { "objet": "Ventes[Panier moyen]", "type": "mesure" },
+    { "objet": "Client", "type": "table" },
+    { "objet": "Client.segment", "type": "colonne" },
+    { "objet": "Client.identifiant_source", "type": "colonne" },
+    { "objet": "Fournisseur", "type": "table" },
+    { "objet": "Fournisseur.nom", "type": "colonne" },
+    { "objet": "Fournisseur.pays", "type": "colonne" }
+  ],
+  "correspondances": [
+    { "usage": "Produit.famille", "livre": "Categorie.famille" }
+  ],
+  "lectures_declarees": [
+    { "objet": "Ventes.marge_theorique", "type": "mesure_intermediaire", "par": "Stock[Rotation]" }
+  ],
+  "exclusions": [
+    { "portee": "Client.identifiant_source", "motif": "on garde" }
+  ],
+  "taux_declare": 100
+}

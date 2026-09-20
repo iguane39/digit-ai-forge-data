@@ -1,28 +1,22 @@
 {
-  "_fait": "TF-0974 (14/09/2026). Fixture DÉDIÉE à T8, sur le même modèle que lineage-colonne-verte.json : horodatage du 11/08, sous la borne d'antériorité de T7, pour que seul T8 soit jugé bloquant. Deux cibles : l'une nommée par ses colonnes, l'autre déclarée `entier: true` avec son motif écrit.",
   "format": "forge-data/lineage@1",
-  "artefact": "perimetre_gold_servi",
+  "artefact": "gold_ventes_perimetre_servi",
   "entrees": [
-    { "dataset": "silver.fact_lease_month", "date": "2026-08-01" },
-    { "dataset": "referentiel.pays", "date": "2026-07-15" }
+    { "dataset": "brut.exports_pgi", "date": "2026-08-01" }
   ],
   "transformations": [
-    { "etape": "reduction_perimetre", "type": "declaratif" }
+    { "etape": "reduction_perimetre_servi", "type": "declaratif" }
   ],
-  "sorties": [ { "dataset": "gold.fact_lease_month_servi" }, { "dataset": "gold.dim_pays" } ],
+  "sorties": [
+    { "dataset": "servi.gold_ventes" }
+  ],
   "horodatage": "2026-08-11T08:00:00Z",
-  "confiance": { "niveau": 2, "methode": "cibles rattachées à la main depuis la décision de périmètre, revues" },
+  "confiance": {
+    "niveau": 1,
+    "methode": "mapping specs recoupé avec le code de transformation (statique)"
+  },
   "cibles": [
-    {
-      "table": "gold.fact_lease_month_servi",
-      "colonnes": ["receivable_total", "receivable_solde", "period_id"],
-      "granularite": "bail x échéancier x mois",
-      "commentaire": "sous-ensemble décidé — voir prose d'origine, non lue par l'oracle"
-    },
-    {
-      "table": "gold.dim_pays",
-      "entier": true,
-      "motif": "table de référence petite, toutes colonnes déjà consommées par les rapports existants"
-    }
+    { "table": "dim_date", "colonnes": ["annee", "trimestre", "mois", "jour"], "granularite": "jour" },
+    { "table": "dim_pays", "entier": true, "motif": "toutes les colonnes de dim_pays sont mobilisées par les visuels du rapport" }
   ]
 }

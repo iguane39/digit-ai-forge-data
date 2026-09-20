@@ -1,0 +1,16 @@
+{
+  "format": "forge-data/glossaire-restitution@1",
+  "date": "2026-09-14",
+  "source": "Fixture de test (TF-1044) — reproduit un produit qui déclare SON PROPRE lexique via --glossaire, avec un terme durci en `bloquant: true`. N'est jamais le glossaire par défaut de la forge (celui-ci reste à `bloquant: false`).",
+  "doctrine": "Fixture — voir references/glossaire-restitution.json pour la doctrine réelle.",
+  "termes": [
+    {
+      "machine": "grain",
+      "variantes": ["grain", "grains"],
+      "rendu": "granularité",
+      "portee_machine": "la seule clé JSON `grain` de forge-data/modele-dimensionnel@1",
+      "bloquant": true,
+      "motif": "fixture : ce produit refuse toute livraison portant le terme machine hors de sa clé JSON"
+    }
+  ]
+}

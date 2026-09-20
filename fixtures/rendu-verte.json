@@ -1,0 +1,54 @@
+{
+  "format": "forge-data/rendu@1",
+  "id": "rendu_rapport_ventes_fixture",
+  "mise_en_page": {
+    "format": "forge-data/mise-en-page@1",
+    "rapport": "Rapport ventes (fixture)",
+    "pages": [
+      {
+        "page": "Synthese",
+        "visuels": [
+          { "visuel": "Axe temps", "projections": [ { "champ": "Calendrier.annee" }, { "champ": "Calendrier.mois" } ] },
+          { "visuel": "Segments", "projections": [ { "champ": "Client.segment" } ] },
+          { "visuel": "Panier moyen (carte)", "projections": [ { "champ": "Ventes[Panier moyen]" } ] },
+          { "visuel": "Logo", "porte_donnees": false, "projections": [] }
+        ]
+      }
+    ]
+  },
+  "inventaire": [
+    { "objet": "Calendrier", "type": "table" },
+    { "objet": "Calendrier.annee", "type": "colonne" },
+    { "objet": "Calendrier.mois", "type": "colonne" },
+    { "objet": "Client", "type": "table" },
+    { "objet": "Client.segment", "type": "colonne" },
+    { "objet": "Ventes", "type": "table" },
+    { "objet": "Ventes.montant_ht", "type": "colonne" },
+    { "objet": "Ventes[Panier moyen]", "type": "mesure" }
+  ],
+  "gestes_de_verification": [
+    { "geste": "publier le rapport, exporter la page en PDF depuis le service, lire l'image du fichier exporté",
+      "fait_le": "2026-09-17", "par": "recette du produit (fixture synthétique)",
+      "nature": "export_rendu",
+      "resultat": "export en 22 s, 99 Ko, 2 pages avec données, aucun libellé d'erreur du service",
+      "mesure_export": {
+        "fichier_telecharge": true,
+        "secondes": 22.4, "borne_s": 60,
+        "octets": 101376, "plancher_octets": 10000,
+        "pages": [
+          { "page": 1, "caracteres": 2235, "pixels_non_blancs_pct": 51.22 },
+          { "page": 2, "caracteres": 814, "pixels_non_blancs_pct": 23.8 }
+        ],
+        "libelles_erreur_cherches": [
+          "Something's wrong with one or more filters",
+          "Query has exceeded the available resources",
+          "Couldn't load the data",
+          "Can't display the visual",
+          "We couldn't load the data for this visual",
+          "Resource Governing",
+          "MdxScriptError"
+        ],
+        "libelles_erreur_trouves": []
+      } }
+  ]
+}

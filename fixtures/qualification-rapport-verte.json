@@ -1,0 +1,112 @@
+{
+  "format": "forge-data/qualification-rapport@1",
+  "id": "qualification_rapport_locatif_fixture",
+  "date": "2026-09-18",
+  "racine": "..",
+  "ancre": {
+    "origine": "entree/Rapport locatif (fixture).pbix — instantane fourni au mandat",
+    "instantane": "2025-12-08",
+    "releve_par": "lecture du fichier d'origine (fixture synthetique)"
+  },
+  "candidat": "sortie/Projet Power BI (fixture) — rapport migre, publie le 2026-09-18",
+  "dimensions": [
+    {
+      "dimension": "rendu",
+      "classe": "conforme_prouve",
+      "angle_mort": "l'export lu est celui d'une seule page a une seule date : une page qui casserait demain, ou sous un autre filtre, n'est pas couverte",
+      "preuve": {
+        "porteur": "oracles/oracle-rendre.mjs",
+        "regles": ["RN2", "RN4", "RN5", "RN6"],
+        "verdict": "PASS",
+        "chiffre": "export en 22,4 s sous la borne de 60 s, 101 376 octets, 2 pages lues, 3 049 caracteres, 0 libelle d'erreur du service",
+        "date": "2026-09-18"
+      }
+    },
+    {
+      "dimension": "perimetre",
+      "classe": "conforme_prouve",
+      "angle_mort": "le releve d'usage fait foi : un visuel oublie au releve rend ses colonnes excedentaires a tort, et cet oracle ne relit aucun fichier natif",
+      "preuve": {
+        "porteur": "oracles/oracle-delimiter.mjs",
+        "regles": ["DL3", "DL4"],
+        "verdict": "PASS",
+        "chiffre": "26 objets livres, 26 lus, 0 excedent, aucun champ affiche perdu",
+        "date": "2026-09-18"
+      }
+    },
+    {
+      "dimension": "chiffres",
+      "classe": "ecart_assume",
+      "angle_mort": "la reconciliation compare deux lots de mesures sous tolerance : elle ne dit pas que les deux lots portent sur le meme perimetre filtre",
+      "ecarts": [
+        {
+          "id": "EC-1",
+          "libelle": "le loyer annuel de la page de detail est arrondi a l'euro au lieu du centime",
+          "classe": "assume",
+          "decision_ref": "D-42"
+        }
+      ]
+    },
+    {
+      "dimension": "mise_en_page",
+      "classe": "conforme_prouve",
+      "angle_mort": "la geometrie comparee est celle des fichiers : les polices, les couleurs et les largeurs de colonnes restent hors de ce que cette mesure atteint",
+      "preuve": {
+        "porteur": "oracles/oracle-reconstruire.mjs",
+        "regles": ["RS3", "RS4", "RS7"],
+        "verdict": "PASS",
+        "chiffre": "6 visuels compares au pixel, 0 ecart de geometrie, 8 occurrences d'en-tete des deux cotes",
+        "date": "2026-09-18"
+      }
+    },
+    {
+      "dimension": "interactions",
+      "classe": "non_jugeable_ici",
+      "angle_mort": "aucun controle de ce parc n'atteint une interaction : segments, signet, tri au clic et mise en evidence croisee ne survivent pas a l'export",
+      "geste_humain": {
+        "geste": "ouvrir les deux rapports cote a cote dans le service et rejouer les six gestes numeroges ci-dessous, en notant pour chacun ce que chaque rapport affiche",
+        "enregistre_par": { "chemin": "oracles/oracle-rendre.mjs", "regle": "RN5" }
+      },
+      "gestes": [
+        { "numero": 1, "geste": "selectionner une periode au segment de gauche et verifier que le tableau se filtre des deux cotes" },
+        { "numero": 2, "geste": "activer le signet de reinitialisation et verifier que tous les segments reviennent a leur etat initial" },
+        { "numero": 3, "geste": "trier le tableau par loyer annuel decroissant et comparer les dix premieres lignes des deux cotes" },
+        { "numero": 4, "geste": "elargir la colonne du locataire et verifier que la largeur tient apres actualisation de la page" },
+        { "numero": 5, "geste": "survoler une cellule de loyer et comparer le contenu de l'info-bulle des deux cotes" },
+        { "numero": 6, "geste": "cliquer une barre du visuel de synthese et verifier la mise en evidence croisee sur le tableau" }
+      ]
+    },
+    {
+      "dimension": "comportement",
+      "classe": "non_jugeable_ici",
+      "angle_mort": "le temps d'actualisation et le temps de reponse dependent de la capacite du service au moment de la mesure, et aucun controle hors ligne ne les approche",
+      "geste_humain": {
+        "geste": "mesurer le temps d'actualisation du modele publie et le temps de premier affichage de chaque page, trois fois de suite, et comparer aux memes mesures sur l'original",
+        "enregistre_par": { "chemin": "oracles/oracle-rendre.mjs", "regle": "RN5" }
+      }
+    }
+  ],
+  "bascule": {
+    "verdict": "remplacable_sous_conditions",
+    "conditions": [
+      {
+        "id": "C-1",
+        "condition": "l'arrondi du loyer annuel est confirme au centime ou la decision D-42 est etendue a la page de detail",
+        "porte_par": "commanditaire du rapport",
+        "leve": ["chiffres"]
+      },
+      {
+        "id": "C-2",
+        "condition": "les six gestes d'interaction sont joues cote a cote et leur releve est joint au dossier",
+        "porte_par": "recette du produit",
+        "leve": ["interactions"]
+      },
+      {
+        "id": "C-3",
+        "condition": "les temps d'actualisation et de premier affichage sont mesures trois fois et compares a ceux de l'original",
+        "porte_par": "recette du produit",
+        "leve": ["comportement"]
+      }
+    ]
+  }
+}

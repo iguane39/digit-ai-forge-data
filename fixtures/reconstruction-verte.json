@@ -1,0 +1,61 @@
+{
+  "format": "forge-data/reconstruction@1",
+  "id": "reconstruction_etat_locatif_fixture",
+  "mode": "transposition",
+  "tolerance_px": 0,
+  "source": {
+    "origine": "entree/Rapport locatif (fixture).pbix › Report/Layout",
+    "releve_par": "lecture du Layout d'origine (fixture synthétique)",
+    "date": "2026-09-17",
+    "pages": [
+      { "page": "Etat locatif", "largeur": 1280, "hauteur": 720, "ordre": 0, "visible": true,
+        "visuels": [
+          { "visuel": "titre", "type": "textbox", "x": 16, "y": 8, "largeur": 600, "hauteur": 48, "plan": 4 },
+          { "visuel": "segment_periode", "type": "slicer", "x": 16, "y": 64, "largeur": 210, "hauteur": 76, "plan": 2,
+            "projections": [ { "entete": "Periode" } ] },
+          { "visuel": "segment_actif", "type": "slicer", "x": 234, "y": 64, "largeur": 210, "hauteur": 76, "plan": 3,
+            "projections": [ { "entete": "Actif" } ] },
+          { "visuel": "tableau_baux", "type": "tableEx", "x": 16, "y": 150, "largeur": 1248, "hauteur": 540, "plan": 1,
+            "projections": [ { "entete": "Bail" }, { "entete": "Locataire" }, { "entete": "Loyer annuel" }, { "entete": "Loyer annuel" } ] },
+          { "visuel": "bouton_reinitialiser", "type": "actionButton", "x": 1180, "y": 8, "largeur": 84, "hauteur": 40, "plan": 5 }
+        ] },
+      { "page": "Detail", "largeur": 1280, "hauteur": 720, "ordre": 1, "visible": false,
+        "visuels": [
+          { "visuel": "matrice_detail", "type": "pivotTable", "x": 0, "y": 0, "largeur": 1280, "hauteur": 720, "plan": 1,
+            "projections": [ { "entete": "Bail" }, { "entete": "Loyer annuel" } ] },
+          { "visuel": "note_bas_de_page", "type": "textbox", "x": 0, "y": 680, "largeur": 400, "hauteur": 32, "plan": 2 }
+        ] }
+    ],
+    "ressources": ["Theme Client 2024.json", "Fond ecran locatif.svg", "Bouton reinitialiser.png"]
+  },
+  "produit": {
+    "origine": "sortie/Projet Power BI (fixture)/report.json",
+    "pages": [
+      { "page": "Etat locatif", "largeur": 1280, "hauteur": 720, "ordre": 0, "visible": true,
+        "visuels": [
+          { "visuel": "titre", "type": "textbox", "x": 16, "y": 8, "largeur": 600, "hauteur": 48, "plan": 4 },
+          { "visuel": "segment_periode", "type": "slicer", "x": 16, "y": 64, "largeur": 210, "hauteur": 76, "plan": 2,
+            "projections": [ { "entete": "Periode" } ] },
+          { "visuel": "segment_actif", "type": "slicer", "x": 234, "y": 64, "largeur": 210, "hauteur": 76, "plan": 3,
+            "projections": [ { "entete": "Actif" } ] },
+          { "visuel": "tableau_baux", "type": "tableEx", "x": 16, "y": 150, "largeur": 1248, "hauteur": 540, "plan": 1,
+            "projections": [ { "entete": "Bail" }, { "entete": "Locataire" }, { "entete": "Loyer annuel" }, { "entete": "Loyer annuel" } ] },
+          { "visuel": "bouton_reinitialiser", "type": "actionButton", "x": 1180, "y": 8, "largeur": 84, "hauteur": 40, "plan": 5 }
+        ] },
+      { "page": "Detail", "largeur": 1280, "hauteur": 720, "ordre": 1, "visible": false,
+        "visuels": [
+          { "visuel": "matrice_detail", "type": "pivotTable", "x": 0, "y": 0, "largeur": 1280, "hauteur": 720, "plan": 1,
+            "projections": [ { "entete": "Bail" }, { "entete": "Loyer annuel" } ] }
+        ] }
+    ],
+    "ressources": [
+      { "nom": "theme.json", "depuis": "Theme Client 2024.json", "referencee": true },
+      { "nom": "fond.svg", "depuis": "Fond ecran locatif.svg", "referencee": true },
+      { "nom": "reset1.png", "depuis": "Bouton reinitialiser.png", "referencee": true }
+    ]
+  },
+  "ecarts_assumes": [
+    { "objet": "page Detail › visuel note_bas_de_page",
+      "motif": "la note de bas de page citait le chemin du classeur source, remplacé par la couche Gold" }
+  ]
+}

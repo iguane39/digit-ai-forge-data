@@ -21,7 +21,7 @@ porte sa source et sa fraîcheur.
 | Verbe | Discipline exigée | Barre de niveau |
 |---|---|---|
 | **profiler** | la qualité = **assertions déclaratives unitaires** (objet + condition + paramètres typés), à verdict machine — jamais « données propres » en prose ; pont optionnel vers un lineage@1 (P4, cf. dataQualityAssertions OpenLineage) | Great Expectations |
-| **tracer** | toute donnée servie **déclare son lineage** : entrées (datasets datés) → transformations (typées statique/runtime/déclaratif) → sorties + horodatage + niveau de maturité 0-3 et méthode ; grain colonne optionnel (T6) ; **environnement de chaque dataset** — `namespace` désignant l'INSTANCE, jugé à partir du 24/08 (T7, TF-0595 : deux catalogues homonymes sur deux workspaces sont la règle, cf. REX X13-X14) | OpenLineage (object model : run · job · inputs · outputs · facets — un dataset s'y identifie par le COUPLE namespace+nom) |
+| **tracer** | toute donnée servie **déclare son lineage** : entrées (datasets datés) → transformations (typées statique/runtime/déclaratif) → sorties + horodatage + niveau de maturité 0-3 et méthode ; granularité colonne optionnelle (T6) ; **environnement de chaque dataset** — `namespace` désignant l'INSTANCE, jugé à partir du 24/08 (T7, TF-0595 : deux catalogues homonymes sur deux workspaces sont la règle, cf. REX X13-X14) ; **cibles du périmètre servi NOMMÉES**, jamais décrites en prose — `table` + `colonnes`, ou `entier: true` motivé (T8 optionnel, TF-0974) | OpenLineage (object model : run · job · inputs · outputs · facets — un dataset s'y identifie par le COUPLE namespace+nom) |
 | **restituer** | tout chiffre d'un rapport **référence une entrée déclarée** (id → valeur + source + date) et le rapport pointe sa déclaration de lineage — le document se génère des déclarations, jamais l'inverse. **R5 (TF-0378)** : et tout NOMBRE du corps porte son marqueur, ou l'échappement explicite `[c:-]` — sans elle, un chiffre écrit en prose sans marqueur n'existait pas pour l'oracle, qui rendait PASS (mesuré : 788 nus contre 135 ancrés sur cinq rapports réels, tous PASS) | dbt-core (déclaré → généré) |
 | **contractualiser** | l'accord producteur↔consommateur est **inspectable** : schéma typé + SLA mesurable + propriétaire joignable + versionnage à statut de cycle de vie — jamais un accord oral ou en prose | ODCS v3.1.0 (Bitol / Linux Foundation) |
 
@@ -29,33 +29,83 @@ porte sa source et sa fraîcheur.
 
 ```bash
 node oracles/oracle-profiler.mjs <assertions.json>        # P1-P3 (+P4 optionnel) : forme exécutable + pont lineage
-node oracles/oracle-tracer.mjs <lineage.json>             # T1-T5 (+T6 optionnel, T7 environnement) : lineage complet, grain colonne, instance de chaque dataset
-node oracles/oracle-restituer.mjs <rapport.md> [--strict]  # R1-R5 : chiffres ancrés, lineage_ref,
+node oracles/oracle-tracer.mjs <lineage.json>             # T1-T5 (+T6 optionnel, T7 environnement,
+                                                          # T8 optionnel cibles structurées) : lineage
+                                                          # complet, granularité colonne, instance de chaque
+                                                          # dataset, périmètre servi NOMMÉ (TF-0974)
+node oracles/oracle-restituer.mjs <rapport.md> [--strict] [--glossaire <chemin>]
+                                                          # R1-R5 : chiffres ancrés, lineage_ref,
                                                           # et COUVERTURE des nombres de prose (R5,
                                                           # avertie par défaut, bloquante en strict) ;
                                                           # R6 reconciliation_ref, R7 couverture_ref,
-                                                          # R8 vocabulaire du destinataire (glossaire)
+                                                          # R8 vocabulaire du destinataire (glossaire de la
+                                                          # forge par défaut, ou celui du produit via
+                                                          # --glossaire — bloquant si un terme y porte
+                                                          # "bloquant": true, TF-1044) ; R9 modele_ref :
+                                                          # le corps CITE les décisions d'architecture
+                                                          # déclarées par le modèle pointé (TF-1170)
 node oracles/oracle-contractualiser.mjs <contrat.json>    # C1-C5 : schéma + SLA + propriétaire + version
+node oracles/oracle-rendre.mjs <rendu.json>               # RN1-RN6 : liaisons visuel → objet du modèle,
+                                                          # mesures référencées existantes, visuels vides,
+                                                          # geste de vérification du RENDU déclaré (RN5) et
+                                                          # sa mesure d'export JUGÉE (RN6, TF-1188)
+node oracles/oracle-reconstruire.mjs <reconstruction.json> # RS1-RS7 : la mise en page d'un rapport fourni
+                                                          # en entrée est CONSERVÉE (pages, visuels, géométrie
+                                                          # au pixel, plan, ressources) ; repli généré =
+                                                          # déclaré ; RS7 : en-têtes comptés à l'OCCURRENCE
+node oracles/oracle-delimiter.mjs <perimetre.json>        # DL1-DL6 : le périmètre livré est ce que les
+                                                          # VISUELS LISENT ; l'excédent non motivé est refusé
+node oracles/oracle-enchainer.mjs <chaine.json>           # CH1-CH6 : chaîne de travail déclarée — étapes
+                                                          # ordonnées, chacune avec un porteur qui EXISTE
+node oracles/oracle-qualifier.mjs <qualification.json>    # QR1-QR8 : un rapport migré peut-il REMPLACER
+                                                          # l'original — six dimensions, leur angle mort,
+                                                          # un verdict de bascule COMPOSÉ, et la
+                                                          # DÉFINITION CHANGÉE distinguée du défaut
 node oracles/oracle-couvrir.mjs <couverture.json>         # CV1-CV6 : mapping mesuré contre l'inventaire de sa source
 node oracles/oracle-evoluer.mjs <evolutions.json>         # EV1-EV7 : projection des évolutions d'une couche, provenance typée,
                                                           # comptes recalculés, arbre schéma › table › colonne
-node oracles/oracle-rapprocher.mjs <rapprochement.json>   # RP1-RP7 : modèle rapproché d'un EXTRAIT du rapport client, deux sens, dictionnaire déclaré
-node oracles/oracle-usage-restitution.mjs <usage.json>    # U1-U4 : cohérence structurelle d'un relevé d'usage (affichée/lue_par_mesure/jamais_lue)
 node oracles/self-test.mjs                                 # double sens — à rejouer après toute modification
 ```
 
-**Glossaire de restitution (TF-0936, 08/09/2026)** — `references/glossaire-restitution.json`,
-donnée éditable, datée et sourcée (loi n° 4) : chaque terme y porte sa forme MACHINE (celle des
-formats, des commentaires DDL et des sorties d'oracles, qui ne bouge pas) et sa forme de
-RESTITUTION (celle que le destinataire lit). Premier terme : « grain » machine, rendu
-« granularité ». `oracle-restituer` **R8** constate en avertissement tout terme machine employé
-dans la prose d'un livrable humain ; le même terme cité en span ou bloc de code n'est jamais
-compté, et c'est la frontière exacte entre les deux registres. Retour du 08/09 : 33 emplois sur
-une seule page livrée, dont 8 recopiés des commentaires DDL.
+**Glossaire de restitution (TF-0936, 08/09/2026 — portée resserrée par TF-1044, 14/09/2026)** —
+`references/glossaire-restitution.json`, donnée éditable, datée et sourcée (loi n° 4) : chaque
+terme y porte sa forme MACHINE et sa forme de RESTITUTION (celle que le destinataire lit).
+Premier terme : `grain` machine, rendu « granularité ». **Portée machine resserrée** à la
+seule clé JSON `grain` de `forge-data/modele-dimensionnel@1` — alias `granularite`, clé
+NOMINALE d'un `modele-dimensionnel@2`, les deux acceptées et jugées par `oracle-modeliser`
+(M2, M5) — commentaires DDL et sorties d'oracles ne sont PLUS exemptés : un second retour du
+10/09 (Produit-62, RD-14) a retrouvé le terme dans un DDL, un mapping et un chargement déjà
+publiés, la première portée (trop large) les couvrant à tort. `oracle-restituer` **R8** constate
+tout terme machine employé dans la prose d'un livrable humain — le même terme cité en span ou
+bloc de code n'est jamais compté, frontière exacte entre les deux registres — en avertissement
+par défaut, et en **bloquant** dès que le terme porte `"bloquant": true` au glossaire : le
+produit qui déclare son propre lexique en durcit l'application ; celui de la forge reste à
+`false`, un mot restant par défaut un arbitrage de rédaction. Retour du 08/09 : 33 emplois sur
+une seule page livrée, dont 8 recopiés des commentaires DDL. **Reste à l'étude (TF-0155, R-31,
+objet durable neuf)** : un contrôle `oracle-vocabulaire` jouable directement sur un DDL, un CSV
+ou un Markdown hors rapport — R8 ne juge aujourd'hui que le corps d'un rapport passé à
+`oracle-restituer`, jamais un DDL ou un CSV lus directement.
 
 Formats maison : `forge-data/assertions@1`, `forge-data/lineage@1`, `forge-data/contrat@1`
 (spécifiés en tête des oracles ; exemples = fixtures vertes). Un rapport porte un
 frontmatter `chiffres:` + `lineage_ref:` et des marqueurs `[c:<id>]` dans le corps.
+
+## Le contrôle verifier-unites-parquet (TF-1065, 14/09/2026) — le type ÉCRIT, jamais relu par le même moteur
+
+Fait mesuré (Produit-62, 11/09/2026) : fastparquet transcrit `datetime64[ns]` en
+`TIMESTAMP(NANOS)`, que Databricks refuse à la lecture (`[PARQUET_TYPE_ILLEGAL]`, SQLSTATE
+42846) — 7/27 tables concernées. Une recette d'export qui relit son fichier avec le MÊME
+moteur d'écriture le trouve toujours lisible et rend PASS : le défaut n'est visible qu'en
+lisant le TYPE PHYSIQUE écrit, jamais par relecture croisée avec le même outil.
+`scripts/verifier_unites_parquet.py <fichier.parquet>` MESURE le moteur disponible
+(pyarrow sinon fastparquet — aucun n'est une dépendance nouvelle payante, R-29) et REFUSE
+toute colonne temporelle en nanoseconde. Table des unités admises par destination :
+`references/REX-DATA.md`, pattern X17 (une seule ligne mesurée à ce jour : Databricks).
+Preuve en boucle, fichiers Parquet générés à la volée (aucune donnée committée) :
+
+```bash
+python scripts/verifier_unites_parquet.py --self-test
+```
 
 ## Le verbe importer (TF-0139) — un générateur, pas un oracle
 
@@ -96,7 +146,7 @@ node scripts/importer.mjs fixtures/schema-databricks-verte.sql --sortie-dir <dos
 system tables Unity Catalog Databricks (`system.access.column_lineage` : colonnes
 `source_table_full_name`, `source_column_name`, `target_table_full_name`,
 `target_column_name`, `entity_type`, `entity_id`, `event_time`) en `forge-data/lineage@1`
-grain colonne (T6). **Validé sur fixture synthétique uniquement** — aucun export réel
+granularité colonne (T6). **Validé sur fixture synthétique uniquement** — aucun export réel
 disponible sans workspace Unity Catalog Premium/Enterprise payant (jamais de connexion,
 loi n° 4). Le lineage colonne d'Unity Catalog est par nature une capture runtime : type de
 transformation toujours `"runtime"`, `confiance.niveau` toujours 3. Export incohérent
@@ -112,10 +162,10 @@ pas dans la journée, tandis que `GET /api/2.0/lineage-tracking/table-lineage?�
 répond avec les droits ordinaires du jeton. Le verbe n'avait donc qu'une entrée, et c'était celle
 qui ne répond pas : un lineage de 30 objets a été relevé par l'API puis transcrit À LA MAIN. La
 voie `api-lineage-tracking` prend le champ `reponses` (une réponse par table interrogée :
-`upstreams` / `downstreams` avec `tableInfo` et les entités d'exécution) et rend un lineage@1 au
-grain **table**, transformations `runtime`, **`confiance.niveau` = 0** — arbitrage délibéré contre
+`upstreams` / `downstreams` avec `tableInfo` et les entités d'exécution) et rend un lineage@1 à la
+granularité **table**, transformations `runtime`, **`confiance.niveau` = 0** — arbitrage délibéré contre
 la proposition du retour (qui demandait 2) : sur l'échelle REX X6, les niveaux 1 à 3 sont TOUS des
-grains colonne, et T5 ne juge que la présence du niveau, jamais sa justesse. La voie se détecte
+granularités colonne, et T5 ne juge que la présence du niveau, jamais sa justesse. La voie se détecte
 (`lignes` → system tables, `reponses` → API) ou se déclare (`--voie`), figure au manifeste et dans
 `origine.voie` du lineage produit ; une entrée portant les deux champs est **ambiguë** (refus), une
 entrée `fileInfo` (emplacement externe) est écartée **en le disant**, un `tableInfo` dont un des
@@ -134,7 +184,7 @@ puis rapports Power BI), sur mandat humain, chacun contre une barre validée le 
 
 | Verbe | Discipline exigée | Barre | Oracle |
 |---|---|---|---|
-| **modéliser** (TF-0860) | la couche Gold EST le modèle dimensionnel, déclaré AVANT construction : grain en une phrase par fait, dimensions conformes définies une fois, clé de substitution distincte de la clé naturelle, type de changement lent 0-3, dimension temps unique au grain jour et contiguë, matrice en bus qui précède le modèle | Kimball — Dimensional Modeling Techniques | `oracle-modeliser.mjs <modele.json>` — M1-M6, format `forge-data/modele-dimensionnel@1` |
+| **modéliser** (TF-0860) | la couche Gold EST le modèle dimensionnel, déclaré AVANT construction : granularité en une phrase par fait (clé `grain`, alias `granularite` — TF-1044), dimensions conformes définies une fois, clé de substitution distincte de la clé naturelle, type de changement lent 0-3, dimension temps unique à la granularité jour et contiguë, matrice en bus qui précède le modèle, **et les décisions d'architecture qui l'ont façonné, portées par lui** (M7, TF-1170) | Kimball — Dimensional Modeling Techniques | `oracle-modeliser.mjs <modele.json>` — M1-M7, format `forge-data/modele-dimensionnel@1` (ou `@2`, clé `granularite` nominale) |
 | **transformer** (TF-0861) | un projet de transformation déclare ses dépendances (ref/source), décrit et teste chaque modèle, rejoue ses tests, GÉNÈRE sa documentation ; l'oracle lit les artefacts de l'outil (`manifest.json`, `run_results.json`, `catalog.json`), jamais un YAML réinterprété | dbt-core | `oracle-transformer.mjs <dossier-target>` — TR1-TR6 |
 | **réconcilier** (TF-0864) | toute mesure exposée par un modèle sémantique vaut ce que Gold dit : deux lots de mesures identifiées (Gold archivé par `mesurer_base.py`, export du modèle), chacun avec son instance (T7), sous tolérance DÉCLARÉE, chaque écart nommé | prolonge dbt-core (déclaré → généré) ; défaut n° 18 de l'analyse L99 | `oracle-reconcilier.mjs <reconciliation.json>` — RC1-RC6, format `forge-data/reconciliation@1` ; `oracle-restituer` **R6** : un rapport peut pointer un lot par `reconciliation_ref:` |
 
@@ -145,9 +195,217 @@ du modèle sémantique aval à forge-audit (`verifier-modele-semantique.mjs`).
 
 ```bash
 node oracles/oracle-modeliser.mjs fixtures/modele-dimensionnel-verte.json
+node oracles/oracle-modeliser.mjs fixtures/modele-dimensionnel-granularite-verte.json   # @2, clé `granularite` (TF-1044)
+node oracles/oracle-restituer.mjs fixtures/rapport-modele-verte.md   # R9 : le rapport cite les décisions du modèle (TF-1170)
 node oracles/oracle-transformer.mjs fixtures/transformation-verte
 node oracles/oracle-reconcilier.mjs fixtures/reconciliation-verte.json
 ```
+
+## M7 et R9 (TF-1170, 17/09/2026) — une décision qui ne vit qu'au ledger n'est pas portée par le livrable
+
+Le 16/09/2026, un commanditaire dénonce comme un défaut les quatre tables de faits qui appliquent
+sa propre décision, tranchée neuf jours plus tôt : la déclaration machine était conforme, jugée
+PASS par `oracle-modeliser`, et le mode d'emploi du livrable ne disait nulle part pourquoi quatre
+faits. Coût : un tour d'analyse de 55 minutes pour établir que le défaut dénoncé était une décision.
+
+**Règle de restitution de la forge** : un livrable de modélisation porte ses décisions d'architecture
+tranchées — QUI a tranché, QUAND, QUOI, et POURQUOI — à l'endroit où le lecteur rencontre le choix,
+jamais seulement au ledger. Deux contrôles exécutés la tiennent, chacun à son endroit :
+
+- `oracle-modeliser` **M7** — le modèle déclare un bloc `decisions` (`id`, `qui`, `date` ISO, `quoi`
+  ≥ 4 mots) et chaque fait porte son `pourquoi` en prose lecteur (≥ 8 mots : le processus servi, ce
+  que le choix apporte) plus un `decision_ref` qui résout ; une décision que nul fait ne référence
+  est une déclaration morte (avertissement). Fixtures : `modele-dimensionnel-{verte,rouge}.json`.
+- `oracle-restituer` **R9** — un rapport qui pointe un modèle par `modele_ref:` CITE au corps chaque
+  décision que ce modèle déclare ; optionnel comme R6 et R7, bloquant dès qu'il est présent.
+  Fixtures : `rapport-modele-{verte,rouge}.md`.
+
+TMDL ne porte ni le `pourquoi` ni les décisions : `traduire-modele-semantique` les laisse ABSENTS et
+les nomme dans `a_completer` (M7), le complément humain les fournit — même mécanique que la
+granularité et la matrice en bus. La reprise de ces mêmes décisions dans le mode d'emploi du
+livrable-dossier (LISEZMOI) relève du gabarit du pilot, déclarée en `non_juge` ici.
+
+## Le verbe rendre (TF-1175, 17/09/2026) — un contrôle qui lit le fichier ne prouve jamais le rendu
+
+Un rapport Power BI généré a passé 22 contrôles de recette et 7 d'audit, a été publié sur GO
+humain, et ne rendait AUCUN visuel : « Chargement de votre rapport… » sans fin, export PDF
+`Succeeded` en 557 à 569 s sur 6 configurations, PDF de 943 à 1 415 octets et **zéro caractère**,
+quand le rapport du client sur la même capacité s'exporte en 41 s et 137 506 octets. Le contrôle
+« en-têtes repris au caractère près, 70/70 » rendait PASS sur des en-têtes que personne ne voyait.
+Coût : deux jours de mandat, deux diagnostics faux, un GO de publication dépensé.
+
+`oracle-rendre.mjs <rendu.json>`, format `forge-data/rendu@1` — **RN1** forme, l'inventaire du
+modèle venant inline ou d'un `couverture@1` déjà relevé (`inventaire_ref` : la chaîne
+`traduire-modele-semantique --inventaire` → oracle se ferme sans transcription) ; **RN2** toute
+projection d'un visuel porteur de données résout à un objet du modèle, comparaison insensible à la
+casse ; **RN3** une projection écrite `Table[Mesure]` est inventoriée comme mesure ; **RN4** aucun
+visuel porteur de données sans projection affichée, les projections `active: false` étant comptées
+et dites ; **RN5** le geste de vérification du RENDU RÉEL est déclaré, daté et résulté.
+
+**Doctrine de livraison — le geste obligatoire, jamais passé sous silence.** Ce que le lecteur voit
+ne se mécanise pas sans l'outil : aucun contrôle de ce dépôt ne l'atteint, et c'est écrit au
+`non_juge` de l'oracle. Tout livrable dont l'usage est un rendu se vérifie donc par le geste
+nommé — **publier → exporter la page depuis le service → lire l'IMAGE du fichier exporté →
+verdict** (durée sous borne, octets au-dessus du plancher, texte extrait non vide par page, aucun
+libellé d'erreur du service) — et ce geste entre au livrable par RN5 avec sa date et son résultat.
+Un rendu non joué reste `non_juge` et se DIT ; il ne se déduit d'aucun contrôle sur le fichier.
+Fixtures des deux sens : `rendu-{verte,rouge}.json`, plus la chaîne fermée jouée au self-test.
+
+## Le verbe reconstruire (TF-1176, 17/09/2026) — ce que le mandat fournit ne se réinvente pas
+
+Retour humain, mot pour mot : « Le PowerBI semble fonctionner mais le design a été modifié.
+Corrige le rapport pour revenir sur le design original. » Pendant deux jours, un générateur a
+DESSINÉ sa propre mise en page pour un rapport dont le fichier d'origine était fourni en entrée :
+page en 1600 × 900 contre 1280 × 720, segments réalignés, tableau pleine page, ni fond, ni titre,
+ni bouton de réinitialisation, ni signet, ni largeurs de colonnes. Vingt-trois contrôles de recette
+et sept d'audit rendaient PASS, dont « en-têtes repris au caractère près, 70/70 » : l'invariant
+mesuré était le texte des en-têtes, l'invariant protégé « le lecteur retrouve SON rapport ».
+
+**Règle de reconstruction de la forge** : quand le rapport à reconstruire EXISTE et qu'il est
+fourni en entrée, sa mise en page est CONSERVÉE et transposée — seules les liaisons changent.
+Une mise en page générée n'est pas interdite : elle est un **repli**, déclaré avec son motif, dont
+le coût reste compté. Ce qui n'existe pas, c'est le repli par omission.
+
+`oracle-reconstruire.mjs <reconstruction.json>`, format `forge-data/reconstruction@1` —
+RS1 forme (dont l'origine de la source et QUI l'a relevée) ; **RS2** doctrine du repli (`mode`
+`transposition` ou `repli_genere`, ce dernier exigeant un motif ≥ 6 mots ; sous repli motivé, les
+écarts sont comptés et nommés en avertissement au lieu de bloquer) ; **RS3** pages (bijection,
+largeur, hauteur, ordre, visibilité) ; **RS4** visuels (bijection par page, type et géométrie à
+`tolerance_px` près — prototype P24 du produit) ; **RS5** tout objet écarté porte son motif
+(≥ 4 mots, convention CV4/RA4) ; **RS6** ressources portées ET référencées (une ressource copiée
+que rien ne référence est un fond que le lecteur ne verra jamais). Quatre fixtures, deux sens
+chacune : `reconstruction-{verte,rouge}.json` et `reconstruction-repli-{verte,rouge}.json`.
+
+## Le verbe qualifier (TF-1186, 19/09/2026) — cinq dimensions vertes et une muette ne valent pas une garantie
+
+La chaîne de migration s'arrêtait à la réconciliation des chiffres : rien ne disait, et aucun contrôle
+ne prouvait, qu'un rapport migré PEUT REMPLACER l'original. Les mesures existaient — rendu, périmètre,
+chiffres, mise en page, comportement — **dispersées**, sans composition et sans verdict de bascule. Et
+une sixième dimension n'a aucun oracle possible : segments, signet, tri de colonne, largeurs, format
+conditionnel, info-bulles et mise en évidence croisée ne survivent pas à l'export, seul chemin par
+lequel un agent voit un rapport publié. Coût déjà payé : 22 contrôles de recette PASS et 7 d'audit
+verts coexistaient avec un rapport qui n'affichait rien.
+
+`oracle-qualifier.mjs <qualification.json>`, format `forge-data/qualification-rapport@1` — **QR1**
+forme, l'ANCRE de la comparaison (le rapport d'origine, son instantané daté, qui l'a relevé), le
+candidat, et les **six dimensions** du jeu fermé, chacune une fois : une dimension omise se lit comme
+une dimension verte ; **QR2** chaque dimension porte son **angle mort** écrit (≥ 6 mots) — la colonne
+que RF-27 exigeait, nommée « angle mort » parce que « ce que l'oracle ne prouve pas » annonce au lieu
+de dire (plancher d'écriture, RF-29) ; **QR3** chaque classe porte sa pièce — `conforme_prouve` un
+porteur qui EXISTE dont chaque règle citée se retrouve dans son fichier (convention CH4), avec verdict,
+chiffre et date ; `ecart_assume` au moins un écart ; `non_jugeable_ici` le geste humain qui le lèverait
+et son enregistreur (doctrine RN5/CH5) ; **QR4** la dimension `interactions` est non jugeable **par
+construction** et rend de 5 à 8 gestes numérotés à jouer côte à côte ; **QR5** chaque écart porte son
+id, son libellé et sa classe, un écart assumé nomme la décision qui l'a produit, et une dimension
+conforme ne peut pas porter un écart non assumé ; **QR6** le verdict de bascule — remplaçable /
+remplaçable sous conditions énumérées / non remplaçable — se **compose** des dimensions au lieu de se
+poser au-dessus : chaque dimension non conforme et chaque réserve est couverte par une
+condition qui la cite, et toute condition résout.
+
+**QR7 et QR8 (TF-1190, retour RF-31)** — il manquait au contrat la classe **« définition changée »**.
+Un chiffre qui diffère parce que la couche cible RECALCULE ce que la source STOCKAIT n'est ni un écart
+assumé ni un défaut : il demande un arbitrage métier et **aucune correction**. Sur 4 écarts remontés au
+même bac, 2 étaient de ceux-là, et les ranger en défaut aurait envoyé une équipe corriger ce qui n'est
+pas cassé. **QR7** : la classe porte la définition d'origine, la définition cible et la question à
+trancher (≥ 4 mots chacune), plus un `statut` du jeu fermé {a_trancher, tranchee} — et `tranchee` exige
+l'**accord du commanditaire, nommé et daté**, sans quoi elle n'est pas tranchée, elle est oubliée.
+Réciproquement, un écart qui déclare `recalcul_cible: true` ne peut pas être rangé ailleurs. Effet sur
+la bascule : une définition tranchée et acceptée cesse d'être une réserve, celle qui reste à trancher
+en est une. **QR8** : le test mécanisable qui sépare les deux causes — quand la cible recalcule un
+agrégat sur une fenêtre temporelle, la part d'entités dont l'écart tombe sur un nombre **entier** de
+fractions de cette fenêtre est RECALCULÉE (jamais recopiée, convention CV6/DL6) et confrontée à un
+seuil **déclaré** : 122 sur 122 signe un recalcul sur fenêtre incomplète, 5 sur 316 une définition
+réellement différente. Un diagnostic qui contredit sa propre mesure est refusé.
+
+Conséquence assumée, et c'est la doctrine : tant que les interactions restent non jugeables ici,
+« remplaçable » tout court est **inatteignable**, et le meilleur verdict possible nomme les gestes que
+l'humain doit jouer. L'étape correspondante est **E11** de `references/MIGRATION-RAPPORT-POWERBI.md`,
+insérée avant la restitution — la restitution rapporte un verdict de bascule, elle ne le fabrique pas
+en chemin.
+
+## RN6 et RS7 (TF-1188, 18/09/2026) — le résultat d'un geste se chiffre, et un champ se compte à l'occurrence
+
+Le protocole de qualification a été exécuté sur un rapport réel le 18/09, et les trois contrôles qu'il
+réclamait ont été écrits chez le produit puis joués. Confrontés à ce que cette forge portait depuis la
+veille : la **fidélité de mise en page au pixel** était déjà tenue (`oracle-reconstruire`, RS3 pages,
+RS4 visuels, RS6 ressources) ; deux choses ne l'étaient pas.
+
+- `oracle-rendre` **RN6** — RN5 exige un résultat ÉCRIT, et une phrase écrite se contente de « export
+  Succeeded ». C'est littéralement ce que le service affichait le 15/09 sur un PDF de **1 415 octets**
+  et **zéro caractère**. Un geste qui déclare `nature: "export_rendu"` porte donc son bloc
+  `mesure_export`, confronté à ses propres bornes : fichier réellement **téléchargé** (le statut du
+  service n'est pas le fichier), durée sous la borne déclarée, octets au-dessus du plancher déclaré,
+  chaque page du fichier exporté porte du texte, et aucun des libellés d'erreur **cherchés** n'est
+  trouvé — chercher zéro libellé et n'en trouver aucun ne prouve rien. Mesure du 18/09 après
+  correction : 27,0 s, 449 705 octets, 1 page, 2 235 caractères, 0 libellé. Aucun geste d'export
+  déclaré : **avertissement**, jamais blocage — un rendu non joué se DIT.
+- `oracle-reconstruire` **RS7** — le périmètre à l'**occurrence**. La recette du produit comptait 75
+  objets de modèle distincts et 70 couples (page, en-tête) distincts, quand le rapport affichait **83
+  occurrences** : deux occurrences partageant un en-tête comptaient pour une, et un champ perdu dont
+  l'en-tête existe ailleurs sur la même page passait inaperçu. Quand les deux relevés déclarent leurs
+  `projections`, les en-têtes se comparent en multiset par page ; une occurrence perdue ou ajoutée se
+  déclare dans `ecarts_assumes`, sinon elle bloque. **RS4** compare en outre le **plan** d'un visuel
+  quand la source le déclare : deux visuels superposés au plan inversé se cachent l'un l'autre sans
+  un pixel d'écart.
+
+## Migrer un rapport vers un nouveau modèle (TF-1179, 17/09/2026) — la procédure, et son contrôle
+
+Migrer un rapport était une chaîne promise dont aucune étape n'était écrite : elles ont été
+découvertes une à une par l'échec. Trois jours, 3 défauts vus par l'humain avant tout oracle,
+3 fausses pistes mesurées avant la cause, 4 lots de retours avant que la procédure existe.
+
+La procédure vit en référence : **`references/MIGRATION-RAPPORT-POWERBI.md`** — 11 étapes ordonnées
+(relever les champs affichés, délimiter le périmètre, concevoir le modèle, transposer la mise en
+page, recetter les liaisons, publier et reposer les identifiants, prouver le rendu par l'export lu,
+réconcilier, diagnostiquer par banc, **qualifier la bascule**, restituer), chacune avec son entrée, sa
+sortie et **le contrôle qui la juge** ; 14 règles ; l'arbre de diagnostic symptôme → cause ; le tableau
+de ce que chaque contrôle prouve et **ne prouve pas**. Sa déclaration machine est
+`references/migration-rapport-powerbi.chaine.json`.
+
+`oracle-enchainer.mjs <chaine.json>`, format `forge-data/chaine@1` — **CH1** forme (chaque étape a
+son id, son libellé, son entrée et sa sortie) ; **CH2** ordre en rangs contigus, parce que l'ordre
+est la moitié de la procédure : un périmètre relevé APRÈS la conception est le périmètre du modèle ;
+**CH3** chaque étape nomme un porteur du jeu fermé {oracle, script, geste_humain} dont le chemin
+**EXISTE** — une étape sans porteur existant est une étape non écrite ; **CH4** toute règle citée
+se retrouve **dans le fichier** de son oracle (un identifiant de règle survit à sa règle) ; **CH5**
+ce qui ne se mécanise pas se déclare geste humain, nommé et **avec son enregistreur** (doctrine
+RN5) ; **CH6** le document lu par les humains cite chaque étape déclarée. La procédure de la forge
+passe son propre contrôle au self-test (10 étapes, 39 règles retrouvées), et la même procédure dont
+un porteur est renommé y échoue sur CH3.
+
+## Le verbe délimiter (TF-1180, 17/09/2026) — le périmètre est ce que les visuels LISENT
+
+Le rapport d'origine porte 27 tables, 342 colonnes, 160 mesures. Ses visuels affichent 83 champs
+qui lisent 66 colonnes réelles. La première proposition servait les 342, quand la demande humaine
+disait « uniquement » les colonnes affichées ; puis 3 tables qu'aucun visuel ni aucune mesure ne
+lit sont restées au modèle publié jusqu'à la décision D-32 du 16/09/2026. Personne n'avait demandé
+ce surplus, et aucun contrôle ne comparait le SERVI au LU — `oracle-couvrir` mesure le défaut
+inverse (ce que la source contient et que le livrable oublie), et une couverture parfaite est même
+la façon la plus sûre de produire celui-ci.
+
+**Règle de périmètre de la forge** : le périmètre d'un livrable migré est l'ensemble des objets
+**lus par un visuel ou par une mesure affichée** du livrable d'origine, relevé sur ce **fichier
+d'origine AVANT toute conception**. Tout objet publié hors de cet ensemble est un **excédent** :
+il se retire du modèle publié, ou il porte son exclusion motivée. Un objet nécessaire que rien
+n'affiche — clé de substitution, mesure intermédiaire — se **déclare** ; il ne se devine pas et ne
+se tait pas. Rien n'est retiré de la couche de données : ce qui se réduit, c'est le modèle publié,
+celui que le lecteur actualise et parcourt.
+
+`oracle-delimiter.mjs <perimetre.json>`, format `forge-data/perimetre@1` — **DL1** forme, avec les
+trois pièces qui rendent le jugement possible : la mise en page de l'origine (`mise-en-page@1`, ou
+le `rendu@1` qui la porte déjà), l'usage relevé (`usage-restitution@1` de
+`traduire-modele-semantique --usage-restitution`, dont la population `lue_par_mesure` est la
+fermeture transitive qu'un relevé à la main manque — 45 colonnes sur 66 au cas mesuré) et le
+périmètre livré (inline, ou le `source.inventaire` d'un `couverture@1` déjà relevé) ; **DL2** le
+relevé s'identifie (qui, quand, et SUR QUEL FICHIER D'ORIGINE) ; **DL3** aucun champ affiché à
+l'origine n'est perdu — un renommage se déclare en `correspondances`, une colonne lue par une
+mesure sans être affichée est avertie et non bloquante (la migration peut recalculer la mesure) ;
+**DL4** l'**excédent** — tout objet livré est lu, ou porte une exclusion motivée (≥ 4 mots,
+convention CV4) — les lectures nécessaires se déclarant en `lectures_declarees`
+(`relation`, `mesure_intermediaire`), dont la justification doit elle-même remonter à un objet lu ;
+**DL5** les déclarations résolvent (défaut symétrique de CV3) ; **DL6** un taux déclaré se
+recalcule. Fixtures `perimetre-{verte,rouge}.json`, plus la chaîne jouée au self-test : servir tout
+le modèle de la fixture rend 15 excédents sur 26 objets (42,3 % lus), et le périmètre réduit PASSE.
 
 ## Le verbe couvrir (TF-0911, 08/09/2026) — la complétude, que nulle règle de forme ne pose
 
@@ -175,58 +433,6 @@ périmé, dans les deux cas le taux ment.
 node oracles/oracle-couvrir.mjs fixtures/couverture-verte.json
 ```
 
-## Le verbe rapprocher (TF-0975, 14/09/2026) — la seule preuve EXTERNE qu'une reconstruction visera juste
-
-`oracle-couvrir` compare un mapping à l'inventaire de SA SOURCE (en amont) ; `oracle-reconcilier`
-compare deux lots de VALEURS sous tolérance (sa structure est en non_juge). Ni l'un ni l'autre ne
-rapproche un modèle de ce qu'un CLIENT remet quand on lui demande à quoi ressemble son rapport :
-un export, des intitulés et des lignes. Sans ce rapprochement, la cible d'une reconstruction reste
-une hypothèse argumentée ; avec lui, elle est prouvée contre une pièce du client (cas réel : 60/60
-en-têtes appariés un pour un, 60/66 colonnes du modèle portées par l'extrait, les 6 restantes
-chacune avec son motif).
-
-| Verbe | Discipline exigée | Barre | Oracle |
-|---|---|---|---|
-| **rapprocher** (TF-0975) | le rapprochement se lit dans les DEUX sens : tout objet du modèle est rapproché (littéral ou par un **dictionnaire de concepts déclaré**, jamais une ressemblance calculée) ou déclaré **absent avec motif et visuel** (sinon absent et oublié sont indiscernables) ; tout intitulé de l'extrait sans équivalent est un écart de plein droit, toujours informationnel | prolonge dbt-core (déclaré → généré) ; contrôle maison du produit demandeur | `oracle-rapprocher.mjs <rapprochement.json>` — RP1-RP7, format `forge-data/rapprochement@1` |
-
-Deux taux, même convention que `couvrir` : `taux.retenu` (rapprochés / objets − absences motivées)
-et `taux.brut` (rapprochés / objets). Un `taux_declare` est RECALCULÉ (RP7). Le dictionnaire est la
-SEULE voie pour une correspondance non littérale (RP3) : une entrée qui invente son intitulé ou son
-objet (absent des deux sources déclarées) est refusée.
-
-```bash
-node oracles/oracle-rapprocher.mjs fixtures/rapprochement-verte.json
-```
-
-## Le verbe mesurer-usage-restitution (TF-0971, 14/09/2026) — la couverture se mesure aussi contre l'ÉCRAN
-
-`oracle-couvrir` mesure une couverture contre l'INVENTAIRE de la source, jamais contre ce qui est
-effectivement à l'écran. Cas réel : sur 342 colonnes, 66 seulement étaient mobilisées par les 16
-visuels porteurs de données d'un rapport (21 projetées telles quelles, 45 lues par des mesures
-affichées) ; 276 ne l'étaient JAMAIS. Des 38 colonnes sans ligne de mapping, 20 étaient réellement
-mobilisées et 18 ne l'étaient pas — la dette bloquante était deux fois plus petite que celle que
-`oracle-couvrir` annonçait, et cet oracle ne peut structurellement pas le dire.
-
-| Verbe | Discipline exigée | Oracle |
-|---|---|---|
-| **mesurer-usage-restitution** (TF-0971) | trois populations de colonnes, jamais confondues : **affichée** (projetée telle quelle dans un visuel), **lue_par_mesure** (atteinte par la fermeture transitive d'une mesure affichée — compose avec `--resolution-dax`, TF-0972), **jamais_lue** ; le croisement avec `oracle-couvrir` (orphelins ∩ jamais_lue) est une intersection ensembliste laissée au consommateur, jamais dupliquée ici | `oracles/oracle-usage-restitution.mjs <usage.json>` — U1-U4, format `forge-data/usage-restitution@1` |
-
-`scripts/mesurer-usage-restitution.mjs --modele <inventaire.json> --resolution <resolution-dax.json>
---rapport <dossier PBIR> --sortie <f.json>` COMPOSE deux artefacts déjà produits par cette forge —
-jamais un modèle re-parsé. **Format de mise en page lu, et limite dite** : un projet PBIR (Power BI
-Enhanced Report Format, JSON texte sous `definition/pages/**/visuals/**/visual.json`), scanné pour
-le champ `queryRef` (convention stable : chaque champ projeté dans un visuel le porte). Le binaire
-`.pbix` n'est **pas** lu (aucune dépendance externe dans ce dépôt, loi n° 4) ; un visuel qui
-n'émettrait pas `queryRef` (visuel tiers, format antérieur) échappe à la mesure — nommé en
-avertissement, jamais supposé absent. Une référence de mise en page inconnue du modèle fourni
-(table ou colonne hors périmètre) est NOMMÉE, jamais silencieusement ignorée.
-
-```bash
-node scripts/mesurer-usage-restitution.mjs --modele fixtures/usage-modele-verte.json \
-     --resolution fixtures/usage-resolution-dax-verte.json --rapport fixtures/rapport-pbir-verte --sortie <f.json>
-node oracles/oracle-usage-restitution.mjs fixtures/usage-restitution-verte.json
-```
-
 ## Le verbe traduire-modele-semantique (TF-0894, 08/09/2026) — la Pierre de Rosette se lit enfin
 
 `scripts/traduire-modele-semantique.mjs --modele <dossier>` LIT un modèle sémantique Power BI au
@@ -248,7 +454,7 @@ l'expression commence par `SUM`/`AVERAGE`/`COUNT`/`DISTINCTCOUNT`/`MIN`/`MAX`) ;
 par leur **orientation**, quelle table est un fait (côté `fromColumn`) et laquelle une dimension
 (côté `toColumn`), et la clé de **substitution** de chaque dimension ; la dimension temps
 (`dataCategory: Time`).
-**Ce que TMDL ne porte pas, et que le verbe REFUSE d'inventer** : le grain d'un fait en une phrase,
+**Ce que TMDL ne porte pas, et que le verbe REFUSE d'inventer** : la granularité d'un fait en une phrase,
 le processus métier, la clé **naturelle**, le type de changement lent, les bornes et la contiguïté
 de la dimension temps (propriétés de la DONNÉE), la matrice en bus (elle PRÉCÈDE le modèle et ne
 se relit pas dans le modèle construit). Ces champs restent **absents**, chacun nommé dans
@@ -261,19 +467,6 @@ redéfinir une valeur LUE est averti et ignoré : le modèle livré fait foi sur
 Modèle sans relation active : refus propre (exit 2) — l'orientation fait/dimension ne se devine
 pas, et un modèle deviné serait faux sans être détectable. Preuve en boucle (deux sens) sur
 `fixtures/modele-semantique-{verte,rouge}/` et `fixtures/complement-modele-verte.json`.
-
-**Mode `--resolution-dax` (TF-0972, 14/09/2026)** — le même lecteur TMDL expose une résolution
-NOMMÉE des références DAX d'une mesure vers ses colonnes, avec son contrat écrit et un journal
-rendu AVEC le résultat (`forge-data/resolution-dax@1`). Deux défauts mesurés faisaient perdre des
-colonnes en silence : la CASSE (DAX est insensible à la casse, une comparaison sensible la perd) et
-les RÉFÉRENCES NON QUALIFIÉES (`[Mesure]` peut désigner une mesure d'une AUTRE table que la
-porteuse). Contrat : index insensible à la casse ; une référence qualifiée `Table[Membre]` cherche
-colonnes puis mesures de `Table` ; une référence non qualifiée `[Membre]` cherche d'abord la table
-PORTEUSE puis le MODÈLE ENTIER ; deux candidats au même niveau rendent la référence **ambiguë**,
-jamais tranchée ; une référence résolue vers une mesure est suivie par **fermeture transitive**
-(détection de cycle) jusqu'à ses colonnes terminales. Limite dite : seule la tête d'une expression
-DAX repliée sur plusieurs lignes est lue. Preuve en boucle (deux sens) sur
-`fixtures/modele-semantique-dax-{verte,rouge}/`.
 
 **Mode `--inventaire` (TF-0917, 08/09/2026)** — le même dossier TMDL traduit vers le bloc
 `source.inventaire` de `forge-data/couverture@1`, celui qu'`oracle-couvrir` attendait DÉJÀ RELEVÉ.
@@ -293,8 +486,58 @@ node scripts/traduire-modele-semantique.mjs --modele fixtures/modele-semantique-
      --complement fixtures/complement-modele-verte.json --sortie <f.json>   # PASSE oracle-modeliser
 node scripts/traduire-modele-semantique.mjs --modele fixtures/modele-semantique-verte \
      --inventaire --namespace <uri de l'instance> --sortie <couverture.json>   # bloc source.inventaire
-node scripts/traduire-modele-semantique.mjs --modele fixtures/modele-semantique-dax-verte \
-     --resolution-dax --sortie <resolution.json>   # forge-data/resolution-dax@1, contrat de résolution nommé
+```
+
+## Mode --usage-restitution de traduire-modele-semantique (TF-0971, 14/09/2026)
+
+`oracle-couvrir` mesure un mapping contre l'INVENTAIRE de sa source (jusqu'à 342 colonnes d'un
+modèle réel) — jamais contre ce qui est réellement À L'ÉCRAN. Relevé manuel (Produit-62, RD-9) :
+66 colonnes seulement mobilisées par 83 champs de 16 visuels porteurs de données (21 projetées
+telles quelles, 45 lues par 54 mesures DAX affichées), 276 jamais lues, 10 tables sur 27
+entièrement inutilisées. Conséquence directe : des 38 colonnes sans ligne de mapping, 20 sont
+réellement mobilisées et 18 ne le sont pas — la dette bloquante réelle est deux fois plus
+petite que celle que la couverture seule annonce.
+
+`node scripts/traduire-modele-semantique.mjs --modele <dossier> --usage-restitution
+--mise-en-page <fichier> [--orphelins <fichier>] [--sortie <fichier>]` — le LECTEUR DE MISE
+EN PAGE, à côté du lecteur de modèle : entrée `forge-data/mise-en-page@1` (pages → visuels →
+projections, nomenclature `Table.colonne` / `Table[Mesure]` déjà celle de `--inventaire`).
+Rend TROIS POPULATIONS, jamais une seule mesure — `affichee` (projetée telle quelle),
+`lue_par_mesure` (atteinte par FERMETURE TRANSITIVE depuis une mesure affichée, moteur de
+TF-0972 réemployé) et `jamais_lue` — plus les `champs_inconnus` (une projection qui ne résout
+à rien du modèle, avertie, jamais ignorée) et les tables entièrement inutilisées. **Règle
+opposable** : avec `--orphelins <fichier>` (la liste que rend `oracle-couvrir` sur ses
+colonnes sans ligne de mapping), le croisement dit combien sont réellement MOBILISÉES —
+celles-là seules justifient la dette, les autres se déclarent en exclusion motivée
+(`oracle-couvrir`, règle `exclusion`) au lieu de la gonfler. Preuve en boucle sur
+`fixtures/mise-en-page-{verte,rouge}.json` + `fixtures/orphelins-usage-verte.json`.
+
+```bash
+node scripts/traduire-modele-semantique.mjs --modele fixtures/modele-semantique-verte \
+     --usage-restitution --mise-en-page fixtures/mise-en-page-verte.json --orphelins fixtures/orphelins-usage-verte.json
+```
+
+## Mode --resolution-references de traduire-modele-semantique (TF-0972, 14/09/2026)
+
+Mesure sur 160 mesures DAX d'un modèle réel (Produit-62, RD-10) : une comparaison SENSIBLE À
+LA CASSE perdait une référence de colonne (DAX est insensible à la casse) ; une résolution
+limitée à la table PORTEUSE ne remontait que 2 colonnes sur 8 pour une mesure qui en
+référençait une AUTRE, vivant dans une autre table. Effet cumulé, sans une seule erreur
+affichée : 42 colonnes lues au lieu de 45, 279 déclarées inutilisées au lieu de 276.
+
+`node scripts/traduire-modele-semantique.mjs --modele <dossier> --resolution-references
+[--sortie <fichier>]` expose une résolution NOMMÉE, contrat écrit : index insensible à la
+casse ; référence qualifiée (`Table[Ref]`) résolue dans SA table ; référence non qualifiée
+(`[Ref]`) cherchée D'ABORD dans la table porteuse, PUIS dans le reste du modèle (plusieurs
+candidats → AMBIGUË, aucun → NON RÉSOLUE) ; FERMETURE TRANSITIVE sur les mesures (une mesure
+qui n'en référence qu'une autre atteint quand même ses colonnes de base) ; un JOURNAL des
+non-résolues et des ambiguës rendu AVEC le résultat, jamais à part. Limite déclarée : seule
+la première ligne de l'expression DAX est lue (comme pour l'agrégation dérivée). Preuve en
+boucle sur `fixtures/modele-resolution-verte/` (casse, référence croisée, fermeture
+transitive, ambiguïté, référence perdue — les cinq cas dans un même modèle).
+
+```bash
+node scripts/traduire-modele-semantique.mjs --modele fixtures/modele-resolution-verte --resolution-references
 ```
 
 ## Le verbe projeter-evolutions (TF-0937, 08/09/2026) — la première question d'une équipe data
@@ -369,27 +612,48 @@ node oracles/oracle-evoluer.mjs fixtures/evolutions-verte.json
 node oracles/oracle-evoluer.mjs fixtures/evolutions-provenance-verte.json --catalogue <catalogue.json>
 ```
 
-## Le verbe isoler-contexte-extrait (TF-0976, 14/09/2026) — le pied d'un export EST une donnée
+## Le verbe rapprocher (TF-0975, 14/09/2026) — la seule preuve EXTERNE qu'une cible vise juste
 
-Sur les trois feuilles d'un classeur Power BI exporté, la lecture naïve comptait 21 559, 21 719 et
-14 121 lignes ; les données réelles sont 21 557, 21 716 et 14 117 — une ligne vide et une ligne de
-pied (« Filtres appliqués ») par feuille. Le pied atterrit dans la PREMIÈRE colonne (modalité
-fantôme), et il est en même temps la SEULE trace que l'extrait est un instantané filtré, pas
-complet.
+`oracle-couvrir` compare un mapping à l'inventaire de SA SOURCE (l'amont) ; `oracle-reconcilier`
+compare deux lots de VALEURS déjà identifiées, sous tolérance. Ce qu'un client remet quand on
+lui demande à quoi ressemble le rapport est un EXPORT — des intitulés et des lignes — et rien
+ne rapprochait un modèle de reconstruction de cette pièce EXTERNE. Mesure réelle : 60 en-têtes
+d'un tableau livré et 60 colonnes d'un export correspondent un pour un, au même rang, zéro
+orphelin dans les deux sens ; 60/66 colonnes du modèle portées par l'extrait, 6 motivées.
 
-`scripts/isoler-contexte-extrait.mjs --fichier <export.csv> [--separateur <car>] [--sortie <f.json>]`
-LIT un export tabulaire délimité et rend DEUX populations, jamais une : les lignes de données
-(`forge-data/contexte-extrait@1`, champ `lignes`) et un objet `contexte_de_l_extrait` portant les
-prédicats `{champ, operateur, valeur}` lus au pied (jeu fermé `est`/`n_est_pas`/`n_est_pas_vide`/
-`n_est_pas_nul`/`non_reconnu` — une clause non reconnue est gardée avec son texte brut, jamais
-tue). Détecte aussi la ligne de totaux et la ligne vide terminale. Règle de contrat : sans pied
-détecté, `portee` vaut `"inconnue"` et le dit en avertissement — un extrait n'est jamais supposé
-complet par défaut. **Écart déclaré** : lit le CSV/TSV, pas le binaire `.xlsx` (aucune dépendance
-externe dans ce dépôt) — le même pied survit à l'export délimité du même rapport. Preuve en boucle
-(deux sens) sur `fixtures/contexte-extrait-{verte,rouge}.csv`.
+`oracle-rapprocher.mjs <rapprochement.json>` juge le format `forge-data/rapprochement@1` —
+RA1 (forme) ; **RA2** bijection dans les DEUX SENS (tout intitulé de l'extrait est apparié ou
+déclaré en écart, tout objet du modèle est apparié ou déclaré absent — un défaut sans verdict
+est un OUBLI) ; **RA3** un dictionnaire de concepts déclaré n'invente rien (chaque `cote_modele`
+et `cote_extrait` doit exister dans sa source) ; **RA4** chaque objet du modèle absent de
+l'extrait porte son `motif` (≥ 4 mots, convention CV4) ET le `visuel` qui l'explique. Le
+verbe qui lit l'export lui-même appartient à `scripts/isoler-lignes-non-donnees.mjs` (TF-0976,
+en amont) ; celui qui juge la valeur à la granularité fine à `oracle-reconcilier`.
 
 ```bash
-node scripts/isoler-contexte-extrait.mjs --fichier fixtures/contexte-extrait-verte.csv --sortie <f.json>
+node oracles/oracle-rapprocher.mjs fixtures/rapprochement-verte.json
+```
+
+## Le verbe isoler-lignes-non-donnees (TF-0976, 14/09/2026) — le pied d'un export est une DONNÉE
+
+Mesure : sur trois feuilles d'un export, la lecture naïve comptait 21 559/21 719/14 121 lignes
+contre 21 557/21 716/14 117 réelles — une ligne vide et un pied « Filtres appliqués » de Power
+BI par feuille, celui-ci atterrissant dans la PREMIÈRE colonne (les autres cellules de sa ligne
+restent vides), d'où une modalité fantôme sur tout dénombrement par cette colonne. Second effet,
+le plus coûteux à ignorer : ce pied est la SEULE trace que l'extrait est un instantané FILTRÉ.
+
+`scripts/isoler-lignes-non-donnees.mjs <extrait.csv> [--sortie <fichier.json>]` LIT un export
+CSV et ISOLE, en balayant depuis la FIN du fichier, trois types de lignes non-données —
+`ligne_vide_terminale`, `pied_filtres_appliques`, `ligne_totaux` — et rend TOUJOURS deux
+sorties : `lignes` (les données) et `contexte_de_l_extrait` (les prédicats décomposés du pied,
+`null` si aucun pied n'a été trouvé, jamais inventé). Générateur, pas un oracle ; format produit
+`forge-data/extrait-isole@1`. Un extrait dont le contexte n'est pas déclaré est de PORTÉE
+INCONNUE — règle de contrat pour `oracle-rapprocher.mjs` (TF-0975, ci-dessus) quand cet extrait
+lui sert de référence ; ce verbe-ci ne juge rien, il isole et rend.
+Preuve en boucle : `oracles/self-test.mjs` sur `fixtures/extrait-pied-{verte,rouge}.csv`.
+
+```bash
+node scripts/isoler-lignes-non-donnees.mjs fixtures/extrait-pied-verte.csv
 ```
 
 ## Profils-moteur (TF-0140, `references\profils-moteur\`)

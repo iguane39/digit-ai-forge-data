@@ -1,0 +1,9 @@
+table Invoiced_Rent
+	lineageTag: aaaaaaaa-0000-4000-8000-000000000002
+
+	column Montant
+		dataType: decimal
+		summarizeBy: sum
+
+	measure 'Invoiced Rent N_' = SUM(Invoiced_Rent[Montant])
+		formatString: #,0.00

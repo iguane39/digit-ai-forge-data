@@ -1,0 +1,43 @@
+{
+  "format": "forge-data/rendu@1",
+  "id": "rendu_rapport_ventes_invisible",
+  "mise_en_page": {
+    "format": "forge-data/mise-en-page@1",
+    "rapport": "Rapport ventes qui ne rend rien (fixture)",
+    "pages": [
+      {
+        "page": "Synthese",
+        "visuels": [
+          { "visuel": "Axe temps", "projections": [ { "champ": "Calendrier.annee" }, { "champ": "Calendrier.trimestre", "active": false } ] },
+          { "visuel": "Segments", "projections": [ { "champ": "Client.segment_commercial" } ] },
+          { "visuel": "Panier moyen (carte)", "projections": [ { "champ": "Ventes[montant_ht]" } ] },
+          { "visuel": "Tableau de detail", "projections": [] }
+        ]
+      }
+    ]
+  },
+  "inventaire": [
+    { "objet": "Calendrier", "type": "table" },
+    { "objet": "Calendrier.annee", "type": "colonne" },
+    { "objet": "Calendrier.trimestre", "type": "colonne" },
+    { "objet": "Client", "type": "table" },
+    { "objet": "Client.segment", "type": "colonne" },
+    { "objet": "Ventes", "type": "table" },
+    { "objet": "Ventes[montant_ht]", "type": "colonne" }
+  ],
+  "gestes_de_verification": [
+    { "geste": "recette lue", "resultat": "22 contrôles PASS sur le fichier du projet" },
+    { "geste": "exporter la page en PDF depuis le service et lire le statut rendu par l'appel",
+      "fait_le": "2026-09-15", "par": "recette du produit (fixture synthétique)",
+      "nature": "export_rendu",
+      "resultat": "export Succeeded",
+      "mesure_export": {
+        "fichier_telecharge": false,
+        "secondes": 569, "borne_s": 60,
+        "octets": 1415, "plancher_octets": 10000,
+        "pages": [ { "page": 1, "caracteres": 0 } ],
+        "libelles_erreur_cherches": [],
+        "libelles_erreur_trouves": []
+      } }
+  ]
+}

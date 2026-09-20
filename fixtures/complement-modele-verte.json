@@ -1,14 +1,20 @@
 {
   "format": "forge-data/complement-modele@1",
   "id": "gold_ventes_powerbi_v1",
-  "commentaire": "Ce que TMDL ne porte pas et que le verbe refuse d'inventer : le grain d'un fait, le processus métier, la clé naturelle et le type de changement lent d'une dimension, les bornes et la contiguïté de la dimension temps, la matrice en bus. Déclaré par l'humain, une fois.",
+  "commentaire": "Ce que TMDL ne porte pas et que le verbe refuse d'inventer : le grain d'un fait, le processus métier, la clé naturelle et le type de changement lent d'une dimension, les bornes et la contiguïté de la dimension temps, la matrice en bus, et les décisions d'architecture qui ont façonné le modèle (M7). Déclaré par l'humain, une fois.",
   "matrice_bus": [
     { "processus": "ventes", "dimensions": ["Calendrier", "Client", "Produit"] }
+  ],
+  "decisions": [
+    { "id": "D-3", "qui": "commanditaire (fixture)", "date": "2026-09-07",
+      "quoi": "un fait par processus métier servi, jamais un fait unique fourre-tout" }
   ],
   "faits": {
     "Ventes": {
       "grain": "une ligne par ligne de commande livrée, par jour de livraison",
       "processus": "ventes",
+      "pourquoi": "Ce fait sert le processus de vente : il répond aux questions de chiffre d'affaires livré par client, par produit et par jour.",
+      "decision_ref": "D-3",
       "mesures": { "Panier moyen": "non_additive" }
     }
   },

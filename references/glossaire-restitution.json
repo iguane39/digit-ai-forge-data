@@ -1,15 +1,16 @@
 {
   "format": "forge-data/glossaire-restitution@1",
-  "date": "2026-09-08",
-  "source": "Retour humain du 08/09/2026 sur un rapport de reporting : « Utilise le mot granularité plutôt que grain ». Mesure faite sur la page livrée : 33 emplois du terme machine, dont 25 posés par le générateur et 8 recopiés des commentaires DDL. Correction chez le produit : substitution au rendu, avec la table d'accords ; zéro emploi restant.",
-  "doctrine": "Un terme MACHINE est celui des schémas, des formats et des commentaires techniques : forge-data/modele-dimensionnel@1 le porte, oracle-modeliser le juge, et il ne bouge pas — renommer un champ de format casserait les artefacts et les oracles. Un terme de RESTITUTION est celui que le destinataire lit. Les deux coexistent : le glossaire dit lequel est admis où, et il est ÉDITABLE — un vocabulaire de destinataire est une donnée périssable, pas du code (loi n° 4).",
+  "date": "2026-09-14",
+  "source": "Retour humain du 08/09/2026 sur un rapport de reporting : « Utilise le mot granularité plutôt que grain ». Mesure faite sur la page livrée : 33 emplois du terme machine, dont 25 posés par le générateur et 8 recopiés des commentaires DDL. Correction chez le produit : substitution au rendu, avec la table d'accords ; zéro emploi restant. SECOND retour le 10/09/2026 (Produit-62, RD-14, ledger seq 99, 102, 103) : la première portée_machine (« commentaires DDL, sorties JSON des oracles ») s'est révélée plus large que ce que le destinataire tolère — le terme est réapparu dans un DDL Gold (3 occurrences), un mapping (2) et un chargement (3) publiés le 10/09, aucun passé par oracle-restituer. Portée resserrée le 14/09/2026 (TF-1044) à la seule clé JSON.",
+  "doctrine": "Un terme MACHINE est celui de la clé JSON d'un format maison, jugée par son oracle, et qui ne bouge pas — renommer casserait les artefacts existants. Un terme de RESTITUTION est celui que le destinataire lit, où qu'il apparaisse : DDL, mapping, chargement, rapport. Les deux coexistent : le glossaire dit lequel est admis où, et il est ÉDITABLE — un vocabulaire de destinataire est une donnée périssable, pas du code (loi n° 4). `bloquant` (TF-1044, défaut `false`) : un mot reste par défaut un arbitrage de rédaction que `oracle-restituer` R8 se contente d'avertir ; un produit qui déclare SON PROPRE glossaire (`--glossaire <chemin>`) peut porter `bloquant: true` sur un terme précis pour en refuser la livraison — celui de la forge ne le fait pas lui-même.",
   "termes": [
     {
       "machine": "grain",
       "variantes": ["grain", "grains"],
       "rendu": "granularité",
-      "portee_machine": "champ `grain` de forge-data/modele-dimensionnel@1 (M2), commentaires DDL, sorties JSON des oracles — inchangés, avec la note « rendu : granularité »",
-      "motif": "« grain » est le terme de Kimball et le nom du champ du format ; le destinataire d'un rapport lit « granularité ». Le retour l'a demandé explicitement, sur 33 emplois d'une seule page."
+      "portee_machine": "la seule clé JSON `grain` de forge-data/modele-dimensionnel@1 — alias `granularite`, clé NOMINALE d'un modele-dimensionnel@2, les deux jugées par oracle-modeliser (M2, M5). Commentaires DDL et sorties JSON des oracles ne sont PLUS exemptés depuis le 14/09/2026 (TF-1044) : le second retour du 10/09 les a trouvés fautifs.",
+      "bloquant": false,
+      "motif": "« grain » est le terme de Kimball et le nom de la clé du format ; le destinataire d'un rapport, d'un DDL ou d'un mapping lit « granularité ». Le retour l'a demandé explicitement, deux fois : 33 emplois d'une page le 08/09, puis un DDL/mapping/chargement déjà publiés le 10/09."
     }
   ]
 }

@@ -6,15 +6,15 @@
 //
 // DEUX VOIES D'ENTRÉE (la seconde ouverte par TF-0893, retour Produit-10 du 07/09/2026) :
 //   `system-tables`        — export de `system.access.column_lineage`, champ `lignes` ;
-//                            grain COLONNE (T6), confiance niveau 3.
+//                            granularité COLONNE (T6), confiance niveau 3.
 //   `api-lineage-tracking` — export des réponses de l'API REST
 //                            `GET /api/2.0/lineage-tracking/table-lineage`, champ `reponses` ;
-//                            grain TABLE, confiance niveau 0.
+//                            granularité TABLE, confiance niveau 0.
 // POURQUOI LA SECONDE. Sur un workspace réel, la voie system tables est REFUSÉE avant même
 // d'exister : `SELECT … FROM system.access.table_lineage` rend `[INSUFFICIENT_PERMISSIONS]
 // User does not have USE SCHEMA on Schema 'system.access'` (SQLSTATE 42501) — un droit de
 // gouvernance que le compte d'une mission n'a pas et n'obtient pas dans la journée. La même
-// information de lineage, au grain table, sort de l'API REST avec les droits ordinaires du
+// information de lineage, à la granularité table, sort de l'API REST avec les droits ordinaires du
 // jeton. Le verbe n'avait donc qu'une entrée, et c'était celle qui ne répond pas : le lineage
 // de 30 objets a été relevé par l'API puis TRANSCRIT À LA MAIN dans un lineage@1 (PASS T1-T7).
 //
@@ -48,7 +48,7 @@
 //                                                     jobInfos: [ { job_id } ] }, … ],
 //                                  "downstreams": [ … même forme … ] } }, … ] }
 // Une entrée d'upstream/downstream sans `tableInfo` (les `fileInfo` d'un emplacement externe)
-// est SIGNALÉE et écartée : ce format est au grain table qualifiée, pas au grain fichier.
+// est SIGNALÉE et écartée : ce format est à la granularité table qualifiée, pas à la granularité fichier.
 //
 // Correspondance vers lineage@1 (voie `system-tables`) :
 //   entrees[]        = table sources distinctes, date = event_time le plus RÉCENT observé
@@ -74,11 +74,11 @@
 //   côté CIBLE peuplent `sorties`. Une table intermédiaire figure des deux côtés, et c'est
 //   la vérité du graphe relevé. `transformations[]` = une étape par entité d'exécution
 //   distincte (notebook, job, pipeline, requête), type TOUJOURS "runtime" : l'API rend une
-//   capture d'exécution. Pas de champ `colonnes` — cette voie est au grain TABLE.
+//   capture d'exécution. Pas de champ `colonnes` — cette voie est à la granularité TABLE.
 //   `confiance.niveau` = 0, et c'est un arbitrage DÉLIBÉRÉ contre la proposition du retour
 //   (qui demandait 2) : sur l'échelle de maturité du REX X6, les niveaux 1, 2 et 3 sont
-//   TOUS des grains colonne (1 déclaratif, 2 statique étendu, 3 runtime exhaustif) et le
-//   niveau 0 est « topologie + grain table ». Un lineage grain table qui se déclarerait 2
+//   TOUS des granularités colonne (1 déclaratif, 2 statique étendu, 3 runtime exhaustif) et le
+//   niveau 0 est « topologie + granularité table ». Un lineage à la granularité table qui se déclarerait 2
 //   mentirait sur sa maturité — et T5 ne juge que la présence du niveau, jamais sa justesse :
 //   personne ne rattraperait le mensonge en aval. Le caractère runtime de la capture est dit
 //   là où il est vérifiable, dans `confiance.methode` et le type des transformations.
@@ -91,7 +91,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 const VERBE = "traduire-unity-catalog";
-const DOM = "Traduction du lineage Unity Catalog (system.access.column_lineage grain colonne, API lineage-tracking grain table) → forge-data/lineage@1 (TF-0141, TF-0893)";
+const DOM = "Traduction du lineage Unity Catalog (system.access.column_lineage granularité colonne, API lineage-tracking granularité table) → forge-data/lineage@1 (TF-0141, TF-0893)";
 const CHAMPS_REQUIS = ["source_table_full_name", "source_column_name", "target_table_full_name", "target_column_name"];
 const VOIES = ["system-tables", "api-lineage-tracking"];
 
@@ -139,7 +139,7 @@ if (voieArg !== null && !VOIES.includes(voieArg))
 const aLignes = Array.isArray(doc.lignes) && doc.lignes.length > 0;
 const aReponses = Array.isArray(doc.reponses) && doc.reponses.length > 0;
 if (aLignes && aReponses)
-  sortir("ECHEC", 2, { erreur: "export ambigu : « lignes » (system tables) ET « reponses » (API lineage-tracking) sont tous deux renseignés — les deux voies ne se mélangent pas dans un même fichier (grains et niveaux de confiance différents). Scinder l'export" });
+  sortir("ECHEC", 2, { erreur: "export ambigu : « lignes » (system tables) ET « reponses » (API lineage-tracking) sont tous deux renseignés — les deux voies ne se mélangent pas dans un même fichier (granularités et niveaux de confiance différents). Scinder l'export" });
 const VOIE = voieArg || (aReponses ? "api-lineage-tracking" : "system-tables");
 if (VOIE === "api-lineage-tracking" && !aReponses)
   sortir("ECHEC", 2, { erreur: "voie « api-lineage-tracking » : champ « reponses » absent ou vide — aucune réponse de GET /api/2.0/lineage-tracking/table-lineage exploitable" });
@@ -248,7 +248,7 @@ function ecrireLineage(lineageProduit, compte) {
 
 // ================================================================================================
 // Voie `api-lineage-tracking` (TF-0893) — GET /api/2.0/lineage-tracking/table-lineage,
-// une réponse par table interrogée, grain TABLE. Appelée avant toute lecture de `lignes` ;
+// une réponse par table interrogée, granularité TABLE. Appelée avant toute lecture de `lignes` ;
 // elle ne rend jamais la main (tout chemin finit par sortir()).
 // ================================================================================================
 function traduireApiLineageTracking() {
@@ -284,7 +284,7 @@ function traduireApiLineageTracking() {
   const relever = (voisin, ou) => {
     if (!voisin || typeof voisin !== "object") { erreursApi.push(`${ou} : entrée de lineage vide ou non structurée`); return null; }
     if (!voisin.tableInfo) {
-      avert(`${ou} : entrée sans « tableInfo » (emplacement externe de type fileInfo, ou entité non tabulaire) — ÉCARTÉE : cette voie est au grain table qualifiée, pas au grain fichier`);
+      avert(`${ou} : entrée sans « tableInfo » (emplacement externe de type fileInfo, ou entité non tabulaire) — ÉCARTÉE : cette voie est à la granularité table qualifiée, pas à la granularité fichier`);
       return null;
     }
     for (const e of ENTITES)
@@ -329,9 +329,9 @@ function traduireApiLineageTracking() {
   if (!etapes.size)
     sortir("ECHEC", 2, { voie: VOIE, erreur: "aucune entité d'exécution nommée (notebookInfos / jobInfos / pipelineInfos / queryInfos absents de toutes les réponses) — appeler l'API avec `include_entity_lineage=true` ; traduction refusée plutôt qu'un lineage@1 qui échouerait T3" });
 
-  // Le grain de cette voie est la TABLE : pas de champ `colonnes` (T6 reste optionnel), et un
+  // La granularité de cette voie est la TABLE : pas de champ `colonnes` (T6 reste optionnel), et un
   // niveau de maturité 0 assumé — cf. l'en-tête de ce fichier.
-  avert("voie « api-lineage-tracking » : lineage au grain TABLE, `confiance.niveau` = 0 (échelle REX X6 : les niveaux 1 à 3 sont des grains COLONNE). La capture est bien runtime — c'est dit dans `confiance.methode` et dans le type des transformations —, mais un grain table ne se déclare pas colonne");
+  avert("voie « api-lineage-tracking » : lineage à la granularité TABLE, `confiance.niveau` = 0 (échelle REX X6 : les niveaux 1 à 3 sont des granularités COLONNE). La capture est bien runtime — c'est dit dans `confiance.methode` et dans le type des transformations —, mais une granularité table ne se déclare pas colonne");
   ecrireLineage({
     format: "forge-data/lineage@1",
     artefact: doc.artefact,
@@ -341,7 +341,7 @@ function traduireApiLineageTracking() {
     horodatage: horodatageApi || new Date().toISOString(),
     confiance: {
       niveau: 0,
-      methode: "traduction automatique des réponses de GET /api/2.0/lineage-tracking/table-lineage (Unity Catalog Databricks, include_entity_lineage=true) — capture runtime au grain TABLE, TF-0893 ; voie ouverte parce que system.access est refusé (SQLSTATE 42501, INSUFFICIENT_PERMISSIONS) sur un workspace réel avec les droits d'une mission. Niveau 0 : la capture est runtime mais le grain est table (REX X6)",
+      methode: "traduction automatique des réponses de GET /api/2.0/lineage-tracking/table-lineage (Unity Catalog Databricks, include_entity_lineage=true) — capture runtime à la granularité TABLE, TF-0893 ; voie ouverte parce que system.access est refusé (SQLSTATE 42501, INSUFFICIENT_PERMISSIONS) sur un workspace réel avec les droits d'une mission. Niveau 0 : la capture est runtime mais la granularité est table (REX X6)",
     },
     origine: { verbe: VERBE, voie: VOIE, source: path.basename(file) },
   }, {

@@ -1,0 +1,9 @@
+table Indexation
+	lineageTag: aaaaaaaa-0000-4000-8000-000000000001
+
+	column Val_indice_indexation
+		dataType: decimal
+		summarizeBy: sum
+
+	measure 'Indexation Indice' = SUM(Indexation[VAL_INDICE_INDEXATION])
+		formatString: #,0.00

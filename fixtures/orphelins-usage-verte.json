@@ -1,0 +1,3 @@
+{
+  "orphelins": ["Ventes.montant_ht", "Ventes.quantite", "Client.pays_facturation"]
+}

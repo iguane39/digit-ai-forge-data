@@ -27,10 +27,11 @@
 //   substitution de chaque dimension (la colonne visée par la relation) ; la dimension temps
 //   (`dataCategory: Time`) ; l'agrégation d'une mesure quand son DAX commence par une fonction
 //   d'agrégation reconnue.
-//   ABSENT de TMDL, structurellement : le GRAIN d'un fait en une phrase ; la CLÉ NATURELLE
+//   ABSENT de TMDL, structurellement : la GRANULARITÉ d'un fait en une phrase ; la CLÉ NATURELLE
 //   d'une dimension ; son TYPE DE CHANGEMENT LENT ; les bornes et la contiguïté de la dimension
 //   temps (propriétés de la DONNÉE, pas de la définition — forge-audit le déclare aussi en
-//   non_juge) ; la MATRICE EN BUS.
+//   non_juge) ; la MATRICE EN BUS ; les DÉCISIONS D'ARCHITECTURE qui ont façonné le modèle et le
+//   `pourquoi` de chaque fait (M7, TF-1170 : elles vivent au ledger du produit, jamais dans TMDL).
 //
 // ET CE VERBE NE LES INVENTE PAS. Un brouillon qui remplirait ces champs de valeurs
 // vraisemblables PASSERAIT `oracle-modeliser` en mentant — exactement le défaut que TF-0911
@@ -46,7 +47,9 @@
 // Format du complément :
 //   { "format": "forge-data/complement-modele@1", "id": "<id du modèle>",
 //     "matrice_bus": [ { "processus": …, "dimensions": [ … ] } ],
+//     "decisions":  [ { "id": "D-3", "qui": …, "date": "AAAA-MM-JJ", "quoi": … } ],
 //     "faits":      { "<table>": { "grain": "une ligne par …", "processus": "…",
+//                                  "pourquoi": "<prose lecteur>", "decision_ref": "D-3",
 //                                  "mesures": { "<mesure>": "<agrégation>" } } },
 //     "dimensions": { "<table>": { "cle_naturelle": "…", "type_changement": 0..3,
 //                                  "grain": "jour", "debut": "AAAA-MM-JJ", "fin": "AAAA-MM-JJ",
@@ -64,8 +67,11 @@
 //         [--sortie <fichier>] [--sortie-dir <dossier>] [--json-only]
 //         node scripts/traduire-modele-semantique.mjs --modele <dossier> --inventaire
 //         [--namespace <uri de l'instance>] [--date AAAA-MM-JJ] [--sortie <fichier>]
-//         node scripts/traduire-modele-semantique.mjs --modele <dossier> --resolution-dax
-//         [--sortie <fichier>]   # TF-0972 : résolution nommée des références DAX (forge-data/resolution-dax@1)
+//         node scripts/traduire-modele-semantique.mjs --modele <dossier> --resolution-references
+//         [--sortie <fichier>]   # TF-0972 : résolution NOMMÉE des références DAX
+//         node scripts/traduire-modele-semantique.mjs --modele <dossier> --usage-restitution
+//         --mise-en-page <fichier> [--orphelins <fichier>] [--sortie <fichier>]
+//         # TF-0971 : trois populations (affichee, lue_par_mesure, jamais_lue) + croisement couverture
 // Codes : 0 brouillon produit ; 1 échec d'écriture disque ; 2 entrée absente/illisible/
 // incohérente (aucune table, aucune relation, orientation indécidable) — jamais un modèle inventé.
 import fs from "node:fs";
@@ -169,135 +175,65 @@ if (!tables.size) sortir("ECHEC", 2, { erreur: "aucune table lue dans les fichie
 
 const idModele = path.basename(path.resolve(modeleArg)).replace(/\.SemanticModel$/i, "");
 
-// ---------- Mode --resolution-dax (TF-0972, 14/09/2026) : résolution NOMMÉE des références ------
-// LE FAIT MESURÉ. Sur les 160 mesures DAX d'un modèle réel, deux défauts faisaient perdre des
-// colonnes en SILENCE, sans une seule erreur affichée. (1) LA CASSE : DAX est insensible à la
-// casse ; `Indexation[VAL_INDICE_INDEXATION]` dans une mesure désigne bien la colonne déclarée
-// `Indexation[Val_indice_indexation]` du modèle, et une comparaison sensible à la casse perd la
-// référence. (2) LES RÉFÉRENCES NON QUALIFIÉES : `[Invoiced Rent N_]` cité dans la mesure
-// `Certified Turnover[AR1]` désigne une mesure de la table `Invoiced_Rent`, pas de la table
-// PORTEUSE — s'arrêter à la table porteuse a fait perdre 6 colonnes sur 8 d'une seule mesure.
-// Effet cumulé mesuré avant correction : 42 colonnes lues au lieu de 45, 279 colonnes déclarées
-// inutilisées au lieu de 276.
-//
-// LE CONTRAT DE RÉSOLUTION, NOMMÉ (et c'est lui qui est exigé, pas seulement son résultat) :
-//   - index insensible à la casse sur les tables, colonnes et mesures du modèle ;
-//   - une référence QUALIFIÉE (`Table[Membre]`) cherche « Membre » dans les COLONNES puis les
-//     MESURES de « Table » (recherche insensible à la casse sur les deux) ; si le préfixe ne
-//     désigne AUCUNE table du modèle, il est traité comme un mot du langage (mot-clé, variable)
-//     et « Membre » est cherché comme une référence NON QUALIFIÉE ;
-//   - une référence NON QUALIFIÉE (`[Membre]`) cherche D'ABORD dans la table PORTEUSE de la
-//     mesure qui la cite, PUIS — absente de la porteuse — dans le MODÈLE ENTIER ;
-//   - deux candidats trouvés au même niveau de recherche rendent la référence AMBIGUË, jamais
-//     tranchée par ordre d'apparition ;
-//   - une référence qui résout vers une MESURE est suivie par FERMETURE TRANSITIVE (avec
-//     détection de cycle) jusqu'à ses colonnes terminales.
-// LIMITE ASSUMÉE ET DITE : seule la tête d'une expression DAX repliée sur plusieurs lignes est
-// lue (même limite que la détection d'agrégation, ligne 74) — une référence posée sur une ligne
-// de continuation échappe à la résolution. Aucune fixture de ce dépôt n'a besoin de cette forme ;
-// un modèle réel qui l'emploierait le lirait comme une mesure « non_resolue » plutôt que faux.
-if (args.includes("--resolution-dax")) {
-  const REF_RE = /(?:'([^']*)'|([A-Za-z_]\w*))?\s*\[([^\[\]]+)\]/g;
-  const extraireReferences = dax => {
-    const refs = [];
-    let m;
-    REF_RE.lastIndex = 0;
-    while ((m = REF_RE.exec(dax || ""))) refs.push({ tablePrefixe: m[1] !== undefined ? m[1] : (m[2] !== undefined ? m[2] : null), membre: m[3].trim(), brut: m[0].trim() });
-    return refs;
-  };
-  const tableReelleDe = prefixe => [...tables.keys()].find(n => n.toLowerCase() === String(prefixe).toLowerCase());
-  const dansTable = (nomTable, membreLower) => {
-    const t = tables.get(nomTable);
-    if (!t) return null;
-    const col = t.colonnes.find(c => c.nom.toLowerCase() === membreLower);
-    if (col) return { type: "colonne", table: nomTable, nom: col.nom };
-    const mes = t.mesures.find(x => x.nom.toLowerCase() === membreLower);
-    if (mes) return { type: "mesure", table: nomTable, nom: mes.nom };
-    return null;
-  };
-  const resoudreNonQualifiee = (membre, tableOrigine) => {
-    const membreLower = membre.toLowerCase();
-    const dansPorteuse = dansTable(tableOrigine, membreLower);
-    if (dansPorteuse) return dansPorteuse;
-    const candidats = [];
-    for (const nomTable of tables.keys()) { const r = dansTable(nomTable, membreLower); if (r) candidats.push(r); }
-    if (candidats.length === 1) return candidats[0];
-    if (candidats.length > 1) return { type: "ambigue", candidats };
-    return { type: "non_resolue", motif: `« [${membre}] » : ni colonne ni mesure « ${membre} » dans la table porteuse « ${tableOrigine} », ni ailleurs dans le modèle` };
-  };
-  const resoudre = (tablePrefixe, membre, tableOrigine) => {
-    if (tablePrefixe) {
-      const tableReelle = tableReelleDe(tablePrefixe);
-      if (!tableReelle) return resoudreNonQualifiee(membre, tableOrigine); // préfixe inconnu du modèle : pas une table, traité non qualifié
-      const r = dansTable(tableReelle, membre.toLowerCase());
-      if (r) return r;
-      return { type: "non_resolue", motif: `« ${tablePrefixe}[${membre}] » : table « ${tableReelle} » connue, aucune colonne ni mesure « ${membre} »` };
-    }
-    return resoudreNonQualifiee(membre, tableOrigine);
-  };
-  const resoudreMesure = (nomTable, mesure, chemin) => {
-    const cleMesure = `${nomTable}[${mesure.nom}]`;
-    const colonnes = new Map(), mesuresTraversees = [], nonResolues = [], ambigues = [];
-    if (chemin.has(cleMesure)) { nonResolues.push({ mesure: cleMesure, motif: "cycle détecté entre mesures — fermeture transitive interrompue" }); return { colonnes, mesuresTraversees, nonResolues, ambigues }; }
-    const chemin2 = new Set(chemin); chemin2.add(cleMesure);
-    for (const r of extraireReferences(mesure.dax)) {
-      const res = resoudre(r.tablePrefixe, r.membre, nomTable);
-      if (res.type === "colonne") colonnes.set(`${res.table}.${res.nom}`, { table: res.table, colonne: res.nom });
-      else if (res.type === "mesure") {
-        const cleSous = `${res.table}[${res.nom}]`;
-        if (!mesuresTraversees.includes(cleSous)) mesuresTraversees.push(cleSous);
-        const sousTable = tables.get(res.table);
-        const sousMesure = sousTable && sousTable.mesures.find(x => x.nom === res.nom);
-        if (sousMesure) {
-          const sous = resoudreMesure(res.table, sousMesure, chemin2);
-          for (const [k, v] of sous.colonnes) colonnes.set(k, v);
-          for (const mm of sous.mesuresTraversees) if (!mesuresTraversees.includes(mm)) mesuresTraversees.push(mm);
-          nonResolues.push(...sous.nonResolues); ambigues.push(...sous.ambigues);
-        }
-      } else if (res.type === "ambigue") ambigues.push({ mesure: cleMesure, reference: r.brut, candidats: res.candidats.map(c => `${c.type === "mesure" ? `${c.table}[${c.nom}]` : `${c.table}.${c.nom}`}`) });
-      else nonResolues.push({ mesure: cleMesure, reference: r.brut, motif: res.motif });
-    }
-    return { colonnes, mesuresTraversees, nonResolues, ambigues };
-  };
+// ---------- Moteur de résolution des références DAX (TF-0972) — CALCULÉ UNE FOIS, consommé par
+// --resolution-references (qui le RENDLE) et --usage-restitution (qui s'en sert pour suivre une
+// mesure affichée jusqu'à ses colonnes de base). Contrat détaillé au commentaire du premier mode.
+const tableParNomBas = new Map();
+for (const nom of tables.keys()) tableParNomBas.set(nom.toLowerCase(), nom);
+const REF_DAX = /(?:'([^']+)'|([A-Za-z_]\w*))?\[([^\]]+)\]/g;
 
-  const mesuresOut = [];
-  let refsTotales = 0, refsResolues = 0, refsNonResolues = 0, refsAmbigues = 0;
-  for (const [nomTable, t] of tables) for (const me of t.mesures) {
-    const cleMesure = `${nomTable}[${me.nom}]`;
-    for (const r of extraireReferences(me.dax)) {
-      refsTotales++;
-      const res = resoudre(r.tablePrefixe, r.membre, nomTable);
-      if (res.type === "colonne" || res.type === "mesure") refsResolues++;
-      else if (res.type === "ambigue") { refsAmbigues++; avert(`mesure « ${cleMesure} » : référence « ${r.brut} » AMBIGUË — plusieurs candidats à la même profondeur de recherche, aucun tranché`); }
-      else { refsNonResolues++; avert(`mesure « ${cleMesure} » : référence « ${r.brut} » NON RÉSOLUE — ${res.motif}`); }
-    }
-    const fermeture = resoudreMesure(nomTable, me, new Set());
-    mesuresOut.push({
-      mesure: cleMesure, dax: me.dax || "",
-      colonnes: [...fermeture.colonnes.values()].map(c => `${c.table}.${c.colonne}`).sort(),
-      mesures_traversees: fermeture.mesuresTraversees.sort(),
-      references_non_resolues: fermeture.nonResolues,
-      references_ambigues: fermeture.ambigues,
-    });
+const resoudreDans = (nomTable, refBas) => {
+  const t = tables.get(nomTable);
+  if (!t) return null;
+  const col = t.colonnes.find(c => c.nom.toLowerCase() === refBas);
+  if (col) return { table: nomTable, objet: col.nom, type: "colonne" };
+  const mes = t.mesures.find(m => m.nom.toLowerCase() === refBas);
+  if (mes) return { table: nomTable, objet: mes.nom, type: "mesure" };
+  return null;
+};
+
+const resoudreReferenceDax = (tableQualifiee, refBrut, tablePorteuse) => {
+  const refBas = refBrut.toLowerCase();
+  if (tableQualifiee) {
+    const nomReel = tableParNomBas.get(tableQualifiee.toLowerCase());
+    if (!nomReel) return { statut: "non_resolue", motif: `table « ${tableQualifiee} » inconnue du modèle` };
+    const r = resoudreDans(nomReel, refBas);
+    return r ? { statut: "resolue", ...r } : { statut: "non_resolue", motif: `« ${refBrut} » absente de la table « ${nomReel} »` };
   }
-  const tauxResolution = refsTotales ? Math.round((refsResolues / refsTotales) * 1000) / 10 : 100;
-  const doc = {
-    format: "forge-data/resolution-dax@1",
-    id: idModele,
-    mesures: mesuresOut,
-    compte: { mesures: mesuresOut.length, references_totales: refsTotales, resolues: refsResolues, non_resolues: refsNonResolues, ambigues: refsAmbigues, taux_resolution: tauxResolution },
-    origine: { verbe: VERBE, mode: "resolution-dax", source: path.relative(process.cwd(), modeleArg).replace(/\\/g, "/") || modeleArg, fichiers_tmdl: fichiers.length },
-  };
-  let cible = sortieArg;
-  if (!cible) {
-    const outDir = sortieDirArg || path.dirname(path.resolve(modeleArg));
-    try { fs.mkdirSync(outDir, { recursive: true }); } catch (e) { sortir("ECHEC", 1, { erreur: `dossier de sortie impossible à créer : ${e.message}` }); }
-    cible = path.join(outDir, `${idModele}.resolution-dax.json`);
+  const local = resoudreDans(tablePorteuse, refBas);
+  if (local) return { statut: "resolue", ...local };
+  const candidats = [...tables.keys()].filter(n => n !== tablePorteuse).map(n => resoudreDans(n, refBas)).filter(Boolean);
+  if (candidats.length === 1) return { statut: "resolue", ...candidats[0] };
+  if (candidats.length > 1) return { statut: "ambigue", motif: `« ${refBrut} » trouvée dans ${candidats.length} tables : ${candidats.map(c => c.table).join(", ")}`, candidats };
+  return { statut: "non_resolue", motif: `« ${refBrut} » absente de la table porteuse « ${tablePorteuse} » et du reste du modèle` };
+};
+
+const mesuresParCle = new Map();
+for (const [nomTable, t] of tables) for (const m of t.mesures) {
+  const refs = [];
+  let match;
+  const re = new RegExp(REF_DAX.source, "g");
+  while ((match = re.exec(m.dax || "")) !== null) {
+    const tableQualifiee = match[1] || match[2] || null;
+    const refBrut = match[3];
+    refs.push({ brut: `${tableQualifiee || ""}[${refBrut}]`, resolution: resoudreReferenceDax(tableQualifiee, refBrut, nomTable) });
   }
-  try { fs.writeFileSync(cible, JSON.stringify(doc, null, 2) + "\n"); }
-  catch (e) { sortir("ECHEC", 1, { erreur: `écriture impossible : ${e.message}` }); }
-  sortir("OK", 0, { compte: doc.compte, fichier_produit: cible });
+  mesuresParCle.set(`${nomTable}[${m.nom}]`, { table: nomTable, nom: m.nom, dax: m.dax || "", references: refs });
 }
+
+const colonnesAtteintes = (cle, vus = new Set()) => {
+  if (vus.has(cle)) return [];
+  vus.add(cle);
+  const m = mesuresParCle.get(cle);
+  if (!m) return [];
+  const out = [];
+  for (const r of m.references) {
+    if (r.resolution.statut !== "resolue") continue;
+    if (r.resolution.type === "colonne") out.push(`${r.resolution.table}.${r.resolution.objet}`);
+    else out.push(...colonnesAtteintes(`${r.resolution.table}[${r.resolution.objet}]`, vus));
+  }
+  return [...new Set(out)];
+};
 
 // ---------- Mode --inventaire (TF-0917) : le bloc source.inventaire de forge-data/couverture@1 ----
 // `oracle-couvrir` (TF-0911) attend un inventaire DÉJÀ relevé, et ce verbe lit précisément la
@@ -353,6 +289,167 @@ if (args.includes("--inventaire") || args.includes("--couverture")) {
     statut: "brouillon",
     fichier_produit: cible,
   });
+}
+
+// ---------- Mode --resolution-references (TF-0972) : résolution NOMMÉE des références DAX -------
+// Mesure sur les 160 mesures DAX d'un modèle réel (Produit-62, RD-10, ledger seq 63-65) :
+// (1) LA CASSE — DAX est insensible à la casse ; une comparaison sensible perd la référence
+//     (« Indexation Indice » ne lisait plus aucune colonne d'indice) ;
+// (2) LES RÉFÉRENCES NON QUALIFIÉES — [Ref] cherchée SEULEMENT dans la table porteuse s'arrête
+//     trop tôt quand la mesure visée vit dans une AUTRE table (« EFFORT RATE (AR) » ne
+//     remontait que 2 colonnes sur 8 attendues).
+// Effet cumulé avant correction : 42 colonnes lues au lieu de 45, 279 colonnes déclarées
+// inutilisées au lieu de 276 — un SOUS-COMPTAGE SILENCIEUX, sans une seule erreur affichée.
+//
+// LE CONTRAT (celui que ce mode expose, et qu'aucun outil de la forge ne prononçait) :
+//   - index insensible à la casse sur les noms de table, de colonne et de mesure ;
+//   - une référence QUALIFIÉE (`Table[Ref]` ou `'Table Name'[Ref]`) se résout dans CETTE
+//     table (colonne, puis mesure) ; table inconnue ou référence absente → NON RÉSOLUE ;
+//   - une référence NON QUALIFIÉE (`[Ref]`) se cherche D'ABORD dans la table PORTEUSE de la
+//     mesure (colonne, puis mesure), PUIS dans le reste du modèle si elle n'y est pas ;
+//     trouvée dans plusieurs autres tables → AMBIGUË (candidats nommés) ; nulle part →
+//     NON RÉSOLUE ;
+//   - FERMETURE TRANSITIVE : une référence résolue vers une MESURE fait suivre la résolution
+//     dans les références DE CETTE MESURE, jusqu'à n'obtenir que des colonnes — sans elle,
+//     une mesure qui n'appelle que d'autres mesures seurait comptée comme n'atteignant AUCUNE
+//     colonne (protection anti-cycle : une mesure déjà visitée ne se revisite pas) ;
+//   - un JOURNAL des références non résolues et ambiguës est rendu AVEC le résultat, jamais
+//     à part — c'est ce zéro (ou ce compte) qui rend le relevé opposable.
+// Limite déclarée (non_juge) : seule la PREMIÈRE ligne de l'expression DAX d'une mesure est
+// lue (comme pour l'agrégation dérivée, cf. en-tête de ce verbe) — une expression repliée sur
+// plusieurs lignes n'est pas résolue au-delà de sa première ligne.
+if (args.includes("--resolution-references")) {
+  const mesures = [];
+  const nonResolues = [], ambigues = [];
+  let totalRefs = 0, totalResolues = 0;
+  for (const [cle, m] of mesuresParCle) {
+    totalRefs += m.references.length;
+    for (const r of m.references) {
+      if (r.resolution.statut === "resolue") totalResolues++;
+      else if (r.resolution.statut === "ambigue") ambigues.push({ mesure: cle, reference: r.brut, motif: r.resolution.motif });
+      else nonResolues.push({ mesure: cle, reference: r.brut, motif: r.resolution.motif });
+    }
+    mesures.push({ mesure: cle, dax: m.dax, references: m.references.map(r => ({ reference: r.brut, resolution: r.resolution })), colonnes_atteintes: colonnesAtteintes(cle) });
+  }
+  const taux = totalRefs ? Math.round((totalResolues / totalRefs) * 1000) / 10 : 100;
+  const doc = {
+    format: "forge-data/resolution-references@1",
+    id: `resolution_${idModele}`,
+    modele: idModele,
+    mesures,
+    journal: { non_resolues: nonResolues, ambigues },
+    compte: { references: totalRefs, resolues: totalResolues, non_resolues: nonResolues.length, ambigues: ambigues.length, taux_resolution: taux },
+  };
+  let cible = sortieArg;
+  if (cible) { try { fs.writeFileSync(cible, JSON.stringify(doc, null, 2) + "\n"); } catch (e) { sortir("ECHEC", 1, { erreur: `écriture impossible : ${e.message}` }); } }
+  sortir("OK", 0, { compte: doc.compte, fichier_produit: cible || null, document: cible ? undefined : doc });
+}
+
+// ---------- Mode --usage-restitution (TF-0971) : trois populations, jamais une seule mesure --
+// FAIT MESURÉ (Produit-62, RD-9, ledger seq 63-65) : `oracle-couvrir` compare un mapping à
+// L'INVENTAIRE DE SA SOURCE (342 colonnes du modèle) — jamais à ce qui est réellement À
+// L'ÉCRAN. Relevé manuel : 66 colonnes seulement mobilisées par 83 champs de 16 visuels
+// porteurs de données (21 projetées telles quelles, 45 lues par 54 mesures DAX affichées),
+// 276 jamais lues, 10 tables sur 27 entièrement inutilisées. Conséquence directe sur la
+// priorité : des 38 colonnes sans ligne de mapping, 20 sont réellement mobilisées et 18 ne le
+// sont pas — la dette bloquante mesurée est deux fois plus petite que celle que la couverture
+// seule annonce, et sans ce croisement rien ne peut le dire.
+//
+// LECTEUR DE MISE EN PAGE, à côté du lecteur de modèle : entrée `--mise-en-page <fichier>`,
+// format `forge-data/mise-en-page@1` — { rapport, pages: [ { page, visuels: [ { visuel,
+// porte_donnees?, projections: [ { champ } ] } ] } ] }, `champ` dans la MÊME nomenclature que
+// `--inventaire` (`Table.colonne` pour une projection directe, `Table[Mesure]` pour une mesure
+// affichée). Un visuel décoratif (image, forme, texte libre) se déclare `porte_donnees: false`
+// et ne projette rien — jamais deviné à la forme du nom.
+//
+// TROIS POPULATIONS, JAMAIS UNE SEULE : `affichee` (colonne projetée telle quelle par un
+// visuel), `lue_par_mesure` (colonne atteinte par FERMETURE TRANSITIVE depuis une mesure
+// affichée — le moteur de résolution de TF-0972, réemployé, jamais réécrit), `jamais_lue` (ni
+// l'une ni l'autre). Un champ projeté qui ne résout à AUCUNE colonne ni mesure du modèle est
+// un `champ_inconnu`, averti, jamais silencieusement ignoré.
+//
+// CROISEMENT AVEC LA COUVERTURE (optionnel, `--orphelins <fichier.json>`, `{ orphelins:
+// ["Table.colonne", …] }` — la liste que rend `oracle-couvrir.mjs` sur ses colonnes sans ligne
+// de mapping) : RÈGLE OPPOSABLE, une couverture de reconstruction se mesure D'ABORD sur les
+// colonnes MOBILISÉES (`affichee` ∪ `lue_par_mesure`) — un orphelin `jamais_lue` se déclare en
+// EXCLUSION MOTIVÉE (`oracle-couvrir`, règle `exclusion`) au lieu de gonfler la dette.
+if (args.includes("--usage-restitution")) {
+  const miseEnPageArg = opt("--mise-en-page");
+  if (!miseEnPageArg || !fs.existsSync(miseEnPageArg))
+    sortir("ECHEC", 2, { erreur: `mise en page introuvable : ${miseEnPageArg} — --mise-en-page <fichier.json> est requis` });
+  let mep;
+  try { mep = JSON.parse(fs.readFileSync(miseEnPageArg, "utf8")); }
+  catch (e) { sortir("ECHEC", 2, { erreur: `mise en page illisible (JSON attendu) : ${e.message}` }); }
+  if (mep.format !== "forge-data/mise-en-page@1")
+    sortir("ECHEC", 2, { erreur: `mise en page au format « ${mep.format} » (attendu forge-data/mise-en-page@1)` });
+
+  const toutesColonnes = new Set();
+  for (const [nomTable, t] of tables) for (const c of t.colonnes) toutesColonnes.add(`${nomTable}.${c.nom}`);
+
+  const affichee = new Set();
+  const lueParMesure = new Set();
+  const champsInconnus = [];
+  for (const page of (Array.isArray(mep.pages) ? mep.pages : [])) {
+    for (const v of (Array.isArray(page.visuels) ? page.visuels : [])) {
+      if (v.porte_donnees === false) continue; // un visuel décoratif ne projette rien — déclaré, jamais deviné
+      for (const p of (Array.isArray(v.projections) ? v.projections : [])) {
+        const champ = String(p?.champ || "");
+        const mMesure = champ.match(/^(.+)\[(.+)\]$/);
+        if (mMesure) {
+          const [, nomTable, nomMesure] = mMesure;
+          const t = tables.get(nomTable);
+          const mesure = t && t.mesures.find(m => m.nom.toLowerCase() === nomMesure.toLowerCase());
+          if (!mesure) { champsInconnus.push({ page: page.page, visuel: v.visuel, champ }); continue; }
+          for (const c of colonnesAtteintes(`${nomTable}[${mesure.nom}]`)) lueParMesure.add(c);
+        } else if (toutesColonnes.has(champ)) {
+          affichee.add(champ);
+        } else {
+          champsInconnus.push({ page: page.page, visuel: v.visuel, champ });
+        }
+      }
+    }
+  }
+  const jamaisLue = [...toutesColonnes].filter(c => !affichee.has(c) && !lueParMesure.has(c));
+  const tablesJamaisLues = [...tables.keys()].filter(nomTable => {
+    const colsTable = [...toutesColonnes].filter(c => c.startsWith(`${nomTable}.`));
+    return colsTable.length > 0 && colsTable.every(c => jamaisLue.includes(c));
+  });
+
+  let croisementCouverture = null;
+  const orphelinsArg = opt("--orphelins");
+  if (orphelinsArg) {
+    if (!fs.existsSync(orphelinsArg)) sortir("ECHEC", 2, { erreur: `fichier d'orphelins introuvable : ${orphelinsArg}` });
+    let orph;
+    try { orph = JSON.parse(fs.readFileSync(orphelinsArg, "utf8")); }
+    catch (e) { sortir("ECHEC", 2, { erreur: `fichier d'orphelins illisible (JSON attendu) : ${e.message}` }); }
+    const listeOrphelins = Array.isArray(orph?.orphelins) ? orph.orphelins : [];
+    const mobilises = listeOrphelins.filter(o => affichee.has(o) || lueParMesure.has(o));
+    const nonMobilises = listeOrphelins.filter(o => !affichee.has(o) && !lueParMesure.has(o));
+    croisementCouverture = {
+      source: path.relative(process.cwd(), orphelinsArg).replace(/\\/g, "/") || orphelinsArg,
+      orphelins_declares: listeOrphelins.length,
+      orphelins_mobilises: mobilises.length,
+      orphelins_non_mobilises: nonMobilises.length,
+      detail: { mobilises, non_mobilises: nonMobilises },
+    };
+  }
+
+  const doc = {
+    format: "forge-data/usage-restitution@1",
+    id: `usage_${idModele}`,
+    modele: idModele,
+    rapport: mep.rapport || null,
+    populations: { affichee: [...affichee], lue_par_mesure: [...lueParMesure], jamais_lue: jamaisLue },
+    champs_inconnus: champsInconnus,
+    croisement_couverture: croisementCouverture,
+    compte: {
+      colonnes_modele: toutesColonnes.size, affichee: affichee.size, lue_par_mesure: lueParMesure.size,
+      jamais_lue: jamaisLue.length, tables_jamais_lues: tablesJamaisLues,
+    },
+  };
+  let cible = sortieArg;
+  if (cible) { try { fs.writeFileSync(cible, JSON.stringify(doc, null, 2) + "\n"); } catch (e) { sortir("ECHEC", 1, { erreur: `écriture impossible : ${e.message}` }); } }
+  sortir("OK", 0, { compte: doc.compte, champs_inconnus: champsInconnus, fichier_produit: cible || null, document: cible ? undefined : doc });
 }
 
 const refDe = ref => { const m = String(ref || "").match(/^('([^']+)'|[^.]+)\.(.+)$/); return m ? { table: nomDe(m[1]), colonne: nomDe(m[3]) } : null; };
@@ -414,9 +511,16 @@ for (const nom of nomsFaits) {
   if (!t.mesures.length) aCompleter(`fait « ${nom} » : aucune mesure définie sur cette table dans le modèle — un fait sans mesure ne sert aucune question (M2)`);
   const fait = { nom, dimensions: dimsDuFait, mesures };
   const grain = cf.grain;
-  if (grain) fait.grain = grain; else aCompleter(`fait « ${nom} » : GRAIN absent — TMDL ne porte pas la phrase de grain (« une ligne par … ») ; à déclarer au complément (M2)`);
+  if (grain) fait.grain = grain; else aCompleter(`fait « ${nom} » : GRANULARITÉ absente — TMDL ne porte pas la phrase de granularité (« une ligne par … ») ; à déclarer au complément (M2)`);
   const processus = cf.processus;
   if (processus) fait.processus = processus; else aCompleter(`fait « ${nom} » : PROCESSUS métier absent — il n'existe pas dans TMDL ; à déclarer au complément avec la ligne correspondante de la matrice en bus (M6)`);
+  // TF-1170 — le POURQUOI d'un fait et la décision qui l'a tranché vivent au ledger du produit,
+  // jamais dans TMDL : les déduire du nom des tables serait la prose vraisemblable que ce verbe
+  // refuse, et c'est elle qui a fait dénoncer comme un défaut une décision du commanditaire.
+  if (cf.pourquoi) fait.pourquoi = cf.pourquoi;
+  else aCompleter(`fait « ${nom} » : POURQUOI absent — la prose qui dit au lecteur quel processus ce fait sert et quel choix l'a créé n'existe pas dans TMDL ; à déclarer au complément (M7)`);
+  if (cf.decision_ref) fait.decision_ref = cf.decision_ref;
+  else aCompleter(`fait « ${nom} » : DECISION_REF absent — l'arbitrage qui a créé ce fait vit au ledger (qui, quand, quoi) ; à déclarer au complément avec le bloc \`decisions\` (M7)`);
   faits.push(fait);
 }
 
@@ -437,13 +541,13 @@ for (const [nom, cleSub] of nomsDims) {
   if ([0, 1, 2, 3].includes(cd.type_changement)) dim.type_changement = cd.type_changement;
   else aCompleter(`dimension « ${nom} » : TYPE DE CHANGEMENT LENT absent — il n'existe pas dans TMDL ; à déclarer au complément, jeu {0, 1, 2, 3} (M4)`);
   if (estTemps) {
-    // Le grain, les bornes et la CONTIGUÏTÉ d'une dimension temps sont des propriétés de la
+    // La granularité, les bornes et la CONTIGUÏTÉ d'une dimension temps sont des propriétés de la
     // DONNÉE, pas de la définition — forge-audit le déclare aussi en non_juge. Les lire dans un
     // fichier TMDL serait les inventer.
     for (const [cle, regle] of [["grain", "M5"], ["debut", "M5"], ["fin", "M5"], ["contigue", "M5"]]) {
       const v = completer(undefined, cd, cle, `dimension « ${nom} »`);
       if (v !== undefined) dim[cle] = v;
-      else aCompleter(`dimension temps « ${nom} » : « ${cle} » absent — grain, bornes et contiguïté se mesurent sur la DONNÉE, jamais dans la définition TMDL ; à déclarer au complément (${regle})`);
+      else aCompleter(`dimension temps « ${nom} » : « ${cle} » absent — granularité, bornes et contiguïté se mesurent sur la DONNÉE, jamais dans la définition TMDL ; à déclarer au complément (${regle})`);
     }
   }
   dimensions.push(dim);
@@ -458,6 +562,8 @@ const brouillon = {
   origine: { verbe: VERBE, source: path.relative(process.cwd(), modeleArg).replace(/\\/g, "/") || modeleArg,
              fichiers_tmdl: fichiers.length, complement: complementArg || null, statut: A_COMPLETER.length ? "brouillon" : "complete" },
 };
+if (Array.isArray(comp.decisions) && comp.decisions.length) brouillon.decisions = comp.decisions;
+else aCompleter("DÉCISIONS D'ARCHITECTURE absentes — elles sont tranchées par un humain et consignées à son ledger, jamais lisibles dans TMDL ; à déclarer au complément (qui, quand, quoi) pour que le livrable porte les choix qui l'ont façonné (M7)");
 if (Array.isArray(comp.matrice_bus) && comp.matrice_bus.length) brouillon.matrice_bus = comp.matrice_bus;
 else aCompleter("MATRICE EN BUS absente — elle PRÉCÈDE le modèle (processus métier × dimensions) et ne se relit pas dans le modèle construit : la dériver du TMDL satisferait M6 sans rien vouloir dire. À déclarer au complément (M6)");
 

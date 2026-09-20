@@ -1,0 +1,31 @@
+{
+  "format": "forge-data/reconstruction@1",
+  "id": "reconstruction_repli_motive_fixture",
+  "mode": "repli_genere",
+  "motif_du_repli": "le Layout d'origine est chiffré par le client et illisible hors de son domaine : la mise en page est générée, décision D-41 du 2026-09-17",
+  "tolerance_px": 0,
+  "source": {
+    "origine": "entree/Rapport locatif (fixture).pbix › Report/Layout",
+    "releve_par": "inventaire des pages fourni par le client (fixture synthétique)",
+    "date": "2026-09-17",
+    "pages": [
+      { "page": "Etat locatif", "largeur": 1280, "hauteur": 720, "ordre": 0, "visible": true,
+        "visuels": [
+          { "visuel": "segment_periode", "type": "slicer", "x": 16, "y": 64, "largeur": 210, "hauteur": 76 },
+          { "visuel": "tableau_baux", "type": "tableEx", "x": 16, "y": 150, "largeur": 1248, "hauteur": 540 }
+        ] }
+    ],
+    "ressources": ["Theme Client 2024.json"]
+  },
+  "produit": {
+    "origine": "sortie/Projet Power BI (fixture) - mise en page generee/report.json",
+    "pages": [
+      { "page": "Etat locatif", "largeur": 1600, "hauteur": 900, "ordre": 0, "visible": true,
+        "visuels": [
+          { "visuel": "segment_periode", "type": "slicer", "x": 0, "y": 0, "largeur": 210, "hauteur": 76 },
+          { "visuel": "tableau_baux", "type": "tableEx", "x": 0, "y": 80, "largeur": 1600, "hauteur": 820 }
+        ] }
+    ],
+    "ressources": []
+  }
+}

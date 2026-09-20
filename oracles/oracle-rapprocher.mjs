@@ -1,186 +1,132 @@
 #!/usr/bin/env node
-// oracle-rapprocher — Domaine « Rapprochement d'un modèle avec un EXTRAIT du rapport livré par
-// le client : la seule preuve EXTERNE qu'une reconstruction visera juste » (déterministe).
-// TF-0975, 14/09/2026.
+// oracle-rapprocher — Domaine « Rapprochement modèle ↔ extrait externe » (déterministe).
+// TF-0975, 14/09/2026, retour Produit-62 (RETOURS 20260908k + ledger seq 69).
 //
-// CE QUE LES DEUX ORACLES VOISINS NE MESURENT PAS, ET LEUR EN-TÊTE LE DIT. `oracle-couvrir`
-// compare un mapping à l'INVENTAIRE DE SA SOURCE — donc en AMONT, jamais à ce que l'aval publie.
-// `oracle-reconcilier` compare deux lots de VALEURS de mesures identifiées sous tolérance, et son
-// non_juge écarte explicitement la structure. Or ce qu'un client remet quand on lui demande à quoi
-// ressemble le rapport est un EXPORT : des intitulés et des lignes — ni un inventaire de source, ni
-// des valeurs mesurées. Sans un rapprochement DIRECT entre le modèle et cet export, la cible d'une
-// reconstruction reste une hypothèse argumentée ; avec lui, elle est prouvée contre une PIÈCE DU
-// CLIENT.
+// POURQUOI CET ORACLE. Les deux oracles voisins mesurent autre chose, et leur en-tête le dit :
+// `oracle-couvrir` compare un mapping à l'INVENTAIRE DE SA SOURCE (donc en AMONT, jamais à ce
+// que l'aval publie) ; `oracle-reconcilier` compare deux lots de VALEURS de mesures déjà
+// identifiées, sous tolérance, et son non_juge écarte explicitement la structure. Ce qu'un
+// client remet quand on lui demande à quoi ressemble le rapport est un EXPORT — des intitulés
+// et des lignes — et rien ne rapprochait un modèle de reconstruction de cette pièce EXTERNE.
+// Mesure réelle : 60 en-têtes d'un tableau livré et 60 colonnes d'une feuille d'export
+// correspondent un pour un, au même libellé et au même rang, zéro orphelin dans les deux
+// sens ; 60 des 66 colonnes du modèle sont portées par l'extrait, 6 ne le sont pas et chacune
+// porte sa raison écrite. Sans ce rapprochement la cible restait une hypothèse argumentée ;
+// avec lui elle est prouvée contre une pièce du client.
 //
-// TROIS EXIGENCES, ET CE SONT EXACTEMENT CELLES QU'IL A FALLU ÉCRIRE À LA MAIN SANS CET ORACLE :
-//   RP1-RP2  squelette et unicité : modèle et extrait déclarés, chaque objet et chaque intitulé
-//            nommé une seule fois ;
-//   RP3      DICTIONNAIRE DE CONCEPTS DÉCLARÉ : toute correspondance NON LITTÉRALE passe par une
-//            entrée { intitule_extrait, objet_modele, motif } — jamais par une ressemblance de
-//            noms CALCULÉE. Une entrée dont l'intitulé ou l'objet n'existe dans AUCUNE des deux
-//            sources est un intitulé INVENTÉ, refusé ;
-//   RP4      LE RAPPROCHEMENT SE LIT DANS LES DEUX SENS, côté modèle d'abord : tout objet du
-//            modèle est RAPPROCHÉ (littéralement, ou par le dictionnaire) OU DÉCLARÉ ABSENT avec
-//            son motif ET le visuel qui l'explique — jamais les deux à la fois. Sans cette règle,
-//            « absent » et « oublié » sont INDISCERNABLES (la leçon de CV5 d'`oracle-couvrir`,
-//            transposée au rapprochement) ;
-//   RP5      cohérence des absences : un objet déclaré absent existe bien dans le modèle ;
-//   RP6      et côté EXTRAIT : un intitulé de l'extrait SANS équivalent au modèle est un ÉCART DE
-//            PLEIN DROIT — jamais un silence. Toujours informationnel : découvrir ces intitulés
-//            EST la valeur du rapprochement (28 colonnes sorties de leur périmètre par ce biais
-//            sur le cas mesuré), pas une anomalie à corriger dans ce document ;
-//   RP7      un `taux_declare` se RECALCULE, il ne se recopie pas (même défaut que CV6 : un taux
-//            recopié d'une synthèse précédente est ce qui laisse passer un rapprochement faux).
+// Format `forge-data/rapprochement@1` :
+//   { modele: { nom, objets: [string] }, extrait: { nom, intitules: [string] },
+//     dictionnaire?: [ { concept, cote_modele, cote_extrait } ],
+//     correspondances: [ { objet_modele, intitule_extrait, via: "litteral"|"dictionnaire" } ],
+//     ecarts_extrait: [ { intitule, motif? } ],
+//     absents_extrait: [ { objet_modele, motif, visuel } ] }
 //
-// Deux taux : `taux.retenu` = rapprochés / (objets du modèle − absences déclarées) ; `taux.brut` =
-// rapprochés / objets du modèle. RP7 juge `taux_declare` contre `taux.retenu`.
-//
-// non_juge : la JUSTESSE MÉTIER d'une correspondance du dictionnaire ou d'un motif d'absence —
-// l'oracle exige qu'ils existent et soient formés, il ne les arbitre pas ; la détection d'un
-// rapprochement NON déclaré qui existerait par ressemblance de noms approximative (l'oracle ne
-// calcule aucune ressemblance, c'est l'exigence RP3 elle-même) ; la correction d'un intitulé côté
-// extrait (RP6 le compte et le nomme, il ne dit jamais qu'il faut l'ajouter au modèle ou l'écarter).
+//   RA1  format + id ; modele.objets et extrait.intitules non vides ;
+//   RA2  BIJECTION dans les DEUX SENS : tout intitulé de l'extrait est soit apparié
+//        (`correspondances`), soit déclaré en écart (`ecarts_extrait`) — un intitulé ni
+//        l'un ni l'autre est un OUBLI, exactement ce qu'une lecture à sens unique ne voit
+//        jamais (c'est là que 28 colonnes sont sorties : 20 au TS commerce, 8 au TS gestion
+//        loc) ; tout objet du modèle est soit apparié, soit déclaré absent
+//        (`absents_extrait`) ;
+//   RA3  toute correspondance non littérale (`via: "dictionnaire"`) référence une entrée du
+//        `dictionnaire` DÉCLARÉE ; et le dictionnaire n'invente rien : `cote_modele` doit
+//        exister dans `modele.objets`, `cote_extrait` dans `extrait.intitules` — un concept
+//        qui cite un intitulé absent des deux sources est refusé (mesuré : 0 intitulé
+//        inventé sur 120 cités) ;
+//   RA4  chaque objet du modèle ABSENT de l'extrait porte un `motif` (≥ 4 mots, même
+//        convention que CV4 d'`oracles/oracle-couvrir.mjs`) ET le `visuel` qui l'explique —
+//        sinon absent et OUBLIÉ sont indiscernables (la leçon des exclusions déclarées de
+//        CV4, transposée au rapprochement).
+// non_juge : la pertinence métier d'un motif ou d'un concept de dictionnaire — l'oracle
+// exige l'un et l'autre, il ne les arbitre pas ; la lecture de l'export lui-même (isolement
+// des lignes non-données — `scripts/isoler-lignes-non-donnees.mjs`, TF-0976, à exécuter
+// avant) ; la correspondance colonne à colonne à la granularité VALEUR (oracle-reconcilier).
 // Usage : node oracle-rapprocher.mjs <rapprochement.json> [--json-only]
 import fs from "node:fs";
 
-const DOM = "Rapprochement d'un modèle avec un extrait du rapport livré par le client (RP1-RP7)";
+const DOM = "Rapprochement modèle ↔ extrait externe, bijection dans les deux sens (RA1-RA4)";
 const NON_JUGE = [
-  "la JUSTESSE MÉTIER d'une correspondance du dictionnaire — l'oracle exige qu'elle existe dans les deux sources et porte un motif, il ne l'arbitre pas",
-  "la JUSTESSE MÉTIER d'un motif ou d'un visuel d'absence — un motif bien formé peut être faux, l'oracle ne le vérifie pas sur le terrain",
-  "un rapprochement NON déclaré qui existerait par ressemblance de noms APPROXIMATIVE — l'oracle ne calcule aucune ressemblance ; c'est l'exigence RP3 elle-même, pas une limite qui la contournerait",
-  "que faire d'un intitulé côté extrait sans équivalent (RP6) — l'oracle le compte et le nomme, il ne dit jamais s'il faut l'ajouter au modèle ou l'écarter : cette décision reste humaine",
+  "la pertinence métier d'un motif d'absence ou d'un concept de dictionnaire — l'oracle exige le motif et le concept, il ne les arbitre pas",
+  "la lecture de l'export lui-même (isolement des lignes non-données) — `scripts/isoler-lignes-non-donnees.mjs`, TF-0976, à exécuter en amont",
+  "la correspondance à la granularité VALEUR (deux lots de mesures sous tolérance) — `oracles/oracle-reconcilier.mjs` de ce dépôt",
+  "la complétude du mapping contre l'inventaire de sa source — `oracles/oracle-couvrir.mjs` de ce dépôt, qui mesure l'AMONT quand celui-ci mesure l'AVAL",
 ];
-const MOTIF_MIN_MOTS = 4;
-const motifValide = m => typeof m === "string" && m.trim().split(/\s+/).filter(Boolean).length >= MOTIF_MIN_MOTS;
-const norm = s => String(s || "").trim().toLowerCase().replace(/\s+/g, " ");
 
 const args = process.argv.slice(2);
 const file = args.find(a => !a.startsWith("--"));
 const jsonOnly = args.includes("--json-only");
 const F = [];
 const add = (sev, regle, msg, where) => F.push({ sev, regle, msg, where });
-let rapprochement = null;
-const out = (verdict, code) => {
+const out = (verdict, code, extra = {}) => {
   process.stdout.write(JSON.stringify({ oracle: "oracle-rapprocher", domaine: DOM, artefact: file || null,
-    verdict, rapprochement, findings: F.length ? F : [{ sev: "info", regle: "—", msg: "RP1-RP7 sans écart", where: file }],
-    non_juge: NON_JUGE }, null, jsonOnly ? 0 : 2));
+    verdict, findings: F.length ? F : [{ sev: "info", regle: "—", msg: "RA1-RA4 sans écart", where: file }],
+    non_juge: NON_JUGE, ...extra }, null, jsonOnly ? 0 : 2));
   process.exit(code);
 };
-if (!file || !fs.existsSync(file)) { add("info", "RP1", "fichier introuvable", String(file)); out("SKIP", 2); }
+if (!file || !fs.existsSync(file)) { add("info", "RA1", "fichier introuvable", String(file)); out("FAIL", 2); }
 let d = null;
-try { d = JSON.parse(fs.readFileSync(file, "utf8")); } catch { add("bloquant", "RP1", "JSON invalide", file); out("FAIL", 1); }
+try { d = JSON.parse(fs.readFileSync(file, "utf8")); } catch { add("bloquant", "RA1", "JSON invalide", file); out("FAIL", 1); }
 
-// ---- RP1 · squelette -------------------------------------------------------------------------
-if (d.format !== "forge-data/rapprochement@1") add("bloquant", "RP1", `format « ${d.format} » (attendu forge-data/rapprochement@1)`, file);
-if (!d.id) add("bloquant", "RP1", "id du rapprochement non nommé", file);
-const modele = d.modele && typeof d.modele === "object" ? d.modele : null;
-const extrait = d.extrait && typeof d.extrait === "object" ? d.extrait : null;
-if (!modele) add("bloquant", "RP1", "bloc « modele » absent — sans lui, rien à rapprocher", file);
-if (!extrait) add("bloquant", "RP1", "bloc « extrait » absent — la pièce du client, sans elle le rapprochement n'est pas EXTERNE", file);
-const objetsBruts = modele && Array.isArray(modele.objets) ? modele.objets : [];
-const intitulesBruts = extrait && Array.isArray(extrait.intitules) ? extrait.intitules : [];
-if (modele && !objetsBruts.length) add("bloquant", "RP1", "modele.objets absent ou vide", "modele");
-if (extrait && !intitulesBruts.length) add("bloquant", "RP1", "extrait.intitules absent ou vide", "extrait");
+// RA1
+if (d.format !== "forge-data/rapprochement@1") add("bloquant", "RA1", `format « ${d.format} » (attendu forge-data/rapprochement@1)`, file);
+if (!d.id) add("bloquant", "RA1", "id du rapprochement non nommé", file);
+const objetsModele = Array.isArray(d.modele?.objets) ? d.modele.objets : [];
+const intitulesExtrait = Array.isArray(d.extrait?.intitules) ? d.extrait.intitules : [];
+if (!objetsModele.length) add("bloquant", "RA1", "modele.objets absent ou vide", file);
+if (!intitulesExtrait.length) add("bloquant", "RA1", "extrait.intitules absent ou vide", file);
 
-// ---- RP2 · unicité, chaque objet et chaque intitulé nommé une seule fois ----------------------
-const objets = [];
-{ const vus = new Set();
-  objetsBruts.forEach((o, i) => {
-    const nom = typeof o === "string" ? o.trim() : "";
-    if (!nom) { add("bloquant", "RP2", "objet du modèle non nommé", `modele.objets #${i + 1}`); return; }
-    const cle = norm(nom);
-    if (vus.has(cle)) { add("bloquant", "RP2", `objet « ${nom} » déclaré plus d'une fois dans le modèle`, `modele.objets #${i + 1}`); return; }
-    vus.add(cle); objets.push({ nom, cle });
-  });
-}
-const intitules = [];
-{ const vus = new Set();
-  intitulesBruts.forEach((s, i) => {
-    const nom = typeof s === "string" ? s.trim() : "";
-    if (!nom) { add("bloquant", "RP2", "intitulé de l'extrait non nommé", `extrait.intitules #${i + 1}`); return; }
-    const cle = norm(nom);
-    if (vus.has(cle)) { add("bloquant", "RP2", `intitulé « ${nom} » déclaré plus d'une fois dans l'extrait`, `extrait.intitules #${i + 1}`); return; }
-    vus.add(cle); intitules.push({ nom, cle });
-  });
-}
-const objetParCle = new Map(objets.map(o => [o.cle, o]));
-const intituleParCle = new Map(intitules.map(i => [i.cle, i]));
-
-// ---- RP3 · dictionnaire de concepts DÉCLARÉ, jamais une ressemblance calculée -----------------
+const correspondances = Array.isArray(d.correspondances) ? d.correspondances : [];
+const ecartsExtrait = Array.isArray(d.ecarts_extrait) ? d.ecarts_extrait : [];
+const absentsExtrait = Array.isArray(d.absents_extrait) ? d.absents_extrait : [];
 const dictionnaire = Array.isArray(d.dictionnaire) ? d.dictionnaire : [];
-const dictParIntitule = new Map(); // cle intitulé -> objet.cle
-dictionnaire.forEach((e, i) => {
-  const ou = `dictionnaire #${i + 1}`;
-  const ie = e && typeof e.intitule_extrait === "string" ? e.intitule_extrait.trim() : "";
-  const om = e && typeof e.objet_modele === "string" ? e.objet_modele.trim() : "";
-  if (!ie || !om) { add("bloquant", "RP3", "entrée de dictionnaire sans « intitule_extrait » ou sans « objet_modele »", ou); return; }
-  const cleIe = norm(ie), cleOm = norm(om);
-  if (!intituleParCle.has(cleIe)) add("bloquant", "RP3", `dictionnaire : intitulé « ${ie} » INVENTÉ — absent de \`extrait.intitules\``, ou);
-  if (!objetParCle.has(cleOm)) add("bloquant", "RP3", `dictionnaire : objet « ${om} » INVENTÉ — absent de \`modele.objets\``, ou);
-  if (!motifValide(e.motif)) add("bloquant", "RP3", `entrée « ${ie} » → « ${om} » sans motif écrit (au moins ${MOTIF_MIN_MOTS} mots) — une correspondance non littérale sans motif n'est pas distinguable d'une ressemblance devinée`, ou);
-  if (intituleParCle.has(cleIe) && objetParCle.has(cleOm)) dictParIntitule.set(cleIe, cleOm);
+
+// RA2 — bijection dans les DEUX SENS.
+const setObjetsModele = new Set(objetsModele);
+const setIntitulesExtrait = new Set(intitulesExtrait);
+const appariesModele = new Set(correspondances.map(c => c.objet_modele));
+const appariesExtrait = new Set(correspondances.map(c => c.intitule_extrait));
+correspondances.forEach((c, i) => {
+  const ou = `correspondances #${i + 1}`;
+  if (!setObjetsModele.has(c.objet_modele)) add("bloquant", "RA2", `correspondance vers un objet « ${c.objet_modele} » absent de modele.objets`, ou);
+  if (!setIntitulesExtrait.has(c.intitule_extrait)) add("bloquant", "RA2", `correspondance vers un intitulé « ${c.intitule_extrait} » absent de extrait.intitules`, ou);
+});
+const declaresEcart = new Set(ecartsExtrait.map(e => e.intitule));
+for (const intitule of intitulesExtrait) {
+  if (!appariesExtrait.has(intitule) && !declaresEcart.has(intitule))
+    add("bloquant", "RA2", `intitulé « ${intitule} » de l'extrait ni apparié à un objet du modèle, ni déclaré en écart — un intitulé sans verdict est un OUBLI`, "extrait.intitules");
+}
+const declaresAbsents = new Set(absentsExtrait.map(a => a.objet_modele));
+for (const objet of objetsModele) {
+  if (!appariesModele.has(objet) && !declaresAbsents.has(objet))
+    add("bloquant", "RA2", `objet du modèle « ${objet} » ni apparié à un intitulé de l'extrait, ni déclaré absent — absent et OUBLIÉ sont indiscernables sans cette déclaration`, "modele.objets");
+}
+
+// RA3 — le dictionnaire ne cite QUE des objets qui existent réellement dans les deux sources ;
+// toute correspondance « dictionnaire » y renvoie une entrée déclarée.
+const dictParConcept = new Map(dictionnaire.map(c => [c.concept, c]));
+dictionnaire.forEach((c, i) => {
+  const ou = `dictionnaire #${i + 1}${c.concept ? ` (${c.concept})` : ""}`;
+  if (!c.concept) { add("bloquant", "RA3", "concept de dictionnaire sans nom", ou); return; }
+  if (!setObjetsModele.has(c.cote_modele)) add("bloquant", "RA3", `concept « ${c.concept} » : cote_modele « ${c.cote_modele} » n'existe dans AUCUNE des deux sources — un dictionnaire n'invente pas ses objets`, ou);
+  if (!setIntitulesExtrait.has(c.cote_extrait)) add("bloquant", "RA3", `concept « ${c.concept} » : cote_extrait « ${c.cote_extrait} » n'existe dans AUCUNE des deux sources — un dictionnaire n'invente pas ses objets`, ou);
+});
+correspondances.forEach((c, i) => {
+  if (c.via === "dictionnaire" && !dictParConcept.has(c.concept))
+    add("bloquant", "RA3", `correspondance non littérale sans entrée de dictionnaire déclarée (concept « ${c.concept || "(absent)"} »)`, `correspondances #${i + 1}`);
 });
 
-// ---- RP4/RP6 · le rapprochement dans les DEUX sens ---------------------------------------------
-// Côté modèle : rapproché (littéral ou dictionnaire), déclaré absent, ou NI L'UN NI L'AUTRE — et
-// c'est cette troisième case que CV5 (`oracle-couvrir`) a nommée « absent et oublié
-// indiscernables », transposée ici.
-const absences = Array.isArray(d.absences_modele) ? d.absences_modele : [];
-const absenceParObjet = new Map();
-absences.forEach((a, i) => {
-  const ou = `absences_modele #${i + 1}`;
-  const obj = a && typeof a.objet === "string" ? a.objet.trim() : "";
-  if (!obj) { add("bloquant", "RP5", "absence sans objet nommé", ou); return; }
-  const cle = norm(obj);
-  if (!objetParCle.has(cle)) { add("bloquant", "RP5", `absence déclarée pour « ${obj} », inconnu de \`modele.objets\``, ou); return; }
-  if (!motifValide(a.motif)) add("bloquant", "RP4", `absence de « ${obj} » sans motif écrit (au moins ${MOTIF_MIN_MOTS} mots) — sinon absent et oublié sont indiscernables`, ou);
-  if (!a.visuel || !String(a.visuel).trim()) add("bloquant", "RP4", `absence de « ${obj} » sans le VISUEL qui l'explique — un motif sans visuel ne se vérifie pas à l'écran`, ou);
-  absenceParObjet.set(cle, { obj, ou });
+// RA4 — chaque absence porte son motif ET le visuel qui l'explique.
+absentsExtrait.forEach((a, i) => {
+  const ou = `absents_extrait #${i + 1}${a.objet_modele ? ` (${a.objet_modele})` : ""}`;
+  if (!a.objet_modele) { add("bloquant", "RA4", "absence sans objet_modele nommé", ou); return; }
+  const motif = typeof a.motif === "string" ? a.motif.trim() : "";
+  if (motif.split(/\s+/).filter(Boolean).length < 4) add("bloquant", "RA4", `objet « ${a.objet_modele} » absent de l'extrait sans motif écrit (au moins 4 mots) — absent et OUBLIÉ sont indiscernables sans lui`, ou);
+  if (!a.visuel || !String(a.visuel).trim()) add("bloquant", "RA4", `objet « ${a.objet_modele} » absent de l'extrait sans le VISUEL qui l'explique`, ou);
 });
 
-const rapprochesModele = [], orphelinsModele = [], contradictionsCles = new Set();
-for (const o of objets) {
-  const litteral = intituleParCle.has(o.cle);
-  const viaDict = [...dictParIntitule.values()].includes(o.cle);
-  const absent = absenceParObjet.has(o.cle);
-  if ((litteral || viaDict) && absent) {
-    contradictionsCles.add(o.cle);
-    add("bloquant", "RP4", `objet « ${o.nom} » à la fois RAPPROCHÉ et déclaré ABSENT — les deux ne peuvent pas être vrais`, absenceParObjet.get(o.cle).ou);
-    continue;
-  }
-  if (litteral || viaDict) rapprochesModele.push(o);
-  else if (absent) { /* déjà jugé par RP4 ci-dessus (motif/visuel) */ }
-  else { orphelinsModele.push(o); add("bloquant", "RP4", `objet « ${o.nom} » NI rapproché (littéral ou dictionnaire) NI déclaré absent avec motif — absent et oublié sont indiscernables`, "modele.objets"); }
-}
-
-// RP6 · côté extrait — toujours informationnel : la DÉCOUVERTE de l'écart est la valeur.
-const rapprochesCleExtrait = new Set([...rapprochesModele.map(o => o.cle), ...dictParIntitule.keys()]);
-const ecartsExtrait = intitules.filter(i => !rapprochesCleExtrait.has(i.cle) && !dictParIntitule.has(i.cle));
-if (ecartsExtrait.length) {
-  const noms = ecartsExtrait.slice(0, 10).map(i => `« ${i.nom} »`).join(" · ");
-  const reste = ecartsExtrait.length > 10 ? ` (+${ecartsExtrait.length - 10} autres)` : "";
-  add("info", "RP6", `${ecartsExtrait.length} intitulé(s) de l'extrait SANS équivalent au modèle — écart de plein droit, découverte du rapprochement, jamais un défaut de ce document : ${noms}${reste}`, "extrait.intitules");
-} else if (intitules.length) {
-  add("info", "RP6", "aucun intitulé de l'extrait sans équivalent au modèle", "extrait.intitules");
-}
-
-// ---- RP7 · un taux déclaré se RECALCULE ---------------------------------------------------------
-const retenus = objets.length -
-  absences.filter(a => objetParCle.has(norm(a.objet || "")) && !contradictionsCles.has(norm(a.objet || ""))).length -
-  contradictionsCles.size;
-const pct = (n, sur) => (sur > 0 ? Math.round((n / sur) * 1000) / 10 : null);
-rapprochement = {
-  modele_objets: objets.length, extrait_intitules: intitules.length,
-  rapproches: rapprochesModele.length, absents_motives: absenceParObjet.size, orphelins_modele: orphelinsModele.length,
-  ecarts_extrait: ecartsExtrait.length,
-  taux: { retenu: pct(rapprochesModele.length, retenus), brut: pct(rapprochesModele.length, objets.length) },
-};
-if (d.taux_declare !== undefined) {
-  const td = Number(d.taux_declare);
-  if (!Number.isFinite(td)) add("bloquant", "RP7", `taux_declare « ${d.taux_declare} » non numérique`, file);
-  else if (rapprochement.taux.retenu === null) add("bloquant", "RP7", "taux_declare posé alors qu'aucun taux n'est calculable (périmètre retenu vide)", file);
-  else if (Math.abs(td - rapprochement.taux.retenu) > 0.1)
-    add("bloquant", "RP7", `taux_declare ${td} % contre ${rapprochement.taux.retenu} % recalculé (${rapprochesModele.length}/${retenus}) — un taux recopié n'est jamais recalculé`, file);
-}
-
-out(F.some(f => f.sev === "bloquant") ? "FAIL" : "PASS", F.some(f => f.sev === "bloquant") ? 1 : 0);
+out(F.some(f => f.sev === "bloquant") ? "FAIL" : "PASS", F.some(f => f.sev === "bloquant") ? 1 : 0, {
+  compte: {
+    objets_modele: objetsModele.length, intitules_extrait: intitulesExtrait.length,
+    correspondances: correspondances.length, ecarts_extrait: ecartsExtrait.length, absents_extrait: absentsExtrait.length,
+  },
+});

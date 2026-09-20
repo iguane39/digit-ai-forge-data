@@ -1,0 +1,5 @@
+table DeviseB
+	lineageTag: aaaaaaaa-0000-4000-8000-000000000005
+
+	column Devise
+		dataType: string

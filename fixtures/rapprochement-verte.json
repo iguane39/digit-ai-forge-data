@@ -1,20 +1,26 @@
 {
   "format": "forge-data/rapprochement@1",
-  "id": "rapprochement_rapport_ventes_2026",
+  "id": "rapprochement_gold_ventes_extrait_2026_09",
   "modele": {
-    "nom": "modele_semantique_ventes",
-    "objets": ["Ventes.montant_ht", "Ventes.quantite", "Ventes[Panier moyen]", "Client.segment"]
+    "nom": "gold_ventes (modele de reconstruction)",
+    "objets": ["vente.montant_ht", "vente.quantite", "vente.marge_brute", "vente.cout_revient"]
   },
   "extrait": {
-    "nom": "export_rapport_client.csv",
-    "intitules": ["Ventes.montant_ht", "Qté vendue", "Panier moyen (€)", "Segment client (info interne)"]
+    "nom": "export_rapport_client_2026_09.csv",
+    "intitules": ["montant_ht", "quantite", "Marge (%)", "Intitule Sans Modele"]
   },
   "dictionnaire": [
-    { "intitule_extrait": "Qté vendue", "objet_modele": "Ventes.quantite", "motif": "libellé commercial du rapport, pas le nom technique" },
-    { "intitule_extrait": "Panier moyen (€)", "objet_modele": "Ventes[Panier moyen]", "motif": "même mesure, la devise est ajoutée par le rapport" }
+    { "concept": "taux_marge", "cote_modele": "vente.marge_brute", "cote_extrait": "Marge (%)" }
   ],
-  "absences_modele": [
-    { "objet": "Client.segment", "motif": "colonne technique interne, jamais exposée dans un visuel du rapport client", "visuel": "aucun visuel — colonne absente de toute la mise en page" }
+  "correspondances": [
+    { "objet_modele": "vente.montant_ht", "intitule_extrait": "montant_ht", "via": "litteral" },
+    { "objet_modele": "vente.quantite", "intitule_extrait": "quantite", "via": "litteral" },
+    { "objet_modele": "vente.marge_brute", "intitule_extrait": "Marge (%)", "via": "dictionnaire", "concept": "taux_marge" }
   ],
-  "taux_declare": 100
+  "ecarts_extrait": [
+    { "intitule": "Intitule Sans Modele", "motif": "colonne calculee cote client, absente du modele source" }
+  ],
+  "absents_extrait": [
+    { "objet_modele": "vente.cout_revient", "motif": "colonne interne non exposee dans le rapport livre au client", "visuel": "Tableau de bord Marges - page 2" }
+  ]
 }
