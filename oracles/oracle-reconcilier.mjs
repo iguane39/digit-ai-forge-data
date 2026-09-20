@@ -22,6 +22,10 @@
 //        relative_pct / 100 — chaque écart hors tolérance est NOMMÉ avec ses deux valeurs ;
 //   RC6  (avertissement) les deux lots datent de plus d'un jour d'écart — comparer deux
 //        instants différents est une réconciliation de moins.
+//   RC7  (info, TF-1195, retour RF-31 (4) du lot « Produit-62 - RETOURS - 20260918d ») le
+//        COMPTE, pas seulement les défauts : combien d'entités comparées sont identiques
+//        (écart nul) et combien sont en écart (écart non nul, tolérées ou non) — sans lui,
+//        « 2 lots en écart » se lisait comme un défaut général au lieu de 2 sur 220.
 // non_juge : véracité des valeurs archivées (la requête a-t-elle été exécutée sur la bonne
 // instance — mesurer_base.py archive la cible, c'est lui qui répond) ; justesse de la formule
 // DAX ; complétude : les mesures NON archivées ne sont pas réconciliées (D-D2 de la forge :
@@ -29,7 +33,7 @@
 // Usage : node oracle-reconcilier.mjs <reconciliation.json> [--json-only]
 import fs from "node:fs";
 
-const DOM = "Réconciliation Gold ↔ modèle sémantique : deux lots de mesures identifiées sous tolérance déclarée (RC1-RC6)";
+const DOM = "Réconciliation Gold ↔ modèle sémantique : deux lots de mesures identifiées sous tolérance déclarée (RC1-RC7)";
 const NON_JUGE = [
   "véracité des valeurs archivées — la cible et la requête de chaque lot sont archivées par mesurer_base.py, pas rejouées ici",
   "justesse de la formule de la mesure aval (DAX) — seule sa VALEUR est comparée",
@@ -42,9 +46,10 @@ const file = args.find(a => !a.startsWith("--"));
 const jsonOnly = args.includes("--json-only");
 const F = [];
 const add = (sev, regle, msg, where) => F.push({ sev, regle, msg, where });
+let compte = null;
 const out = (verdict, code) => {
   process.stdout.write(JSON.stringify({ oracle: "oracle-reconcilier", domaine: DOM, artefact: file || null,
-    verdict, findings: F.length ? F : [{ sev: "info", regle: "—", msg: "RC1-RC6 sans écart", where: file }],
+    verdict, compte, findings: F.length ? F : [{ sev: "info", regle: "—", msg: "RC1-RC6 sans écart", where: file }],
     non_juge: NON_JUGE }, null, jsonOnly ? 0 : 2));
   process.exit(code);
 };
@@ -84,6 +89,8 @@ const cmp = lot("compare");
 if (ref && cmp && Array.isArray(ref.mesures) && Array.isArray(cmp.mesures)) {
   const parId = new Map(cmp.mesures.filter(m => m.id).map(m => [String(m.id), m]));
   const vus = new Set();
+  // RC7 · le compte, recalculé ici même — jamais recopié d'un total annoncé ailleurs.
+  let identiques = 0, enEcart = 0;
   // RC4 · homologues
   for (const m of ref.mesures) {
     if (!m.id) continue;
@@ -93,6 +100,7 @@ if (ref && cmp && Array.isArray(ref.mesures) && Array.isArray(cmp.mesures)) {
     if (typeof m.valeur !== "number" || typeof h.valeur !== "number") continue;
     // RC5 · tolérance
     const ecart = Math.abs(h.valeur - m.valeur);
+    if (ecart === 0) identiques++; else enEcart++;
     const okAbs = tolAbs !== null && ecart <= tolAbs;
     const okRel = tolRel !== null && (m.valeur === 0 ? ecart === 0 : ecart / Math.abs(m.valeur) <= tolRel / 100);
     // Sans tolérance déclarée (RC2 déjà rouge), tout écart non nul est un écart : la tolérance
@@ -104,6 +112,9 @@ if (ref && cmp && Array.isArray(ref.mesures) && Array.isArray(cmp.mesures)) {
   }
   for (const m of cmp.mesures) if (m.id && !vus.has(String(m.id)) && !ref.mesures.some(r => String(r.id) === String(m.id)))
     add("avertissement", "RC4", `mesure « ${m.id} » présente seulement dans le lot comparé — exposée sans référence Gold`, `mesure ${m.id}`);
+  // RC7 · le compte se rend toujours, même à zéro écart — pas seulement quand il y a un défaut.
+  compte = { comparees: identiques + enEcart, identiques, en_ecart: enEcart };
+  add("info", "RC7", `${enEcart} entité(s) en écart contre ${identiques} identique(s) sur ${identiques + enEcart} mesure(s) comparée(s)`, file);
   // RC6 · dates
   const dr = Date.parse(ref.date), dc = Date.parse(cmp.date);
   if (Number.isFinite(dr) && Number.isFinite(dc) && Math.abs(dr - dc) > 24 * 3600 * 1000)

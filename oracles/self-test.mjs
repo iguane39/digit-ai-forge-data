@@ -141,6 +141,36 @@ for (const cas of CAS) {
   ok(Array.isArray(r.r.non_juge) && r.r.non_juge.length > 0, `${cas.oracle} · non_juge déclaré`);
 }
 
+// ---- RC7 (TF-1195, retour RF-31 (4) « Produit-62 - RETOURS - 20260918d ») : le COMPTE des
+// entités identiques et en écart, DEUX SENS ----
+// La boucle ci-dessus prouve que RC5 se déclenche sur l'écart hors tolérance. Elle ne prouve
+// pas que le CONTEXTE du défaut est rendu : sans lui, « 2 écarts hors tolérance » se lit comme
+// un défaut général au lieu de 2 entités sur un total donné, identiques pour le reste — même
+// lacune que celle qui a coûté CV5/CV6 (TF-0911) et R5 (TF-0378) avant elle.
+console.log(String.fromCharCode(10) + "RC7 (TF-1195) — le compte des entités identiques et en écart, DEUX SENS" + String.fromCharCode(10));
+{
+  // Sens vert : reconciliation-verte.json PASSE (l'écart de 0,02 sur ca_ht_2026_08 entre dans
+  // la tolérance déclarée) et porte quand même son compte — un compte qui n'apparaîtrait que
+  // sur échec serait aussi trompeur qu'un compte toujours à zéro.
+  const v = lance("oracle-reconcilier.mjs", fx("reconciliation-verte.json")).r;
+  ok(v.verdict === "PASS" && v.compte && v.compte.comparees === 3 && v.compte.identiques === 2 && v.compte.en_ecart === 1,
+    `RC7 · verte : PASS avec 1 entité en écart (tolérée) contre 2 identiques sur 3 comparées — obtenu ${JSON.stringify(v.compte)}`);
+  const rc7v = (v.findings || []).filter(f => f.regle === "RC7");
+  ok(rc7v.length === 1 && rc7v[0].sev === "info" && /1 entité\(s\) en écart contre 2 identique\(s\) sur 3/.test(rc7v[0].msg),
+    `RC7 · verte : le compte est LISIBLE dans les findings, pas seulement dans un champ machine — obtenu ${rc7v[0] && rc7v[0].msg}`);
+
+  // Sens rouge : reconciliation-rouge.json ÉCHOUE (RC2 tolérance absente, RC4 mesure sans
+  // homologue, RC5 écart hors tolérance) et le compte reste JUSTE malgré l'échec : 1 entité
+  // identique (commandes_2026_08), 1 en écart (ca_ht_2026_08) — clients_actifs_2026_08, sans
+  // homologue, n'est PAS une comparaison et ne doit compter ni pour l'un ni pour l'autre.
+  const r = lance("oracle-reconcilier.mjs", fx("reconciliation-rouge.json")).r;
+  ok(r.verdict === "FAIL" && r.compte && r.compte.comparees === 2 && r.compte.identiques === 1 && r.compte.en_ecart === 1,
+    `RC7 · rouge : FAIL, et le compte ne mélange pas une mesure SANS homologue (clients_actifs_2026_08) avec une comparaison réelle — obtenu ${JSON.stringify(r.compte)}`);
+  const rc7r = (r.findings || []).filter(f => f.regle === "RC7");
+  ok(rc7r.length === 1 && rc7r[0].sev === "info",
+    "RC7 · rouge : le compte est rendu même quand la réconciliation ÉCHOUE — un défaut ne doit pas faire taire le contexte qui le relativise");
+}
+
 // ---- R5 : couverture des nombres de prose, DEUX SENS (TF-0378) ----
 // R5 avertit par défaut, donc elle n'apparaît pas dans les règles bloquantes de la boucle
 // ci-dessus : sans cette branche, elle serait jouée par personne dans son sens qui compte.

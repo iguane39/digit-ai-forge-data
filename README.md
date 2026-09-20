@@ -38,7 +38,7 @@ node oracles/oracle-contractualiser.mjs fixtures/contrat-verte.json
 node oracles/oracle-modeliser.mjs fixtures/modele-dimensionnel-verte.json      # M1-M7, couche Gold déclarée (TF-0860) + décisions portées (M7, TF-1170)
 node oracles/oracle-restituer.mjs fixtures/rapport-modele-verte.md            # R9, le rapport cite les décisions du modèle qu'il pointe (TF-1170)
 node oracles/oracle-transformer.mjs fixtures/transformation-verte             # TR1-TR6, artefacts de l'outil de transformation (TF-0861)
-node oracles/oracle-reconcilier.mjs fixtures/reconciliation-verte.json        # RC1-RC6, Gold ↔ modèle sémantique (TF-0864)
+node oracles/oracle-reconcilier.mjs fixtures/reconciliation-verte.json        # RC1-RC7, Gold ↔ modèle sémantique (TF-0864) ; RC7 : compte identiques/en écart (TF-1195)
 node oracles/oracle-couvrir.mjs fixtures/couverture-verte.json                # CV1-CV6, mapping mesuré contre l'inventaire de sa source (TF-0911)
 node oracles/oracle-delimiter.mjs fixtures/perimetre-verte.json               # DL1-DL6, le périmètre livré est ce que les visuels lisent ; excédent non motivé refusé (TF-1180)
 node oracles/oracle-enchainer.mjs references/migration-rapport-powerbi.chaine.json   # CH1-CH6, chaque étape de la procédure de migration nomme un porteur qui existe (TF-1179)

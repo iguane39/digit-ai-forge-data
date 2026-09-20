@@ -145,7 +145,7 @@ if (lineageRef && !fs.existsSync(path.join(path.dirname(path.resolve(file)), lin
 // --- R6 — un chiffre peut pointer un LOT DE RÉCONCILIATION (TF-0864, lot L7 du 07/09/2026) -------
 // Quand le rapport restitue des mesures d'un modèle sémantique, le frontmatter porte
 // `reconciliation_ref:` : le fichier existe à côté du rapport et est au format
-// `forge-data/reconciliation@1` (jugé ensuite par oracle-reconcilier, RC1-RC6). Optionnel :
+// `forge-data/reconciliation@1` (jugé ensuite par oracle-reconcilier, RC1-RC7). Optionnel :
 // un rapport sans mesure aval n'en porte pas, et R6 ne dit rien. Présent et faux : bloquant —
 // un chiffre qui prétend être réconcilié et ne pointe rien est pire qu'un chiffre nu.
 const reconciliationRef = (front.match(/^reconciliation_ref\s*:\s*(.+)$/m) || [])[1]?.trim();
