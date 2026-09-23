@@ -4,7 +4,7 @@
 // attendues, avec findings localisants. Inclut aussi le round-trip du verbe importer
 // (TF-0139) : brouillon produit → doit PASSER oracle-profiler/oracle-contractualiser.
 // À rejouer après toute modification.
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -1464,6 +1464,56 @@ console.log(String.fromCharCode(10) + "CH3/CH6 (TF-1179) — la procédure de mi
   } finally {
     fs.rmSync(tmpCh, { recursive: true, force: true });
   }
+}
+
+// ── TF-1319 · la découverte des oracles LIT LE DISQUE, dans les deux sens ─────────────────────
+// Le juge du pilot (méta-oracle d'enclenchement) confronte ce que cette forge DÉCOUVRE aux
+// verdicts consignés au ledger d'un run. Une découverte qui raterait un oracle le rendrait
+// invisible au juge ; une découverte qui prendrait une recette ou une fixture pour un oracle
+// ferait accuser un run de n'avoir pas joué ce qui n'est pas un oracle. Les deux sens se prouvent.
+{
+  const DECOUVRIR = path.join(ici, "decouvrir-oracles.mjs");
+  const decouvre = (racine) => {
+    const r = spawnSync(process.execPath, [DECOUVRIR, ...(racine ? ["--racine", racine] : [])], { encoding: "utf8" });
+    let j = null;
+    try { j = JSON.parse(r.stdout); } catch { /* sortie illisible : les contrôles ci-dessous la disent */ }
+    return { code: r.status, j };
+  };
+  const reel = decouvre(null);
+  ok(reel.code === 0 && reel.j?.contrat === "digit-ai/decouverte-oracles@1" && reel.j?.forge === "digit-ai-forge-data"
+    && reel.j.oracles.length > 0 && reel.j.oracles.every(o => fs.existsSync(path.join(ici, "..", o.chemin))),
+    `TF-1319 · VERT — la forge découvre ${reel.j?.oracles?.length ?? "?"} oracle(s) sur son propre disque, contrat digit-ai/decouverte-oracles@1 tenu, chaque chemin rendu existe`);
+  const tmpDec = fs.mkdtempSync(path.join(os.tmpdir(), "forge-data-decouverte-"));
+  try {
+    const poser = (rel) => {
+      const p = path.join(tmpDec, rel);
+      fs.mkdirSync(path.dirname(p), { recursive: true });
+      fs.writeFileSync(p, "// fixture de découverte\n");
+    };
+    ["oracles/oracle-alpha.mjs", "scripts/oracle_beta.py"].forEach(poser);
+    const leurres = ["oracles/oracle-alpha.test.mjs", "oracles/self-test.mjs", "oracles/lib-oracle.mjs",
+      "fixtures/oracle-faux.mjs", "Old/oracle-vieux.mjs", "node_modules/paquet/oracle-dep.mjs", "input/oracle-entrant.mjs"];
+    leurres.forEach(poser);
+    const v = decouvre(tmpDec);
+    const noms = (v.j?.oracles || []).map(o => o.nom).sort();
+    ok(v.code === 0 && JSON.stringify(noms) === JSON.stringify(["oracle-alpha", "oracle_beta"]),
+      `TF-1319 · VERT — un oracle posé sur le disque est découvert, où qu'il vive dans le dépôt (obtenu ${JSON.stringify(noms)})`);
+    ok(v.code === 0 && !(v.j?.oracles || []).some(o => leurres.includes(o.chemin)),
+      `TF-1319 · ROUGE — recette, lanceur, bibliothèque, fixture, archive, dépendance et entrant ne sont JAMAIS pris pour des oracles (${leurres.length} leurres refusés)`);
+    poser("oracles/oracle-gamma.mjs");
+    const apres = decouvre(tmpDec);
+    ok((apres.j?.oracles || []).some(o => o.nom === "oracle-gamma" && o.chemin === "oracles/oracle-gamma.mjs"),
+      "TF-1319 · un oracle AJOUTÉ est découvert au passage suivant sans qu'aucune liste soit tenue à jour : la liste vient du disque");
+    poser("scripts/oracle-alpha.mjs");
+    const doublon = decouvre(tmpDec);
+    ok((doublon.j?.non_juge || []).some(n => /oracle-alpha/.test(n) && /2 fichiers/.test(n)),
+      "TF-1319 · deux fichiers du même nom sont DITS : un verdict qui le nomme ne dit pas lequel a tourné");
+  } finally {
+    fs.rmSync(tmpDec, { recursive: true, force: true });
+  }
+  const absente = decouvre(path.join(os.tmpdir(), "forge-data-racine-qui-n-existe-pas"));
+  ok(absente.code === 2 && absente.j?.oracles?.length === 0 && /introuvable/.test(absente.j?.motif || ""),
+    `TF-1319 · ROUGE — une racine absente sort en 2 avec son motif, jamais en liste vide muette (obtenu exit ${absente.code})`);
 }
 
 console.log(`\nSelf-test forge-data : ${pass} PASS, ${echec} FAIL`);

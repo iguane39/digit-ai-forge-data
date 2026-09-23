@@ -65,6 +65,7 @@ node oracles/oracle-couvrir.mjs <couverture.json>         # CV1-CV6 : mapping me
 node oracles/oracle-evoluer.mjs <evolutions.json>         # EV1-EV7 : projection des évolutions d'une couche, provenance typée,
                                                           # comptes recalculés, arbre schéma › table › colonne
 node oracles/self-test.mjs                                 # double sens — à rejouer après toute modification
+node oracles/decouvrir-oracles.mjs                         # liste des oracles LUE SUR LE DISQUE (TF-1319, contrat du pilot)
 ```
 
 **Glossaire de restitution (TF-0936, 08/09/2026 — portée resserrée par TF-1044, 14/09/2026)** —
