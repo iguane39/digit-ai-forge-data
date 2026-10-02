@@ -8,6 +8,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import zlib from "node:zlib";
 import { fileURLToPath } from "node:url";
 
 const ici = path.dirname(fileURLToPath(import.meta.url));
@@ -1514,6 +1515,184 @@ console.log(String.fromCharCode(10) + "CH3/CH6 (TF-1179) — la procédure de mi
   const absente = decouvre(path.join(os.tmpdir(), "forge-data-racine-qui-n-existe-pas"));
   ok(absente.code === 2 && absente.j?.oracles?.length === 0 && /introuvable/.test(absente.j?.motif || ""),
     `TF-1319 · ROUGE — une racine absente sort en 2 avec son motif, jamais en liste vide muette (obtenu exit ${absente.code})`);
+}
+
+// ---- lire-classeur-xlsx et lire-modele-pbix (TF-1226, 02/10/2026, option D-51 (a)) : les
+// lecteurs du 14/09 lisaient du TEXTE (TMDL, CSV) ; aucun n'ouvrait les fichiers BINAIRES
+// (.xlsx, .pbix) que les clients remettent réellement. Les deux sont des archives ZIP — lecteur
+// ZIP maison (scripts/lib-zip-minimal.mjs, zéro dépendance externe, R-29). ----
+// Les fixtures de ce bloc sont des ARCHIVES BINAIRES : jamais committées (même doctrine que
+// verifier_unites_parquet.py — « fichiers générés à la volée, aucune donnée committée ») —
+// construites ici par un ÉCRIVAIN ZIP minimal, indépendant du lecteur qu'il sert à prouver
+// (sinon un bug symétrique dans les deux passerait inaperçu).
+console.log(String.fromCharCode(10) + "lire-classeur-xlsx et lire-modele-pbix (TF-1226) — lecteurs ZIP maison, fixtures binaires réelles" + String.fromCharCode(10));
+{
+  // CRC32 maison (table bit à bit, polynôme standard 0xEDB88320) : l'écrivain de test ne dépend
+  // pas de `zlib.crc32` (API Node récente) pour rester robuste à l'exécution sur un Node plus
+  // ancien que celui de cette session — le LECTEUR, lui, ne vérifie aucun CRC (hors mandat).
+  const crc32 = buf => {
+    let crc = ~0;
+    for (let i = 0; i < buf.length; i++) {
+      crc ^= buf[i];
+      for (let j = 0; j < 8; j++) crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1));
+    }
+    return (~crc) >>> 0;
+  };
+  const u16 = n => { const b = Buffer.alloc(2); b.writeUInt16LE(n); return b; };
+  const u32 = n => { const b = Buffer.alloc(4); b.writeUInt32LE(n >>> 0); return b; };
+  // Écrivain ZIP minimal — STORED (0) ou DEFLATE (8, zlib.deflateRawSync nativement porté) : les
+  // deux méthodes que lib-zip-minimal.mjs sait LIRE, pour que la preuve en boucle joue les deux.
+  const construireZip = entrees => {
+    let offset = 0;
+    const morceauxLocaux = [];
+    const entreesCD = [];
+    for (const e of entrees) {
+      const methode = e.methode || 0;
+      const brut = e.data;
+      const ecrit = methode === 8 ? zlib.deflateRawSync(brut) : brut;
+      const nomBuf = Buffer.from(e.nom, "utf8");
+      const crc = crc32(brut);
+      const lfh = Buffer.concat([
+        u32(0x04034b50), u16(20), u16(0), u16(methode), u16(0), u16(0x21),
+        u32(crc), u32(ecrit.length), u32(brut.length), u16(nomBuf.length), u16(0), nomBuf,
+      ]);
+      morceauxLocaux.push(lfh, ecrit);
+      entreesCD.push({ nom: nomBuf, crc, methode, tailleCompressee: ecrit.length, tailleNonCompressee: brut.length, offset });
+      offset += lfh.length + ecrit.length;
+    }
+    const debutCD = offset;
+    const morceauxCD = entreesCD.map(e => Buffer.concat([
+      u32(0x02014b50), u16(20), u16(20), u16(0), u16(e.methode), u16(0), u16(0x21),
+      u32(e.crc), u32(e.tailleCompressee), u32(e.tailleNonCompressee),
+      u16(e.nom.length), u16(0), u16(0), u16(0), u16(0), u32(0), u32(e.offset), e.nom,
+    ]));
+    const tailleCD = morceauxCD.reduce((a, b) => a + b.length, 0);
+    const eocd = Buffer.concat([
+      u32(0x06054b50), u16(0), u16(0), u16(entreesCD.length), u16(entreesCD.length),
+      u32(tailleCD), u32(debutCD), u16(0),
+    ]);
+    return Buffer.concat([...morceauxLocaux, ...morceauxCD, eocd]);
+  };
+
+  const tmpZip = fs.mkdtempSync(path.join(os.tmpdir(), "forge-data-zip-"));
+  try {
+    // ---- .xlsx RÉEL (TF-1226) : un classeur OOXML minimal mais complet (sept parties,
+    // dont styles.xml) — ouvert et vérifié par openpyxl (bibliothèque tierce indépendante,
+    // hors de ce dépôt) pendant l'instruction de l'item : feuilles=['Feuil1'], A1='Bonjour
+    // TF-1226', B1=42. Preuve que ce N'EST PAS un double trafiqué pour son propre lecteur.
+    const xmlDecl = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
+    const xlsxBuf = construireZip([
+      { nom: "[Content_Types].xml", data: Buffer.from(xmlDecl +
+        '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+        + '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+        + '<Default Extension="xml" ContentType="application/xml"/>'
+        + '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+        + '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+        + '<Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/>'
+        + '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
+        + '</Types>', "utf8") },
+      { nom: "_rels/.rels", data: Buffer.from(xmlDecl +
+        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+        + '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+        + '</Relationships>', "utf8") },
+      { nom: "xl/workbook.xml", data: Buffer.from(xmlDecl +
+        '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+        + '<sheets><sheet name="Feuil1" sheetId="1" r:id="rId1"/></sheets></workbook>', "utf8") },
+      { nom: "xl/_rels/workbook.xml.rels", data: Buffer.from(xmlDecl +
+        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+        + '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
+        + '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings" Target="sharedStrings.xml"/>'
+        + '<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
+        + '</Relationships>', "utf8") },
+      // DEFLATE délibéré ici : la fixture exerce les DEUX méthodes que lib-zip-minimal.mjs lit.
+      { nom: "xl/sharedStrings.xml", methode: 8, data: Buffer.from(xmlDecl +
+        '<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="1" uniqueCount="1">'
+        + '<si><t>Bonjour TF-1226</t></si></sst>', "utf8") },
+      { nom: "xl/worksheets/sheet1.xml", data: Buffer.from(xmlDecl +
+        '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+        + '<sheetData><row r="1"><c r="A1" t="s"><v>0</v></c><c r="B1"><v>42</v></c></row></sheetData></worksheet>', "utf8") },
+      { nom: "xl/styles.xml", data: Buffer.from(xmlDecl +
+        '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+        + '<fonts count="1"><font><sz val="11"/><name val="Calibri"/></font></fonts>'
+        + '<fills count="1"><fill><patternFill patternType="none"/></fill></fills>'
+        + '<borders count="1"><border/></borders>'
+        + '<cellStyleXfs count="1"><xf/></cellStyleXfs><cellXfs count="1"><xf/></cellXfs></styleSheet>', "utf8") },
+    ]);
+    const pXlsx = path.join(tmpZip, "classeur-reel.xlsx");
+    fs.writeFileSync(pXlsx, xlsxBuf);
+
+    const x = lanceScript("lire-classeur-xlsx.mjs", [pXlsx]);
+    ok(x.exit === 0 && x.r.sortie === "OK",
+      `lire-classeur-xlsx · classeur .xlsx AUTHENTIQUE (archive ZIP OOXML réelle, ouverte et vérifiée par openpyxl hors de ce dépôt) : lecture réussie (exit 0) — obtenu exit ${x.exit}`);
+    ok(x.r.document?.feuilles?.[0]?.nom === "Feuil1",
+      `lire-classeur-xlsx · la feuille est nommée depuis xl/workbook.xml, pas depuis le nom du fichier physique — obtenu ${JSON.stringify(x.r.document?.feuilles?.map(f => f.nom))}`);
+    ok(x.r.document?.feuilles?.[0]?.cellules?.A1 === "Bonjour TF-1226",
+      `lire-classeur-xlsx · A1 résout par l'INDEX de chaîne partagée (xl/sharedStrings.xml, compressée DEFLATE dans cette fixture) vers son texte réel — obtenu ${JSON.stringify(x.r.document?.feuilles?.[0]?.cellules?.A1)}`);
+    ok(x.r.document?.feuilles?.[0]?.cellules?.B1 === 42,
+      `lire-classeur-xlsx · B1 (type « n » par défaut, sans attribut t) lu comme NOMBRE, pas comme texte — obtenu ${JSON.stringify(x.r.document?.feuilles?.[0]?.cellules?.B1)} (${typeof x.r.document?.feuilles?.[0]?.cellules?.B1})`);
+    ok(x.r.compte?.feuilles === 1 && x.r.compte?.cellules === 2 && x.r.compte?.chaines_partagees === 1,
+      `lire-classeur-xlsx · compte recalculé (1 feuille, 2 cellules, 1 chaîne partagée) — obtenu ${JSON.stringify(x.r.compte)}`);
+
+    // ROUGE 1 : un fichier qui n'est PAS une archive ZIP (texte brut renommé .xlsx) — refus
+    // propre, jamais une lecture qui invente un classeur vide.
+    const pFaux = path.join(tmpZip, "pas-un-zip.xlsx");
+    fs.writeFileSync(pFaux, "ceci n'est pas une archive ZIP\n");
+    const xf = lanceScript("lire-classeur-xlsx.mjs", [pFaux]);
+    ok(xf.exit === 2 && /archive ZIP illisible/.test(xf.r.erreur || ""),
+      `lire-classeur-xlsx · ROUGE — un fichier qui n'est pas un ZIP est refusé (exit 2), jamais lu comme un classeur vide (obtenu exit ${xf.exit}, erreur=${xf.r.erreur})`);
+
+    // ROUGE 2 : une archive ZIP valide, mais SANS xl/workbook.xml (donc pas un .xlsx) — même
+    // discipline que le refus déjà en place pour un .pbix passé à traduire-modele-semantique.
+    const pSansWorkbook = path.join(tmpZip, "zip-quelconque.xlsx");
+    fs.writeFileSync(pSansWorkbook, construireZip([{ nom: "autre-chose.txt", data: Buffer.from("rien à voir") }]));
+    const xs = lanceScript("lire-classeur-xlsx.mjs", [pSansWorkbook]);
+    ok(xs.exit === 2 && /workbook\.xml absent/.test(xs.r.erreur || ""),
+      `lire-classeur-xlsx · ROUGE — une archive ZIP sans xl/workbook.xml n'est pas un classeur .xlsx reconnaissable, refus propre (obtenu exit ${xs.exit})`);
+
+    // ---- .pbix : PREUVE PARTIELLE, DITE — fixture STRUCTURELLEMENT CONFORME (ZIP + partie
+    // DataModelSchema en JSON UTF-16LE avec BOM, comme documenté par la communauté de
+    // rétro-ingénierie du format), PAS un fichier .pbix remis par un client réel. Aucun fichier
+    // de ce type n'était disponible pour cette instruction de TF-1226 (dit, jamais caché).
+    const modeleJson = JSON.stringify({
+      name: "SemanticModel", compatibilityLevel: 1567,
+      model: { culture: "fr-FR", tables: [
+        { name: "Ventes", columns: [{ name: "Date" }, { name: "Montant" }], measures: [{ name: "Total Ventes", expression: "SUM(Ventes[Montant])" }] },
+        { name: "Clients", columns: [{ name: "ClientId" }, { name: "Nom" }] },
+      ] },
+    });
+    const bomUtf16le = Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(modeleJson, "utf16le")]);
+    const pPbix = path.join(tmpZip, "modele-fixture.pbix");
+    fs.writeFileSync(pPbix, construireZip([
+      { nom: "DataModelSchema", methode: 8, data: bomUtf16le }, // DEFLATE ici, STORED pour Version
+      { nom: "Version", data: Buffer.from("3.0", "utf8") },
+    ]));
+
+    const p = lanceScript("lire-modele-pbix.mjs", [pPbix]);
+    ok(p.exit === 0 && p.r.sortie === "OK",
+      `lire-modele-pbix · fixture structurelle (ZIP + DataModelSchema JSON UTF-16LE avec BOM, DEFLATE) : extraction réussie (exit 0) — obtenu exit ${p.exit}`);
+    ok(p.r.document?.modele?.model?.tables?.length === 2,
+      `lire-modele-pbix · deux tables lues depuis le JSON décodé (UTF-16LE → JSON.parse) — obtenu ${p.r.document?.modele?.model?.tables?.length}`);
+    ok(p.r.compte?.tables === 2 && p.r.compte?.colonnes === 4 && p.r.compte?.mesures === 1,
+      `lire-modele-pbix · compte recalculé depuis le modèle décodé (2 tables, 4 colonnes, 1 mesure) — obtenu ${JSON.stringify(p.r.compte)}`);
+
+    // ROUGE 3 : une archive ZIP valide mais sans partie DataModelSchema (ex. un .pbix au format
+    // PBIP, ou un ZIP quelconque) — refus propre, jamais un modèle vide inventé.
+    const pSansModele = path.join(tmpZip, "sans-modele.pbix");
+    fs.writeFileSync(pSansModele, construireZip([{ nom: "Report/Layout", data: Buffer.from("{}") }]));
+    const pr = lanceScript("lire-modele-pbix.mjs", [pSansModele]);
+    ok(pr.exit === 2 && /DataModelSchema.*absente/.test(pr.r.erreur || ""),
+      `lire-modele-pbix · ROUGE — un .pbix sans partie DataModelSchema (ex. format PBIP) est refusé, jamais un modèle vide (obtenu exit ${pr.exit})`);
+
+    // ROUGE 4 : DataModelSchema présente mais décodage → JSON invalide — refus propre.
+    const pJsonCasse = path.join(tmpZip, "json-casse.pbix");
+    const casseeUtf16 = Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from("{ pas du json valide", "utf16le")]);
+    fs.writeFileSync(pJsonCasse, construireZip([{ nom: "DataModelSchema", data: casseeUtf16 }]));
+    const pj = lanceScript("lire-modele-pbix.mjs", [pJsonCasse]);
+    ok(pj.exit === 2 && /JSON invalide/.test(pj.r.erreur || ""),
+      `lire-modele-pbix · ROUGE — DataModelSchema décodée mais JSON invalide : refus propre, jamais un modèle deviné (obtenu exit ${pj.exit})`);
+  } finally {
+    fs.rmSync(tmpZip, { recursive: true, force: true });
+  }
 }
 
 console.log(`\nSelf-test forge-data : ${pass} PASS, ${echec} FAIL`);

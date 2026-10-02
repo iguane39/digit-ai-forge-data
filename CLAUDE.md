@@ -635,6 +635,46 @@ en amont) ; celui qui juge la valeur à la granularité fine à `oracle-reconcil
 node oracles/oracle-rapprocher.mjs fixtures/rapprochement-verte.json
 ```
 
+## Les verbes lire-classeur-xlsx et lire-modele-pbix (TF-1226, 02/10/2026) — le BINAIRE que le client remet réellement
+
+Décision D-51 (a). Les lecteurs livrés le 14/09 lisent des formats déjà **TEXTE** (TMDL, PBIR,
+CSV) ; aucun n'ouvrait les fichiers **BINAIRES** qu'un client remet réellement — constat posé
+dans `traduire-modele-semantique.mjs` : un `.pbix` y était explicitement REFUSÉ (« pas un
+classeur .pbix binaire »), jamais lu. Un `.xlsx` et un `.pbix` sont tous deux des **archives
+ZIP** (OOXML documenté pour le premier ; conteneur Power BI pour le second) — zéro dépendance
+nécessaire, Node porte nativement `zlib.inflateRawSync` pour DEFLATE. Mandat : lecteur ZIP
+maison (`scripts/lib-zip-minimal.mjs`, aucune dépendance externe, R-29), répertoire central
+uniquement (jamais les en-têtes locaux seuls), STORED et DEFLATE, ZIP64/chiffrement REFUSÉS
+explicitement (jamais une lecture fausse en silence).
+
+`scripts/lire-classeur-xlsx.mjs <classeur.xlsx> [--sortie <fichier.json>]` LIT `xl/workbook.xml`
+(feuilles), `xl/_rels/workbook.xml.rels` (relation feuille → fichier), `xl/sharedStrings.xml`
+(chaînes partagées, par INDEX) puis chaque feuille cellule par cellule — types `s`/`b`/`str`/nu
+(nombre). Hors périmètre, dit : styles, graphiques, macros, `inlineStr` (vit dans `<is><t>`,
+jamais dans `<v>`), formule rejouée (seule la valeur mise en cache `<v>` est rendue). Générateur,
+pas un oracle. **Preuve réelle (TF-1226)** : classeur `.xlsx` minimal mais complet (sept parties
+OOXML, dont `styles.xml`) construit par un écrivain ZIP indépendant du lecteur, puis OUVERT ET
+VÉRIFIÉ par `openpyxl` (bibliothèque tierce hors de ce dépôt) pendant l'instruction de l'item —
+feuille `Feuil1`, `A1` = `Bonjour TF-1226` (chaîne partagée compressée DEFLATE), `B1` = `42`
+(nombre) : ce n'est pas un double trafiqué pour son propre lecteur.
+
+`scripts/lire-modele-pbix.mjs <fichier.pbix> [--sortie <fichier.json>]` EXTRAIT la partie
+`DataModelSchema` (modèle sémantique au format TMSL, JSON) et la DÉCODE en UTF-16 avec BOM
+(jamais en UTF-8 — c'est exactement le défaut que TF-1226 corrige) ; détecte little/big-endian,
+permute les octets si besoin. Absente de l'archive (ex. `.pbix` au format PBIP, TMDL inline) :
+refus propre (exit 2), jamais un modèle inventé — renvoie vers `traduire-modele-semantique.mjs`.
+**Preuve PARTIELLE, dite plutôt que cachée** : aucun fichier `.pbix` remis par un client n'était
+disponible pour cette instruction — la fixture de preuve en boucle est une construction
+**structurellement conforme** au format documenté par la communauté de rétro-ingénierie
+(pbi-tools, pbix-tools) : ZIP + JSON UTF-16LE avec BOM dans une partie `DataModelSchema`, PAS un
+fichier client réel. Le jour où un mandat en remet un, il entre en fixture et cette note se
+retire.
+
+Preuve en boucle (fixtures binaires construites à la volée par un écrivain ZIP de test, jamais
+committées — même doctrine que `verifier_unites_parquet.py`) : `oracles/self-test.mjs`, section
+« lire-classeur-xlsx et lire-modele-pbix (TF-1226) », deux sens (lecture réussie + quatre refus
+propres : non-ZIP, ZIP sans `xl/workbook.xml`, `.pbix` sans `DataModelSchema`, JSON invalide).
+
 ## Le verbe isoler-lignes-non-donnees (TF-0976, 14/09/2026) — le pied d'un export est une DONNÉE
 
 Mesure : sur trois feuilles d'un export, la lecture naïve comptait 21 559/21 719/14 121 lignes
