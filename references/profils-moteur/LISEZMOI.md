@@ -8,7 +8,9 @@
    **alimenter le verbe `importer`** (`scripts/importer.mjs`, TF-0139) et pour guider un
    humain qui profile/trace *ce* moteur avec les formats existants (assertions@1,
    lineage@1, contrat@1).
-3. Quatre profils à ce jour : `postgres.md`, `oracle.md`, `azure-sql.md`, `databricks.md`.
+3. Cinq profils à ce jour : `postgres.md`, `oracle.md`, `azure-sql.md`, `databricks.md`,
+   `supabase.md` (16/10/2026, un Postgres : il hérite de `postgres.md` et n'en porte que
+   l'écart, décision et motif en tête du fichier ; né du premier run qui le cite).
    **Postgres a été créé avec le verbe** (seul moteur dont l'artefact — `pg_dump
    --schema-only` — est 100 % libre et local, donc seul à porter la fixture double sens du
    round-trip). **Les trois autres sont créés par anticipation, sur mandat humain explicite
@@ -39,14 +41,17 @@
    sourcés depuis la documentation officielle du moteur, jamais observés sur une base vivante
    que la forge opérerait.
 
-## Inventaire des profils actifs (4)
+## Inventaire des profils actifs (5)
 
 `postgres.md` (porte la fixture du verbe importer) · `oracle.md` · `azure-sql.md` ·
-`databricks.md` (à part — RDBMS non applicable, cf. point 6).
+`databricks.md` (à part — RDBMS non applicable, cf. point 6) · `supabase.md` (hérite de
+`postgres.md` ; `importer` non étendu, cf. son §5).
+
+Garde exécutée : `oracles/self-test.mjs`, règles PM1 (frontmatter `moteur`, `version`,
+`challenge_date`, `sources`) et PM2 (chaque profil du disque cité ici, compte égal).
 
 ## Liste d'attente (candidats non créés)
 
-Vide à ce jour (12/08/2026). Un cinquième profil-moteur naîtrait au premier run réel citant
-un moteur hors de ces quatre (ex. MySQL, SQL Server on-prem, Snowflake) — jamais anticipé
-sans produit à exercer, retour à la doctrine générale des profils une fois ce lot de quatre
-clos.
+Vide à ce jour (16/10/2026). Le cinquième, `supabase.md`, est né du premier run réel qui
+le cite. Un sixième naîtrait de même, au premier run réel citant un moteur hors de ces cinq
+(ex. MySQL, SQL Server on-prem, Snowflake) — jamais anticipé sans produit à exercer.

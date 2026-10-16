@@ -303,6 +303,7 @@ console.log(String.fromCharCode(10) + "Garde de non-régression — « grain » 
     "oracles/self-test.mjs",
     "scripts/traduire-modele-semantique.mjs", "scripts/traduire-unity-catalog.mjs",
     "references/STANDARDS-DATA.md", "references/profils-moteur/LISEZMOI.md", "references/profils-moteur/databricks.md",
+    "references/profils-moteur/supabase.md",
   ];
   // La prose d'un fichier : commentaires `//` pour les .mjs (jamais le code — c'est la frontière
   // qui évite TF-0927), tout le texte hors blocs de code pour les .md. Puis on retire les
@@ -1692,6 +1693,57 @@ console.log(String.fromCharCode(10) + "lire-classeur-xlsx et lire-modele-pbix (T
       `lire-modele-pbix · ROUGE — DataModelSchema décodée mais JSON invalide : refus propre, jamais un modèle deviné (obtenu exit ${pj.exit})`);
   } finally {
     fs.rmSync(tmpZip, { recursive: true, force: true });
+  }
+}
+
+// Profils-moteur (16/10/2026) — la doctrine de `references/profils-moteur/LISEZMOI.md` (points 1
+// et 7) disait « frontmatter moteur + version + challenge_date + sources », mais aucun oracle du
+// parc ne la jugeait : un profil sans sources, ou absent de l'inventaire, passait sans bruit.
+// Garde en deux règles, jouée sur le dossier réel puis, sens rouge, sur une copie jetable.
+//   PM1 : chaque profil (tout .md hors LISEZMOI.md) ouvre sur un frontmatter qui porte `moteur`,
+//         une `version` SemVer, une `challenge_date` AAAA-MM-JJ et au moins une entrée `sources`.
+//   PM2 : l'inventaire du LISEZMOI cite chaque profil en accents graves, et le compte annoncé
+//         « Inventaire des profils actifs (N) » égale le nombre de profils sur le disque.
+const jugerProfilsMoteur = (dir) => {
+  const defauts = [];
+  const profils = fs.readdirSync(dir).filter(f => f.endsWith(".md") && f !== "LISEZMOI.md").sort();
+  for (const f of profils) {
+    const t = fs.readFileSync(path.join(dir, f), "utf8").replace(/\r\n/g, "\n");
+    const m = t.match(/^---\n([\s\S]*?)\n---\n/);
+    if (!m) { defauts.push(`PM1 ${f} : pas de frontmatter`); continue; }
+    const fm = m[1];
+    if (!/^moteur:\s*\S+/m.test(fm)) defauts.push(`PM1 ${f} : moteur absent`);
+    if (!/^version:\s*\d+\.\d+\.\d+\s*$/m.test(fm)) defauts.push(`PM1 ${f} : version SemVer absente`);
+    if (!/^challenge_date:\s*\d{4}-\d{2}-\d{2}\s*$/m.test(fm)) defauts.push(`PM1 ${f} : challenge_date AAAA-MM-JJ absente`);
+    if (!/^sources:\s*\n(\s+-\s+\S.*\n?)+/m.test(fm)) defauts.push(`PM1 ${f} : sources vides ou absentes`);
+  }
+  const lis = fs.readFileSync(path.join(dir, "LISEZMOI.md"), "utf8");
+  const inv = lis.split(/^## Inventaire des profils actifs/m)[1] || "";
+  const annonce = Number((inv.match(/^\s*\((\d+)\)/) || [])[1]);
+  if (annonce !== profils.length) defauts.push(`PM2 inventaire annonce ${annonce}, disque ${profils.length}`);
+  const corps = inv.split(/^## /m)[0];
+  for (const f of profils) if (!corps.includes("`" + f + "`")) defauts.push(`PM2 ${f} absent de l'inventaire`);
+  return { profils, defauts };
+};
+{
+  const dirProfils = path.join(ici, "..", "references", "profils-moteur");
+  const reel = jugerProfilsMoteur(dirProfils);
+  ok(reel.defauts.length === 0,
+    `profils-moteur · PM1-PM2 sur ${reel.profils.length} profils (${reel.profils.join(", ")}) — ${reel.defauts.length ? reel.defauts.join(" · ") : "0 défaut"}`);
+  // Sens rouge : copie jetable, un profil privé de ses sources et un profil hors inventaire.
+  const tmpPm = fs.mkdtempSync(path.join(os.tmpdir(), "fd-profils-"));
+  try {
+    for (const f of fs.readdirSync(dirProfils)) fs.copyFileSync(path.join(dirProfils, f), path.join(tmpPm, f));
+    const cible = reel.profils[0];
+    const sansSources = fs.readFileSync(path.join(tmpPm, cible), "utf8").replace(/\r\n/g, "\n").replace(/^sources:\s*\n(\s+-\s+.*\n)+/m, "");
+    fs.writeFileSync(path.join(tmpPm, cible), sansSources);
+    fs.writeFileSync(path.join(tmpPm, "zz-hors-inventaire.md"), "---\nmoteur: x\nversion: 1.0.0\nchallenge_date: 2026-10-16\nsources:\n  - \"s\"\n---\n");
+    const rouge = jugerProfilsMoteur(tmpPm);
+    const attendus = [`PM1 ${cible} : sources vides ou absentes`, "PM2 zz-hors-inventaire.md absent de l'inventaire"];
+    ok(attendus.every(a => rouge.defauts.includes(a)) && rouge.defauts.some(d => d.startsWith("PM2 inventaire annonce")),
+      `profils-moteur · ROUGE — copie jetable sans sources et avec un profil hors inventaire : ${rouge.defauts.length} défaut(s) détecté(s) (${rouge.defauts.join(" · ")})`);
+  } finally {
+    fs.rmSync(tmpPm, { recursive: true, force: true });
   }
 }
 

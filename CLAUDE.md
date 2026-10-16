@@ -701,8 +701,8 @@ node scripts/isoler-lignes-non-donnees.mjs fixtures/extrait-pied-verte.csv
 
 Référentiels versionnés (loi n° 4, jamais du code) : dialecte de contraintes, mapping de
 types, vues catalogue, commande d'export — un par moteur, alimentant le verbe `importer`.
-Quatre à ce jour : `postgres.md` (consommé par `importer` v0), `oracle.md`, `azure-sql.md`,
-`databricks.md` (à part — lakehouse, pas un RDBMS ; son lineage colonne natif Unity Catalog
+Cinq à ce jour : `postgres.md` (consommé par `importer` v0), `oracle.md`, `azure-sql.md`,
+`supabase.md` (un Postgres : n'en porte que l'écart, `importer` non étendu), `databricks.md` (à part — lakehouse, pas un RDBMS ; son lineage colonne natif Unity Catalog
 va au verbe `traduire-unity-catalog.mjs`, pas à `importer`). Doctrine complète et inventaire
 à jour : `references\profils-moteur\LISEZMOI.md`.
 
