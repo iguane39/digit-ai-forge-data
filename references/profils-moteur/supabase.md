@@ -1,6 +1,6 @@
 ---
 moteur: supabase
-version: 1.2.0
+version: 1.2.1
 challenge_date: 2026-10-29
 herite_de: postgres.md
 sources:
@@ -177,8 +177,8 @@ Jobs are stored on the `cron.job` table » ; chaque exécution s'inscrit dans
 f()')` ou depuis le tableau de bord, et désactiver l'extension « will permanently delete all
 Jobs ». Ce que cela change pour `tracer` : un job qui écrit une table est une transformation. Le
 §6 cite le dump, qui ignore « those created by extensions » ; le schéma `cron` en est un, donc ses
-jobs manquent à un lineage tiré du seul schéma. Déduction des deux pages, non observée sur un
-dump réel. Les jobs se lisent par `select jobname, schedule, command from cron.job`, et chacun se
+jobs manquent à un lineage tiré du seul schéma. Déduction tirée de ces 2 pages, non observée sur
+un dump réel. Les jobs se lisent par `select jobname, schedule, command from cron.job`, et chacun se
 déclare en `lineage@1` comme une transformation planifiée.
 
 **Pooler (Supavisor) et connexions.** La page « Connect to your database » nomme le pooler partagé
