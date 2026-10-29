@@ -1995,6 +1995,12 @@ const jugerProfilsMoteur = (dir) => {
     if (!/^version:\s*\d+\.\d+\.\d+\s*$/m.test(fm)) defauts.push(`PM1 ${f} : version SemVer absente`);
     if (!/^challenge_date:\s*\d{4}-\d{2}-\d{2}\s*$/m.test(fm)) defauts.push(`PM1 ${f} : challenge_date AAAA-MM-JJ absente`);
     if (!/^sources:\s*\n(\s+-\s+\S.*\n?)+/m.test(fm)) defauts.push(`PM1 ${f} : sources vides ou absentes`);
+    // PM4 (TF-2008, 29/10/2026) : une source lue APRÈS la challenge_date est un fait ajouté sans
+    // rafraîchir la date du profil, l'« édition silencieuse » que le point 7 du LISEZMOI interdit.
+    const challenge = (fm.match(/^challenge_date:\s*(\d{4}-\d{2}-\d{2})/m) || [])[1];
+    for (const [, j, mo, a] of fm.matchAll(/lu le (\d{2})\/(\d{2})\/(\d{4})/g)) {
+      if (challenge && `${a}-${mo}-${j}` > challenge) defauts.push(`PM4 ${f} : source lue le ${j}/${mo}/${a}, après la challenge_date ${challenge}`);
+    }
   }
   const lis = fs.readFileSync(path.join(dir, "LISEZMOI.md"), "utf8");
   const inv = lis.split(/^## Inventaire des profils actifs/m)[1] || "";
@@ -2010,7 +2016,7 @@ const jugerProfilsMoteur = (dir) => {
   const dirProfils = path.join(ici, "..", "references", "profils-moteur");
   const reel = jugerProfilsMoteur(dirProfils);
   ok(reel.defauts.length === 0,
-    `profils-moteur · PM1-PM3 sur ${reel.profils.length} profils (${reel.profils.join(", ")}) et ${reel.decisions.length} décision(s) hors inventaire (${reel.decisions.join(", ")}) — ${reel.defauts.length ? reel.defauts.join(" · ") : "0 défaut"}`);
+    `profils-moteur · PM1-PM4 sur ${reel.profils.length} profils (${reel.profils.join(", ")}) et ${reel.decisions.length} décision(s) hors inventaire (${reel.decisions.join(", ")}) — ${reel.defauts.length ? reel.defauts.join(" · ") : "0 défaut"}`);
   // PM3, sens rouge (TF-1999) : copie jetable où l'entrée « d1 » perd son déclencheur et ses
   // sources datées, et où un profil d1.md apparaît sans que l'entrée sorte de la liste d'attente.
   const tmpPm3 = fs.mkdtempSync(path.join(os.tmpdir(), "fd-decisions-"));
@@ -2049,6 +2055,41 @@ const jugerProfilsMoteur = (dir) => {
       `profils-moteur · ROUGE — copie jetable sans sources et avec un profil hors inventaire : ${rouge.defauts.length} défaut(s) détecté(s) (${rouge.defauts.join(" · ")})`);
   } finally {
     fs.rmSync(tmpPm, { recursive: true, force: true });
+  }
+  // PM4, sens rouge puis remède (TF-2008) : supabase.md ramené à une challenge_date antérieure à
+  // ses sources lues le 29/10/2026, puis rafraîchi à la date de la lecture la plus récente.
+  const tmpPm4 = fs.mkdtempSync(path.join(os.tmpdir(), "fd-fraicheur-"));
+  try {
+    for (const f of fs.readdirSync(dirProfils)) fs.copyFileSync(path.join(dirProfils, f), path.join(tmpPm4, f));
+    const cheminSb = path.join(tmpPm4, "supabase.md");
+    const sb = fs.readFileSync(cheminSb, "utf8");
+    fs.writeFileSync(cheminSb, sb.replace(/^challenge_date:.*$/m, "challenge_date: 2026-10-16"));
+    const rouge4 = jugerProfilsMoteur(tmpPm4).defauts.filter(d => d.startsWith("PM4"));
+    ok(rouge4.length > 0 && rouge4.every(d => d.startsWith("PM4 supabase.md")),
+      `profils-moteur · PM4 ROUGE — challenge_date ramenée au 16/10/2026 sous des sources lues le 29/10/2026 : ${rouge4.length} défaut(s) (${rouge4[0] || "aucun"})`);
+    fs.writeFileSync(cheminSb, sb.replace(/^challenge_date:.*$/m, "challenge_date: 2026-10-29"));
+    const remede4 = jugerProfilsMoteur(tmpPm4).defauts.filter(d => d.startsWith("PM4"));
+    ok(remede4.length === 0, `profils-moteur · PM4 remède joué — challenge_date rafraîchie au 29/10/2026 : ${remede4.length} défaut PM4`);
+  } finally {
+    fs.rmSync(tmpPm4, { recursive: true, force: true });
+  }
+}
+
+// Profil supabase §7 (TF-2008) : l'affirmation MESURÉE du profil est rejouée. Le 29/10/2026, le
+// verbe importer replie `extensions.vector(384)` sur "string" en le disant, et ne lit ni l'index
+// HNSW ni `ENABLE ROW LEVEL SECURITY`. Si le verbe change, ce cas rougit et le profil se relit.
+{
+  const tmpVec = fs.mkdtempSync(path.join(os.tmpdir(), "fd-pgvector-"));
+  try {
+    const iv = lanceScript("importer.mjs", [fx("schema-supabase-pgvector.sql"), "--sortie-dir", tmpVec]);
+    const avert = (iv.r.avertissements || []).filter(a => /extensions\.vector\(384\)/.test(a) && /non reconnu/.test(a));
+    const pContrat = iv.r.fichiers_produits && iv.r.fichiers_produits.contrat;
+    const props = pContrat ? (JSON.parse(fs.readFileSync(pContrat, "utf8")).schema || [])[0]?.proprietes || [] : [];
+    const emb = props.find(p => p.nom === "embedding");
+    ok(iv.exit === 0 && avert.length === 1 && emb && emb.type === "string" && iv.r.compte && iv.r.compte.assertions === 4,
+      `profil supabase §7 · importer sur pgvector : exit ${iv.exit}, ${avert.length} avertissement « non reconnu » sur vector(384), type replié « ${emb && emb.type} », ${iv.r.compte && iv.r.compte.assertions} assertions (index HNSW et RLS sans effet)`);
+  } finally {
+    fs.rmSync(tmpVec, { recursive: true, force: true });
   }
 }
 

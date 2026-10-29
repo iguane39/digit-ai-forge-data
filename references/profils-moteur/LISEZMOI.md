@@ -50,7 +50,8 @@
 
 `postgres.md` (porte la fixture du verbe importer) · `oracle.md` · `azure-sql.md` ·
 `databricks.md` (à part — RDBMS non applicable, cf. point 6) · `supabase.md` (hérite de
-`postgres.md` ; `importer` non étendu, cf. son §5).
+`postgres.md` ; `importer` non étendu, cf. son §5 ; pgvector, pg_cron, pooler et Realtime à son
+§7, TF-2008).
 
 Garde exécutée : `oracles/self-test.mjs`, règles PM1 (frontmatter `moteur`, `version`,
 `challenge_date`, `sources`), PM2 (chaque profil du disque cité ici, compte égal) et PM3 (chaque

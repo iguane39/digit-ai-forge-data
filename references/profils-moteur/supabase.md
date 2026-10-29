@@ -1,6 +1,6 @@
 ---
 moteur: supabase
-version: 1.1.0
+version: 1.2.0
 challenge_date: 2026-10-29
 herite_de: postgres.md
 sources:
@@ -13,6 +13,12 @@ sources:
   - "Supabase CLI reference, supabase db dump (--data-only, --use-copy, schémas ignorés) — supabase.com/docs/reference/cli/supabase-db-dump, lu le 29/10/2026"
   - "Getting started, développement local (base locale sur le port 54322) — supabase.com/docs/guides/local-development/cli/getting-started, lu le 29/10/2026"
   - "Seeding your database (seed après les migrations, à supabase start et db reset) — supabase.com/docs/guides/local-development/seeding-your-database, lu le 29/10/2026"
+  - "pgvector: Embeddings and vector similarity (extension vector créée dans le schéma extensions) — supabase.com/docs/guides/database/extensions/pgvector, lu le 29/10/2026"
+  - "HNSW indexes (classes d'opérateurs, dimensions indexables, filtrage et iterative scan) — supabase.com/docs/guides/ai/vector-indexes/hnsw-indexes, lu le 29/10/2026"
+  - "Cron (pg_cron, schéma cron, tables cron.job et cron.job_run_details) — supabase.com/docs/guides/cron, lu le 29/10/2026"
+  - "Cron, Quickstart et Install (cron.schedule ; désactiver pg_cron supprime les jobs) — supabase.com/docs/guides/cron/quickstart et /cron/install, lu le 29/10/2026"
+  - "Realtime Authorization (RLS sur realtime.messages, erreur 42501 en migration) — supabase.com/docs/guides/realtime/authorization, lu le 29/10/2026"
+  - "mesure de la forge, 29/10/2026 : scripts/importer.mjs sur fixtures/schema-supabase-pgvector.sql, rejouée par oracles/self-test.mjs"
 ---
 
 # Profil-moteur — Supabase (un Postgres, avec ce qui s'y ajoute)
@@ -134,3 +140,60 @@ projet. Le masquage, le jugement par l'oracle et le rechargement suivent ce mêm
 La recette réelle `scripts/exercer-anonymiser-postgres.mjs --image postgres:17-alpine` exerce le
 moteur PostgreSQL 17 que déclare le gabarit local (§1), jouée PASS le 29/10/2026 sur PostgreSQL
 17.10. La plateforme elle-même (pooler, rôles, schémas gérés) reste non exercée.
+
+## 7. Au-delà du moteur : pgvector, pg_cron, pooler, Realtime (TF-2008)
+
+Ajout du 29/10/2026, version 1.2.0 (étude du pilot du 28/10/2026, lignes S3, S5 et S6). Quatre
+briques qu'un projet Supabase ajoute au PostgreSQL de `postgres.md`, et ce que chacune change pour
+les verbes de la forge. Aucune n'a été exercée sur une base. Mesuré le 29/10/2026 : les cinq images
+PostgreSQL officielles du poste (15, 16, 16-alpine, 17, 17-alpine) ne portent aucun fichier
+`vector`, `pg_cron` ou `pgtap` parmi leurs 45 à 61 extensions, et le CLI Supabase n'y était pas
+installé.
+
+**pgvector.** L'extension s'appelle `vector` et se crée dans le schéma `extensions` ; une colonne
+s'écrit `embedding extensions.vector(384)`. Un index HNSW se pose par classe d'opérateurs
+(`vector_l2_ops`, `vector_ip_ops`, `vector_cosine_ops`) et n'indexe une colonne `vector` que
+jusqu'à 2 000 dimensions (pgvector 0.7.0 et plus). Ce que cela change :
+
+- `importer` : mesuré le 29/10/2026 sur `fixtures/schema-supabase-pgvector.sql`, le type
+  `extensions.vector(384)` sort en `string`, avec l'avertissement « non reconnu ». L'index HNSW et
+  la ligne `ENABLE ROW LEVEL SECURITY` ne produisent rien, sans avertissement. Le self-test rejoue
+  cette mesure. Le jeu de types de `contrat@1` est fermé (six types, règle C2 de
+  `oracle-contractualiser`) et n'a pas de vecteur : le brouillon se corrige à la main, la
+  dimension dans la description de la propriété. Étendre `contrat@1` est une décision à part, au
+  premier run qui en a besoin (R-28).
+- `profiler` : une ligne sans embedding est invisible à la recherche par similarité. Si le
+  produit exige que chaque ligne soit cherchable, l'assertion `non_nul` porte sur la colonne.
+- `restituer` : un compte tiré d'une recherche vectorielle filtrée n'est pas le compte des lignes
+  qui répondent au filtre. La page HNSW le dit : « you can end up with fewer rows than your
+  LIMIT », et l'`iterative_scan` qui y remédie est à `off` par défaut.
+- `anonymiser` : un embedding calculé sur un texte personnel porte l'information de ce texte. Il
+  se déclare `texte_libre`, la classe que le verbe force à `supprimer` ou `remplacer`, et se
+  recalcule chez le produit après le masquage.
+
+**pg_cron (Supabase Cron).** « The extension creates a `cron` schema in your database and all
+Jobs are stored on the `cron.job` table » ; chaque exécution s'inscrit dans
+`cron.job_run_details`. Un job se crée par `select cron.schedule('nom', '30 seconds', 'CALL
+f()')` ou depuis le tableau de bord, et désactiver l'extension « will permanently delete all
+Jobs ». Ce que cela change pour `tracer` : un job qui écrit une table est une transformation. Le
+§6 cite le dump, qui ignore « those created by extensions » ; le schéma `cron` en est un, donc ses
+jobs manquent à un lineage tiré du seul schéma. Déduction des deux pages, non observée sur un
+dump réel. Les jobs se lisent par `select jobname, schedule, command from cron.job`, et chacun se
+déclare en `lineage@1` comme une transformation planifiée.
+
+**Pooler (Supavisor) et connexions.** La page « Connect to your database » nomme le pooler partagé
+Supavisor. En mode transaction (port 6543), il ne prend pas les instructions préparées, et l'état
+de session tombe entre deux transactions : `set`, verrous consultatifs de session, `listen` et
+`notify`, tables temporaires. Le pooler dédié (PgBouncer, offre Pro et plus) ne connaît que le
+mode transaction ; il prend les instructions préparées à partir de PgBouncer 1.21. Ce que cela
+change : un script d'extraction qui pose une table temporaire ou un `set` passe par la connexion
+directe ou le mode session (§6). Un Worker qui lit par Hyperdrive prend la connexion directe :
+voir l'écart `hyperdrive` du `LISEZMOI.md`.
+
+**Realtime.** L'accès aux canaux Broadcast et Presence se règle par des politiques RLS sur
+`realtime.messages`. La RLS y est déjà active : une migration qui ajoute `ALTER TABLE
+realtime.messages ENABLE ROW LEVEL SECURITY` échoue sur `42501 must be owner of table messages`,
+et la transaction s'arrête avec les `create policy` qui suivent. « Realtime does not store any
+messages in your `realtime.messages` table » : il n'y a rien à profiler ni à extraire. Le schéma
+`realtime` se traite comme `auth` et `storage` (§2), hors export par défaut. Les politiques de
+canal ne se lisent pas par `importer` (§3).
