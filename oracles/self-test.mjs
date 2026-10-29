@@ -1957,6 +1957,32 @@ console.log(String.fromCharCode(10) + "anonymiser (TF-2011) — le verbe produit
 //         une `version` SemVer, une `challenge_date` AAAA-MM-JJ et au moins une entrée `sources`.
 //   PM2 : l'inventaire du LISEZMOI cite chaque profil en accents graves, et le compte annoncé
 //         « Inventaire des profils actifs (N) » égale le nombre de profils sur le disque.
+//   PM3 (TF-1999, 29/10/2026) : chaque entrée `- **<moteur>**` de « Liste d'attente » et
+//         d'« Écarts motivés » porte « Décidé le JJ/MM/AAAA », au moins une source « lu le
+//         JJ/MM/AAAA », et « Déclencheur : » (attente) ou « Motif : » (écart) ; aucun de ces
+//         moteurs n'a de profil `<moteur>.md` sur le disque. Une décision non datée ou non
+//         sourcée, ou un profil créé sans retirer son entrée, ne passe plus sans bruit.
+const SECTIONS_DECISIONS = [
+  { titre: "## Liste d'attente", exige: "Déclencheur :" },
+  { titre: "## Écarts motivés", exige: "Motif :" },
+];
+const jugerDecisionsMoteur = (lis, profils) => {
+  const defauts = [];
+  const moteurs = [];
+  for (const { titre, exige } of SECTIONS_DECISIONS) {
+    const section = (lis.split(titre)[1] || "").split(/^## /m)[0];
+    const entrees = section.split(/^(?=- \*\*)/m).filter(b => b.startsWith("- **"));
+    for (const bloc of entrees) {
+      const moteur = (bloc.match(/^- \*\*([a-z0-9-]+)\*\*/) || [])[1] || "?";
+      moteurs.push(moteur);
+      if (!/Décidé le \d{2}\/\d{2}\/\d{4}/.test(bloc)) defauts.push(`PM3 ${moteur} : date de décision absente`);
+      if (!/lu le \d{2}\/\d{2}\/\d{4}/.test(bloc)) defauts.push(`PM3 ${moteur} : aucune source datée « lu le »`);
+      if (!bloc.includes(exige)) defauts.push(`PM3 ${moteur} : « ${exige} » absent`);
+      if (profils.includes(`${moteur}.md`)) defauts.push(`PM3 ${moteur} : un profil ${moteur}.md existe, l'entrée doit sortir de « ${titre.slice(3)} »`);
+    }
+  }
+  return { moteurs, defauts };
+};
 const jugerProfilsMoteur = (dir) => {
   const defauts = [];
   const profils = fs.readdirSync(dir).filter(f => f.endsWith(".md") && f !== "LISEZMOI.md").sort();
@@ -1976,13 +2002,39 @@ const jugerProfilsMoteur = (dir) => {
   if (annonce !== profils.length) defauts.push(`PM2 inventaire annonce ${annonce}, disque ${profils.length}`);
   const corps = inv.split(/^## /m)[0];
   for (const f of profils) if (!corps.includes("`" + f + "`")) defauts.push(`PM2 ${f} absent de l'inventaire`);
-  return { profils, defauts };
+  const decisions = jugerDecisionsMoteur(lis.replace(/\r\n/g, "\n"), profils);
+  defauts.push(...decisions.defauts);
+  return { profils, defauts, decisions: decisions.moteurs };
 };
 {
   const dirProfils = path.join(ici, "..", "references", "profils-moteur");
   const reel = jugerProfilsMoteur(dirProfils);
   ok(reel.defauts.length === 0,
-    `profils-moteur · PM1-PM2 sur ${reel.profils.length} profils (${reel.profils.join(", ")}) — ${reel.defauts.length ? reel.defauts.join(" · ") : "0 défaut"}`);
+    `profils-moteur · PM1-PM3 sur ${reel.profils.length} profils (${reel.profils.join(", ")}) et ${reel.decisions.length} décision(s) hors inventaire (${reel.decisions.join(", ")}) — ${reel.defauts.length ? reel.defauts.join(" · ") : "0 défaut"}`);
+  // PM3, sens rouge (TF-1999) : copie jetable où l'entrée « d1 » perd son déclencheur et ses
+  // sources datées, et où un profil d1.md apparaît sans que l'entrée sorte de la liste d'attente.
+  const tmpPm3 = fs.mkdtempSync(path.join(os.tmpdir(), "fd-decisions-"));
+  try {
+    for (const f of fs.readdirSync(dirProfils)) fs.copyFileSync(path.join(dirProfils, f), path.join(tmpPm3, f));
+    const lis = fs.readFileSync(path.join(tmpPm3, "LISEZMOI.md"), "utf8").replace(/\r\n/g, "\n");
+    const [avant, apres] = lis.split("- **d1**");
+    const finD1 = apres.search(/^## /m);
+    const d1Degradee = apres.slice(0, finD1).replace(/Déclencheur :/g, "Quand :").replace(/lu le \d{2}\/\d{2}\/\d{4}/g, "consulté");
+    fs.writeFileSync(path.join(tmpPm3, "LISEZMOI.md"), avant + "- **d1**" + d1Degradee + apres.slice(finD1));
+    fs.writeFileSync(path.join(tmpPm3, "d1.md"), "---\nmoteur: d1\nversion: 0.1.0\nchallenge_date: 2026-10-29\nsources:\n  - \"s\"\n---\n");
+    const rouge3 = jugerProfilsMoteur(tmpPm3);
+    const attendus3 = ["PM3 d1 : aucune source datée « lu le »", "PM3 d1 : « Déclencheur : » absent",
+      "PM3 d1 : un profil d1.md existe, l'entrée doit sortir de « Liste d'attente »"];
+    ok(attendus3.every(a => rouge3.defauts.includes(a)) && !rouge3.defauts.some(d => /^PM3 (r2|hyperdrive)/.test(d)),
+      `profils-moteur · PM3 ROUGE — entrée d1 sans déclencheur ni source datée, profil d1.md créé sans la retirer : ${rouge3.defauts.filter(d => d.startsWith("PM3")).join(" · ")}`);
+    // Remède que le message propose (TF-1013) : l'entrée sort de la liste quand le profil naît.
+    fs.writeFileSync(path.join(tmpPm3, "LISEZMOI.md"), avant + apres.slice(finD1));
+    const remede = jugerProfilsMoteur(tmpPm3);
+    ok(!remede.defauts.some(d => d.startsWith("PM3")) && !remede.decisions.includes("d1"),
+      `profils-moteur · PM3 remède joué — entrée d1 retirée au profit de d1.md : ${remede.defauts.filter(d => d.startsWith("PM3")).length} défaut PM3`);
+  } finally {
+    fs.rmSync(tmpPm3, { recursive: true, force: true });
+  }
   // Sens rouge : copie jetable, un profil privé de ses sources et un profil hors inventaire.
   const tmpPm = fs.mkdtempSync(path.join(os.tmpdir(), "fd-profils-"));
   try {

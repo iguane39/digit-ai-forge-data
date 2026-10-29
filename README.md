@@ -83,7 +83,9 @@ python scripts/verifier_unites_parquet.py --self-test   # TF-1065 : type parquet
 - `references/profils-moteur/` — référentiels versionnés par moteur de base de données
   (Postgres, Oracle, Azure SQL, Databricks) : dialecte de contraintes, mapping de types,
   vues catalogue, commande d'export — alimentent le verbe `importer` (voir `LISEZMOI.md`) ; pour
-  PostgreSQL et Supabase, aussi l'extraction et le rechargement du verbe `anonymiser` (§6).
+  PostgreSQL et Supabase, aussi l'extraction et le rechargement du verbe `anonymiser` (§6). Le
+  `LISEZMOI.md` tient aussi les services sans profil, décision datée et sourcée : Cloudflare D1 en
+  liste d'attente, R2 et Hyperdrive en écarts motivés (TF-1999, garde PM3 du self-test).
 - Barres de niveau (registre la-barre) : OpenLineage · Great Expectations · dbt-core · ODCS v3.1.0
   · avis WP216 du groupe de l'article 29 (verbe anonymiser).
 

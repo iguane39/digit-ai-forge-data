@@ -768,7 +768,9 @@ pour PostgreSQL et Supabase, aussi l'extraction et le rechargement du verbe `ano
 Cinq à ce jour : `postgres.md` (consommé par `importer` v0), `oracle.md`, `azure-sql.md`,
 `supabase.md` (un Postgres : n'en porte que l'écart, `importer` non étendu), `databricks.md` (à part — lakehouse, pas un RDBMS ; son lineage colonne natif Unity Catalog
 va au verbe `traduire-unity-catalog.mjs`, pas à `importer`). Doctrine complète et inventaire
-à jour : `references\profils-moteur\LISEZMOI.md`.
+à jour : `references\profils-moteur\LISEZMOI.md`. Il tient aussi la liste d'attente (Cloudflare
+D1, TF-1999) et les écarts motivés (R2, Hyperdrive) ; la règle PM3 du self-test exige de chaque
+entrée sa date de décision, une source datée et son déclencheur ou son motif.
 
 ## Doctrine issue du REX (l'essentiel — détail : references\REX-DATA.md)
 
