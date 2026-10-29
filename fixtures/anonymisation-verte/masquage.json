@@ -1,0 +1,56 @@
+{
+  "format": "forge-data/masquage@1",
+  "id": "boutique-synthetique-recette",
+  "date": "2026-10-29",
+  "auteur": "forge-data, recette du verbe anonymiser (TF-2011) — fixture synthétique",
+  "contexte": "Boutique inventée pour la recette : quatre tables, aucune donnée réelle n'a jamais vécu ici.",
+  "seuils": { "k": 5, "l": 2, "t": 0.6, "jointure_max": 0, "suppression_max": 0.1 },
+  "tables": [
+    {
+      "nom": "client",
+      "personne": "id",
+      "colonnes": [
+        { "nom": "id", "classe": "identifiant_direct", "strategie": "remplacer", "synthetique": "cle" },
+        { "nom": "email", "classe": "identifiant_direct", "strategie": "remplacer", "synthetique": "courriel", "domaine": "example.invalid" },
+        { "nom": "nom", "classe": "identifiant_direct", "strategie": "remplacer", "synthetique": "nom" },
+        { "nom": "prenom", "classe": "identifiant_direct", "strategie": "remplacer", "synthetique": "nom" },
+        { "nom": "telephone", "classe": "identifiant_direct", "strategie": "supprimer" },
+        { "nom": "date_naissance", "classe": "quasi_identifiant", "strategie": "generaliser", "methode": "date", "niveau": "decennie" },
+        { "nom": "code_postal", "classe": "quasi_identifiant", "strategie": "generaliser", "methode": "code_postal_departement" },
+        { "nom": "sexe", "classe": "quasi_identifiant", "strategie": "conserver", "motif": "deux modalités, utiles aux écrans de civilité, comptées dans les classes du k-anonymat" },
+        { "nom": "pathologie", "classe": "attribut_sensible", "strategie": "conserver", "motif": "catégorie nécessaire aux parcours de recette, protégée par la l-diversité et t mesurés" },
+        { "nom": "commentaire", "classe": "texte_libre", "strategie": "supprimer" },
+        { "nom": "cree_le", "classe": "technique", "strategie": "generaliser", "methode": "date", "niveau": "mois" }
+      ]
+    },
+    {
+      "nom": "produit",
+      "colonnes": [
+        { "nom": "id", "classe": "non_personnelle", "strategie": "conserver", "motif": "référentiel de produits sans personne, clé reprise pour les jointures" },
+        { "nom": "libelle", "classe": "non_personnelle", "strategie": "conserver", "motif": "libellé de catalogue, identique pour tous les clients" },
+        { "nom": "prix", "classe": "non_personnelle", "strategie": "conserver", "motif": "prix de catalogue, identique pour tous les clients" }
+      ]
+    },
+    {
+      "nom": "commande",
+      "personne": "client_id",
+      "colonnes": [
+        { "nom": "id", "classe": "identifiant_direct", "strategie": "remplacer", "synthetique": "cle" },
+        { "nom": "client_id", "classe": "identifiant_direct", "strategie": "remplacer", "reference": "client.id" },
+        { "nom": "date_commande", "classe": "quasi_identifiant", "strategie": "generaliser", "methode": "date", "niveau": "mois" },
+        { "nom": "montant", "classe": "attribut_sensible", "strategie": "bruiter", "amplitude_relative": 0.15, "bornes": [0, 100000] },
+        { "nom": "statut", "classe": "non_personnelle", "strategie": "conserver", "motif": "cycle de vie de la commande, quatre modalités fréquentes" },
+        { "nom": "note_livraison", "classe": "texte_libre", "strategie": "remplacer", "synthetique": "texte" }
+      ]
+    },
+    {
+      "nom": "ligne_commande",
+      "colonnes": [
+        { "nom": "id", "classe": "identifiant_direct", "strategie": "remplacer", "synthetique": "cle" },
+        { "nom": "commande_id", "classe": "identifiant_direct", "strategie": "remplacer", "reference": "commande.id" },
+        { "nom": "produit_id", "classe": "non_personnelle", "strategie": "conserver", "reference": "produit.id", "motif": "renvoi au référentiel de produits, sans personne" },
+        { "nom": "quantite", "classe": "non_personnelle", "strategie": "conserver", "motif": "quantité commandée, de un à cinq" }
+      ]
+    }
+  ]
+}

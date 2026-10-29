@@ -1,14 +1,18 @@
 ---
 moteur: supabase
-version: 1.0.0
-challenge_date: 2026-10-16
+version: 1.1.0
+challenge_date: 2026-10-29
 herite_de: postgres.md
 sources:
   - "Supabase CLI reference (supabase db dump --linked, -f, -s, --data-only) — supabase.com/docs/reference/cli/introduction, lu le 16/10/2026"
   - "Row Level Security (rôles anon, authenticated, service_role) — supabase.com/docs/guides/database/postgres/row-level-security, lu le 16/10/2026"
   - "Storage access control (politiques RLS sur storage.objects) — supabase.com/docs/guides/storage/security/access-control, lu le 16/10/2026"
   - "Gabarit config.toml du CLI ([api] schemas, [db] major_version = 17) — github.com/supabase/cli, branche develop, apps/cli-go/pkg/config/templates/config.toml, lu le 16/10/2026"
-  - "profil-moteur PostgreSQL de ce dossier — postgres.md 1.0.0 (challenge_date 2026-08-12)"
+  - "profil-moteur PostgreSQL de ce dossier — postgres.md 1.1.0 (challenge_date 2026-10-29)"
+  - "Connect to your database (connexion directe, pooler en mode session et transaction) — supabase.com/docs/guides/database/connecting-to-postgres, lu le 29/10/2026"
+  - "Supabase CLI reference, supabase db dump (--data-only, --use-copy, schémas ignorés) — supabase.com/docs/reference/cli/supabase-db-dump, lu le 29/10/2026"
+  - "Getting started, développement local (base locale sur le port 54322) — supabase.com/docs/guides/local-development/cli/getting-started, lu le 29/10/2026"
+  - "Seeding your database (seed après les migrations, à supabase start et db reset) — supabase.com/docs/guides/local-development/seeding-your-database, lu le 29/10/2026"
 ---
 
 # Profil-moteur — Supabase (un Postgres, avec ce qui s'y ajoute)
@@ -99,3 +103,34 @@ par non-recouvrement (R-28), au premier run réel qui fournit un tel export : jo
 `scripts/importer.mjs` sur le fichier, mesurer ce qu'il lit et ce qu'il saute (politiques,
 `ENABLE ROW LEVEL SECURITY`, objets des schémas gérés), puis décider entre la seule donnée de
 ce profil et un ajout au parseur.
+
+## 6. Extraire et recharger un extrait de données (verbe anonymiser, TF-2011)
+
+Ajout du 29/10/2026, version 1.1.0. L'export `--data-only` du §4 ne sert pas au masquage : le CLI
+le rend en instructions SQL, des `INSERT` par défaut ou des `COPY` avec `--use-copy` (« Use copy
+statements in place of inserts »), jamais en un fichier par table. Pour le verbe `anonymiser`,
+l'extrait se prend par la commande `\copy` de `postgres.md` §6, sur la chaîne de connexion du
+projet. Le masquage, le jugement par l'oracle et le rechargement suivent ce même §6.
+
+- **Connexion.** La page « Connect to your database » réserve la connexion directe aux
+  « Migrations, `pg_dump`, backup and restore, or replication ». Cette connexion passe par IPv6,
+  sauf module IPv4 ; le pooler partagé en mode session (port 5432) est l'alternative IPv4. Le mode
+  transaction (port 6543) perd l'état de session entre transactions : il ne sert pas à extraire.
+- **Schémas gérés.** `supabase db dump` ignore `auth`, `storage` et les schémas d'extensions
+  (« The ignored schemas include auth, storage, and those created by extensions »). Une table du
+  produit qui référence une table de ces schémas ne se recharge qu'avec la ligne référencée. Cette
+  table entre alors dans l'extrait et dans la déclaration de masquage, colonne par colonne comme les
+  autres, ou bien la référence se déclare `supprimer`.
+- **Rechargement local.** `supabase start` expose la base locale sur
+  `postgresql://postgres:postgres@127.0.0.1:54322/postgres` (page « Getting started »). Les
+  migrations y posent le schéma et ses contraintes : les tables se chargent donc dans
+  l'`ordre_chargement` du rapport `anonymisation.json`.
+- **Seed.** Les fichiers de seed s'exécutent « the first time you run `supabase start` and every
+  time you run `supabase db reset` », après les migrations (page « Seeding your database »). Un
+  extrait masqué versionné en `seed.sql` serait recopié à chaque clone du dépôt ; la forge le
+  déconseille, l'avis WP216 (§2.2.2) tenant l'extrait pour personnel tant que la source existe. Il se
+  recharge par la chaîne du produit, après le verdict de l'oracle.
+
+La recette réelle `scripts/exercer-anonymiser-postgres.mjs --image postgres:17-alpine` exerce le
+moteur PostgreSQL 17 que déclare le gabarit local (§1), jouée PASS le 29/10/2026 sur PostgreSQL
+17.10. La plateforme elle-même (pooler, rôles, schémas gérés) reste non exercée.

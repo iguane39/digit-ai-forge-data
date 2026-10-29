@@ -7,7 +7,9 @@
    types, les vues catalogue et la commande d'export d'un moteur de base de données, pour
    **alimenter le verbe `importer`** (`scripts/importer.mjs`, TF-0139) et pour guider un
    humain qui profile/trace *ce* moteur avec les formats existants (assertions@1,
-   lineage@1, contrat@1).
+   lineage@1, contrat@1). Depuis le 29/10/2026 (TF-2011), `postgres.md` et `supabase.md`
+   documentent aussi, en leur §6, l'extraction et le rechargement d'un extrait de données
+   pour le verbe `anonymiser` (`scripts/anonymiser.mjs`).
 3. Cinq profils à ce jour : `postgres.md`, `oracle.md`, `azure-sql.md`, `databricks.md`,
    `supabase.md` (16/10/2026, un Postgres : il hérite de `postgres.md` et n'en porte que
    l'écart, décision et motif en tête du fichier ; né du premier run qui le cite).
@@ -39,7 +41,10 @@
    d'un fait daté.
 8. Aucun profil ne suppose ni n'installe d'instance du moteur qu'il décrit : les faits sont
    sourcés depuis la documentation officielle du moteur, jamais observés sur une base vivante
-   que la forge opérerait.
+   que la forge opérerait. Seule exception, de recette : `scripts/exercer-anonymiser-postgres.mjs`
+   (TF-2011) monte un PostgreSQL éphémère en Docker local, y joue les commandes documentées sur la
+   source SYNTHÉTIQUE de la forge, puis le détruit. Ce qu'il mesure confirme un fait sourcé ou en
+   montre la limite, et le profil le dit daté ; il n'opère jamais une base existante.
 
 ## Inventaire des profils actifs (5)
 

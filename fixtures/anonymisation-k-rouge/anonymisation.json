@@ -1,0 +1,54 @@
+{
+  "format": "forge-data/anonymisation@1",
+  "id": "boutique-synthetique-recette-anonymisation-k-rouge",
+  "date": "2026-10-29T12:00:00.000Z",
+  "outil": "digit-ai-forge-data/scripts/anonymiser.mjs",
+  "masquage": "masquage.json",
+  "source": {
+    "dossier": "../anonymisation-source",
+    "forme": "csv"
+  },
+  "masque": {
+    "dossier": ".",
+    "forme": "csv"
+  },
+  "graine": "fournie_non_conservee",
+  "ordre_chargement": [
+    "client",
+    "produit",
+    "commande",
+    "ligne_commande"
+  ],
+  "tables": {
+    "client": {
+      "fichier": "client.csv",
+      "lignes_source": 160,
+      "lignes_masque": 151,
+      "supprimees_classe": 9,
+      "supprimees_cascade": 0
+    },
+    "produit": {
+      "fichier": "produit.csv",
+      "lignes_source": 10,
+      "lignes_masque": 10,
+      "supprimees_classe": 0,
+      "supprimees_cascade": 0
+    },
+    "commande": {
+      "fichier": "commande.csv",
+      "lignes_source": 240,
+      "lignes_masque": 231,
+      "supprimees_classe": 0,
+      "supprimees_cascade": 9
+    },
+    "ligne_commande": {
+      "fichier": "ligne_commande.csv",
+      "lignes_source": 360,
+      "lignes_masque": 343,
+      "supprimees_classe": 0,
+      "supprimees_cascade": 17
+    }
+  },
+  "colonnes": {},
+  "avertissements": []
+}

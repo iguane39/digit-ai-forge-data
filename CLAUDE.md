@@ -13,7 +13,9 @@ porte sa source et sa fraîcheur.
   data d'un produit appartient à forge-tests ; la gouvernance d'architecture à forge-audit.
   forge-data vérifie la **forme de la discipline**, pas le contenu des données.
 - **Jamais de données client.** Fixtures synthétiques uniquement ; le REX
-  (`references\REX-DATA.md`) est anonymisé et généralisé — zéro nom d'engagement.
+  (`references\REX-DATA.md`) est anonymisé et généralisé — zéro nom d'engagement. Le verbe
+  `anonymiser` (TF-2011) s'applique CHEZ LES PRODUITS, sur leur propre extrait : aucune donnée
+  de production n'entre dans la forge, et ses fixtures décrivent une boutique inventée.
 - Invocation par le pilot dans les runs ; retours par lots vers `input\` du pilot.
 
 ## Les quatre verbes et leurs barres (registre la-barre 11/08, contractualiser 12/08)
@@ -64,6 +66,9 @@ node oracles/oracle-qualifier.mjs <qualification.json>    # QR1-QR8 : un rapport
 node oracles/oracle-couvrir.mjs <couverture.json>         # CV1-CV6 : mapping mesuré contre l'inventaire de sa source
 node oracles/oracle-evoluer.mjs <evolutions.json>         # EV1-EV7 : projection des évolutions d'une couche, provenance typée,
                                                           # comptes recalculés, arbre schéma › table › colonne
+node oracles/oracle-anonymiser.mjs <dossier masqué>       # AN1-AN10 : un extrait de production anonymisé, MESURÉ contre sa
+                                                          # source — individualisation (k), corrélation, inférence (l, t),
+                                                          # pseudonymisation refusée (TF-2011, avis WP216)
 node oracles/self-test.mjs                                 # double sens — à rejouer après toute modification
 node oracles/decouvrir-oracles.mjs                         # liste des oracles LUE SUR LE DISQUE (TF-1319, contrat du pilot)
 ```
@@ -697,10 +702,69 @@ Preuve en boucle : `oracles/self-test.mjs` sur `fixtures/extrait-pied-{verte,rou
 node scripts/isoler-lignes-non-donnees.mjs fixtures/extrait-pied-verte.csv
 ```
 
+## Le verbe anonymiser (TF-2011, 29/10/2026) — un extrait de production n'entre en développement qu'anonymisé et mesuré
+
+Décision D-91 (a) du porteur, le 29/10/2026 : la base de développement ou de qualification d'un
+produit peut recevoir un extrait de SA production, à trois conditions. L'extrait est anonymisé,
+jamais pseudonymisé : une clé, un hachage même salé ou une table de correspondance ne suffisent pas.
+Un contrôle exécuté refuse tout extrait où une personne reste reconnaissable. Les fixtures des forges
+restent synthétiques. Le fait qui a fondé la décision : l'étude du pilot du même jour n'a trouvé
+aucune forge qui masque une base, et deux produits avaient écrit leur propre outil, dont un qui
+pseudonymise sous clé.
+
+| Verbe | Discipline exigée | Barre | Oracle |
+|---|---|---|---|
+| **anonymiser** (TF-2011) | chaque colonne de chaque table extraite est CLASSÉE (identifiant direct, quasi-identifiant, attribut sensible, texte libre, technique, non personnelle) et reçoit une stratégie (supprimer, généraliser, remplacer par une valeur tirée, bruiter, agréger, conserver avec motif) ; aucun lien calculable ne relie l'extrait masqué à sa source ; individualisation, corrélation et inférence se MESURENT sur l'extrait masqué | avis 05/2014 du groupe de l'article 29 sur les techniques d'anonymisation (WP216, adopté le 10/04/2014), ses trois critères nommés en français par la CNIL (page « L'anonymisation de données personnelles », 19/05/2020) | `oracle-anonymiser.mjs <dossier masqué>` — AN1-AN10, formats `forge-data/masquage@1` (déclaration) et `forge-data/anonymisation@1` (rapport du passage) |
+
+```bash
+node scripts/anonymiser.mjs --masquage <masquage.json> --source <dossier-source> --sortie <dossier-neuf> [--graine <texte>]
+node oracles/oracle-anonymiser.mjs <dossier-masqué> [--source <dossier-source>]   # AVANT de détruire la source
+node scripts/exercer-anonymiser-postgres.mjs [--image postgres:16-alpine]          # recette réelle, PostgreSQL éphémère
+```
+
+**Les règles.** AN1 pièces, dont la source présente et aucun fichier égaré à côté de l'extrait ;
+AN2 classement exhaustif ; AN3 aucun identifiant direct gardé, aucune valeur d'identifiant égale à sa
+source, courriels de remplacement sur un domaine réservé (RFC 2606) ; AN4 pseudonymisation refusée,
+par la déclaration et par la mesure (forme d'empreinte, répétitions de la source suivies valeur pour
+valeur, graine écrite) ; AN5 k-anonymat ; AN6 corrélation ; AN7 l-diversité, et t-closeness quand
+`seuils.t` est déclaré ; AN8 texte libre ; AN9 intégrité référentielle ; AN10 comptes recalculés.
+Chaque règle est détaillée en tête de l'oracle.
+
+**Les planchers et leur motif.**
+- **k ≥ 5.** Une base de développement est une diffusion non publique, à accès restreint. La taille
+  minimale de cellule la plus courante des précédents est 5, soit un risque de réidentification de
+  0,2 (annexe B de « Sharing Clinical Trial Data », IOM, 2015, par El Emam et Malin, p. 231). Ce texte
+  réserve 3 aux destinataires de confiance sous accord, et 20 à la diffusion publique. L'EMA retient
+  0,09 pour une publication, soit 11 (EMA/90915/2016, version 1.2, p. 47). Une déclaration relève k,
+  jamais elle ne le baisse.
+- **l ≥ 2.** C'est le seuil qui défait l'inférence certaine : avec deux valeurs par classe, plus
+  aucune déduction à 100 % (WP216 §3.2.2.1). L'avis ajoute que deux valeurs ne suffisent pas quand la
+  répartition est déséquilibrée (§3.2.2.2). C'est ce que mesure `seuils.t`, que la forge recommande.
+- **Jointure : 0 par défaut, plafond 0,01.** Aucune ligne ne doit se relier à moins de k lignes de
+  la source ; une tolérance se déclare, et elle ne dépasse pas 1 %.
+
+**Ce que le verbe garantit par construction.** Une valeur remplacée est tirée, jamais dérivée de la
+valeur source. Une clé remplacée suit une correspondance tenue en mémoire le temps du passage, jamais
+écrite. Les lignes sont mélangées. La graine n'est écrite nulle part : absente, elle est tirée au
+hasard et l'extrait n'est pas reproductible ; fournie, elle rend la sortie identique octet pour octet,
+et elle se garde comme une clé. Hachage interne, déclaré : `crypto.hkdfSync` (HMAC-SHA-256) dérive une
+clé par flux de tirage, que AES-256-CTR transforme en flux ; aucune empreinte n'est écrite.
+
+**Ce que l'oracle ne juge pas.** La réidentification par une source externe à l'extrait. La
+qualification juridique : selon l'avis (§2.2.2), un extrait masqué tiré d'une base que le responsable
+garde reste pour lui une donnée personnelle. Le reste figure au `non_juge` de l'oracle.
+
+**Où il s'applique.** Chez les produits, sur leur extrait ; les commandes d'extraction et de
+rechargement vivent au §6 des profils `postgres.md` et `supabase.md`. Fixtures : `anonymisation-source/`
+(boutique inventée, canonisée par PostgreSQL), `anonymisation-verte/` produite par le verbe, et quatre
+rouges, un défaut chacune : identifiant gardé (AN3), noms hachés (AN4), classe de 2 personnes (AN5),
+classe homogène (AN7). Le self-test génère une rouge pour chacune des autres règles.
+
 ## Profils-moteur (TF-0140, `references\profils-moteur\`)
 
 Référentiels versionnés (loi n° 4, jamais du code) : dialecte de contraintes, mapping de
-types, vues catalogue, commande d'export — un par moteur, alimentant le verbe `importer`.
+types, vues catalogue, commande d'export — un par moteur, alimentant le verbe `importer` ;
+pour PostgreSQL et Supabase, aussi l'extraction et le rechargement du verbe `anonymiser` (§6).
 Cinq à ce jour : `postgres.md` (consommé par `importer` v0), `oracle.md`, `azure-sql.md`,
 `supabase.md` (un Postgres : n'en porte que l'écart, `importer` non étendu), `databricks.md` (à part — lakehouse, pas un RDBMS ; son lineage colonne natif Unity Catalog
 va au verbe `traduire-unity-catalog.mjs`, pas à `importer`). Doctrine complète et inventaire

@@ -1,0 +1,93 @@
+{
+  "format": "forge-data/anonymisation@1",
+  "id": "boutique-synthetique-recette-anonymisation-hachage-rouge",
+  "date": "2026-10-29T12:00:00.000Z",
+  "outil": "digit-ai-forge-data/scripts/anonymiser.mjs",
+  "masquage": "masquage.json",
+  "source": {
+    "dossier": "../anonymisation-source",
+    "forme": "csv"
+  },
+  "masque": {
+    "dossier": ".",
+    "forme": "csv"
+  },
+  "graine": "fournie_non_conservee",
+  "ordre_chargement": [
+    "client",
+    "produit",
+    "commande",
+    "ligne_commande"
+  ],
+  "tables": {
+    "client": {
+      "fichier": "client.csv",
+      "lignes_source": 160,
+      "lignes_masque": 151,
+      "supprimees_classe": 9,
+      "supprimees_cascade": 0
+    },
+    "produit": {
+      "fichier": "produit.csv",
+      "lignes_source": 10,
+      "lignes_masque": 10,
+      "supprimees_classe": 0,
+      "supprimees_cascade": 0
+    },
+    "commande": {
+      "fichier": "commande.csv",
+      "lignes_source": 240,
+      "lignes_masque": 231,
+      "supprimees_classe": 0,
+      "supprimees_cascade": 9
+    },
+    "ligne_commande": {
+      "fichier": "ligne_commande.csv",
+      "lignes_source": 360,
+      "lignes_masque": 343,
+      "supprimees_classe": 0,
+      "supprimees_cascade": 17
+    }
+  },
+  "mesures": {
+    "client": {
+      "quasi_identifiants": [
+        "date_naissance",
+        "code_postal",
+        "sexe"
+      ],
+      "attributs_sensibles": [
+        "pathologie"
+      ],
+      "personne": "id",
+      "classes": 12,
+      "k_atteint": 7,
+      "l_atteint": {
+        "pathologie": 3
+      },
+      "t_mesure": {
+        "pathologie": 0.3417
+      }
+    },
+    "commande": {
+      "quasi_identifiants": [
+        "date_commande"
+      ],
+      "attributs_sensibles": [
+        "montant"
+      ],
+      "personne": "client_id",
+      "classes": 12,
+      "k_atteint": 5,
+      "l_atteint": {
+        "montant": 5
+      },
+      "t_mesure": {},
+      "t_non_mesure": [
+        "montant"
+      ]
+    }
+  },
+  "colonnes": {},
+  "avertissements": []
+}

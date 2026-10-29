@@ -9,7 +9,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import zlib from "node:zlib";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ici = path.dirname(fileURLToPath(import.meta.url));
 const fx = f => path.join(ici, "..", "fixtures", f);
@@ -127,6 +127,16 @@ const CAS = [
   // la part est recopiée (100 % contre 1,6 % recalculés) et dont la conclusion contredit sa propre
   // mesure (QR8). Paire dédiée : sans elle, ces deux règles ne seraient jouées par personne.
   { oracle: "oracle-qualifier.mjs", verte: "qualification-definition-verte.json", rouge: "qualification-definition-rouge.json", regles: ["QR7", "QR8"] },
+  // anonymiser (TF-2011, 29/10/2026, décision D-91 (a)) : une verte produite PAR LE VERBE sur une
+  // source synthétique canonisée par PostgreSQL, et quatre rouges, un défaut chacune — le courriel
+  // source gardé (AN3), des empreintes SHA-256 de noms déclarées « remplacées » plus un prénom déclaré
+  // « hacher » (AN4), deux personnes isolées dans une classe de 2 (AN5), une classe entière portant
+  // la même pathologie (AN7). Le bloc « anonymiser (TF-2011) » plus bas prouve que chacune échoue sur
+  // SA règle seule, et joue une rouge générée pour chacune des autres règles.
+  { oracle: "oracle-anonymiser.mjs", verte: "anonymisation-verte", rouge: "anonymisation-identifiant-rouge", regles: ["AN3"] },
+  { oracle: "oracle-anonymiser.mjs", verte: "anonymisation-verte", rouge: "anonymisation-hachage-rouge", regles: ["AN4"] },
+  { oracle: "oracle-anonymiser.mjs", verte: "anonymisation-verte", rouge: "anonymisation-k-rouge", regles: ["AN5"] },
+  { oracle: "oracle-anonymiser.mjs", verte: "anonymisation-verte", rouge: "anonymisation-inference-rouge", regles: ["AN7"] },
 ];
 
 console.log("SELF-TEST forge-data — discipline aux niveaux des 4 barres (fixtures synthétiques)\n");
@@ -1693,6 +1703,249 @@ console.log(String.fromCharCode(10) + "lire-classeur-xlsx et lire-modele-pbix (T
       `lire-modele-pbix · ROUGE — DataModelSchema décodée mais JSON invalide : refus propre, jamais un modèle deviné (obtenu exit ${pj.exit})`);
   } finally {
     fs.rmSync(tmpZip, { recursive: true, force: true });
+  }
+}
+
+// ---- anonymiser (TF-2011, 29/10/2026, décision D-91 (a)) : le verbe produit, l'oracle MESURE ----
+// La boucle CAS prouve que chaque rouge échoue sur sa règle. Ce bloc prouve le reste : qu'elle échoue
+// sur cette règle SEULE (une rouge qui casserait trois règles ne dirait pas laquelle elle prouve),
+// que la verte committée EST la sortie du verbe (régénérée octet pour octet : le déterminisme pour une
+// graine se prouve, il ne se déclare pas), que la chaîne verbe → oracle se ferme en CSV et en JSONL,
+// que le verbe refuse ce que l'oracle refuserait SANS rien écrire, et qu'une rouge générée existe pour
+// chacune des règles que les fixtures committées ne portent pas (AN1, AN2, AN6, AN8, AN9, AN10, et les
+// planchers de AN5 et AN7). Enfin, qu'aucun constat ne recopie une valeur de la source.
+console.log(String.fromCharCode(10) + "anonymiser (TF-2011) — le verbe produit, l'oracle mesure : précision, déterminisme, chaîne, refus" + String.fromCharCode(10));
+{
+  const verbe = await import(pathToFileURL(path.join(ici, "..", "scripts", "anonymiser.mjs")).href);
+  const SCRIPT = path.join(ici, "..", "scripts", "anonymiser.mjs");
+  const ORACLE = path.join(ici, "oracle-anonymiser.mjs");
+  const SOURCE = fx("anonymisation-source"), VERTE = fx("anonymisation-verte");
+  const GRAINE = "recette-TF-2011", DATE = "2026-10-29T12:00:00.000Z";
+  const lanceVerbe = (args) => {
+    const r = spawnSync(process.execPath, [SCRIPT, ...args, "--json-only"], { encoding: "utf8" });
+    let j = null; try { j = JSON.parse(r.stdout); } catch { /* sortie illisible : les contrôles la disent */ }
+    return { code: r.status, j };
+  };
+  const juger = (cible, ...plus) => {
+    const r = spawnSync(process.execPath, [ORACLE, cible, "--json-only", ...plus], { encoding: "utf8" });
+    let j = {}; try { j = JSON.parse(r.stdout); } catch { /* idem */ }
+    return { code: r.status, j };
+  };
+  const bloquantes = (j) => [...new Set((j.findings || []).filter(f => f.sev === "bloquant").map(f => f.regle))].sort();
+  const lf = (t) => t.replace(/\r\n/g, "\n");
+  const tmpAn = fs.mkdtempSync(path.join(os.tmpdir(), "fd-anon-"));
+  // Les valeurs de la source qu'aucun constat ne doit recopier : courriels, noms, prénoms, textes libres.
+  const srcClient = verbe.lireTable(path.join(SOURCE, "client.csv"), "csv");
+  const sensibles = new Set();
+  for (const c of ["email", "nom", "prenom", "commentaire"]) { const j = srcClient.colonnes.indexOf(c); for (const r of srcClient.lignes) if (r[j] && r[j].length >= 5) sensibles.add(r[j]); }
+  const fuites = [];
+  const surveiller = (nom, j) => { for (const f of j.findings || []) for (const v of sensibles) if (String(f.msg).includes(v) || String(f.where).includes(v)) fuites.push(`${nom} : ${f.regle}`); };
+  try {
+    // 1. Précision des rouges committées : leur règle, et AUCUNE autre règle bloquante.
+    for (const [rouge, regle] of [["anonymisation-identifiant-rouge", "AN3"], ["anonymisation-hachage-rouge", "AN4"], ["anonymisation-k-rouge", "AN5"], ["anonymisation-inference-rouge", "AN7"]]) {
+      const r = juger(fx(rouge)); surveiller(rouge, r.j);
+      ok(r.code === 1 && JSON.stringify(bloquantes(r.j)) === JSON.stringify([regle]), `anonymiser · ${rouge} échoue sur ${regle} SEULE (obtenu ${bloquantes(r.j).join(",") || "rien"})`);
+    }
+    const ident = juger(fx("anonymisation-identifiant-rouge")).j.findings.filter(f => f.regle === "AN3");
+    ok(ident.some(f => /déclaré « conserver »/.test(f.msg)) && ident.some(f => /151 valeur\(s\) masquée\(s\) ÉGALE/.test(f.msg)),
+      "AN3 · rouge : l'identifiant gardé est refusé DEUX fois — par la déclaration, et par la mesure (151 courriels égaux à la source)");
+    const hach = juger(fx("anonymisation-hachage-rouge")).j.findings.filter(f => f.regle === "AN4").map(f => f.msg);
+    ok(hach.some(m => /stratégie « hacher »/.test(m)) && hach.some(m => /client\.nom : 151 valeur\(s\) sur 151 ont la forme d'une EMPREINTE/.test(m)) && hach.some(m => /client\.nom : le remplacement SUIT les répétitions/.test(m)),
+      "AN4 · rouge : le prénom déclaré « hacher » est refusé par la déclaration ; le nom, déclaré « remplacer » mais haché, est vu par la MESURE (forme d'empreinte et profil de répétitions)");
+    const kr = juger(fx("anonymisation-k-rouge")).j.findings.find(f => f.regle === "AN5" && f.sev === "bloquant");
+    ok(kr && /plus petite : 2/.test(kr.msg) && /2 ligne\(s\)/.test(kr.msg), `AN5 · rouge : la classe de 2 personnes est mesurée et LOCALISÉE (${kr && kr.msg.slice(0, 90)})`);
+    const inf = juger(fx("anonymisation-inference-rouge")).j.findings.filter(f => f.regle === "AN7" && f.sev === "bloquant");
+    ok(inf.some(f => /moins de l = 2 valeurs distinctes/.test(f.msg)), "AN7 · rouge : la classe homogène est refusée par la l-diversité (inférence certaine)");
+
+    // 2. La verte : PASS, mesures recalculées, planchers de l'oracle = ceux du verbe.
+    const v = juger(VERTE);
+    ok(v.code === 0 && v.j.verdict === "PASS" && v.j.mesures.client.k_mesure === 7 && v.j.mesures.commande.k_mesure === 5 && v.j.mesures.client.l_mesure.pathologie === 3,
+      `anonymiser · verte PASS, k recalculé 7 (client, personnes distinctes) et 5 (commande), l = 3 — obtenu ${JSON.stringify({ k: v.j.mesures?.client?.k_mesure, kc: v.j.mesures?.commande?.k_mesure })}`);
+    ok(v.j.seuils_forge && v.j.seuils_forge.k_min === verbe.PLANCHER_K && v.j.seuils_forge.l_min === verbe.PLANCHER_L && v.j.seuils_forge.jointure_max === verbe.PLAFOND_JOINTURE,
+      `anonymiser · planchers de l'oracle = planchers du verbe (k ${verbe.PLANCHER_K}, l ${verbe.PLANCHER_L}, jointure ${verbe.PLAFOND_JOINTURE}) : le juge ne laisse pas passer ce que le producteur refuse`);
+
+    // 3. Déterminisme : la verte committée se régénère OCTET POUR OCTET (tables et rapport hors chemin).
+    const regen = path.join(tmpAn, "regen");
+    const g = lanceVerbe(["--masquage", path.join(VERTE, "masquage.json"), "--source", SOURCE, "--sortie", regen, "--graine", GRAINE, "--date", DATE]);
+    const tablesV = ["client.csv", "produit.csv", "commande.csv", "ligne_commande.csv"];
+    const differentes = tablesV.filter(f => lf(fs.readFileSync(path.join(regen, f), "utf8")) !== lf(fs.readFileSync(path.join(VERTE, f), "utf8")));
+    const sansChemin = (f) => { const o = JSON.parse(fs.readFileSync(f, "utf8")); delete o.source.dossier; return JSON.stringify(o); };
+    ok(g.code === 0 && !differentes.length && sansChemin(path.join(regen, "anonymisation.json")) === sansChemin(path.join(VERTE, "anonymisation.json")),
+      `anonymiser · DÉTERMINISME : la verte committée est la sortie du verbe, régénérée identique pour la même graine (4 tables + rapport)${differentes.length ? " — différentes : " + differentes.join(", ") : ""}`);
+    const autre = path.join(tmpAn, "autre-graine");
+    lanceVerbe(["--masquage", path.join(VERTE, "masquage.json"), "--source", SOURCE, "--sortie", autre, "--graine", "une-autre-graine", "--date", DATE]);
+    const rA = JSON.parse(fs.readFileSync(path.join(autre, "anonymisation.json"), "utf8")), rV = JSON.parse(fs.readFileSync(path.join(VERTE, "anonymisation.json"), "utf8"));
+    ok(fs.readFileSync(path.join(autre, "client.csv"), "utf8") !== fs.readFileSync(path.join(VERTE, "client.csv"), "utf8") && JSON.stringify(rA.tables) === JSON.stringify(rV.tables),
+      "anonymiser · une autre graine change les valeurs tirées, pas les lignes retenues (mêmes comptes) : la sélection dépend des données, le tirage de la graine");
+    const sans1 = path.join(tmpAn, "sans-graine-1"), sans2 = path.join(tmpAn, "sans-graine-2");
+    lanceVerbe(["--masquage", path.join(VERTE, "masquage.json"), "--source", SOURCE, "--sortie", sans1]);
+    lanceVerbe(["--masquage", path.join(VERTE, "masquage.json"), "--source", SOURCE, "--sortie", sans2]);
+    const r1 = JSON.parse(fs.readFileSync(path.join(sans1, "anonymisation.json"), "utf8"));
+    ok(r1.graine === "tiree_au_hasard_non_conservee" && fs.readFileSync(path.join(sans1, "client.csv"), "utf8") !== fs.readFileSync(path.join(sans2, "client.csv"), "utf8"),
+      "anonymiser · sans graine : tirée au hasard, jamais écrite, deux passages diffèrent — le mode d'un extrait qui sort");
+    const contientGraine = fs.readdirSync(regen).filter(f => fs.readFileSync(path.join(regen, f), "utf8").includes(GRAINE));
+    ok(!contientGraine.length, `anonymiser · la graine fournie n'est écrite dans AUCUN fichier produit${contientGraine.length ? " — trouvée dans " + contientGraine.join(", ") : ""}`);
+    const chaine = juger(regen);
+    ok(chaine.code === 0 && chaine.j.verdict === "PASS", `anonymiser · CHAÎNE CSV : la sortie du verbe passe l'oracle sans retouche (obtenu ${chaine.j.verdict})`);
+
+    // 4. Forme JSONL : la même source convertie, la même déclaration, la chaîne se ferme aussi.
+    const srcJ = path.join(tmpAn, "source-jsonl"); fs.mkdirSync(srcJ);
+    for (const f of tablesV) {
+      const t = verbe.lireTable(path.join(SOURCE, f), "csv");
+      const num = t.colonnes.map((_, j) => t.lignes.every(r => r[j] === null || /^-?\d+(\.\d+)?$/.test(r[j])) && !["code_postal"].includes(t.colonnes[j]));
+      fs.writeFileSync(path.join(srcJ, f.replace(".csv", ".jsonl")), t.lignes.map(r => JSON.stringify(Object.fromEntries(t.colonnes.map((c, j) => [c, r[j] === null ? null : num[j] ? Number(r[j]) : r[j]])))).join("\n") + "\n");
+    }
+    const sortieJ = path.join(tmpAn, "masque-jsonl");
+    const gj = lanceVerbe(["--masquage", path.join(VERTE, "masquage.json"), "--source", srcJ, "--sortie", sortieJ, "--graine", GRAINE]);
+    const oj = juger(sortieJ);
+    const premiere = gj.code === 0 ? JSON.parse(fs.readFileSync(path.join(sortieJ, "client.jsonl"), "utf8").split("\n")[0]) : {};
+    ok(gj.code === 0 && oj.j.verdict === "PASS" && typeof premiere.id === "number" && typeof premiere.email === "string",
+      `anonymiser · CHAÎNE JSONL : la forme JSONL se masque et passe l'oracle, les clés restent des nombres JSON (obtenu ${gj.j && gj.j.verdict} / ${oj.j.verdict})`);
+    const grosJ = path.join(tmpAn, "source-bigint"); fs.mkdirSync(grosJ);
+    for (const f of fs.readdirSync(srcJ)) fs.copyFileSync(path.join(srcJ, f), path.join(grosJ, f));
+    fs.appendFileSync(path.join(grosJ, "produit.jsonl"), JSON.stringify({ id: 11, libelle: "x", prix: 1 }).replace("11", "12345678901234567") + "\n");
+    const gb = lanceVerbe(["--masquage", path.join(VERTE, "masquage.json"), "--source", grosJ, "--sortie", path.join(tmpAn, "bigint")]);
+    ok(gb.code === 2 && /16 chiffres/.test((gb.j.motifs || []).join(" ")) && !fs.existsSync(path.join(tmpAn, "bigint")),
+      "anonymiser · ROUGE — un entier JSON de 17 chiffres est REFUSÉ (JSON.parse le lirait faux au-delà de 2^53), rien n'est écrit");
+
+    // 5. Le verbe refuse ce que l'oracle refuserait, et n'écrit RIEN.
+    const declV = JSON.parse(fs.readFileSync(path.join(VERTE, "masquage.json"), "utf8"));
+    const refus = (nom, muter, code, motif) => {
+      const d = JSON.parse(JSON.stringify(declV)); muter(d);
+      const f = path.join(tmpAn, `${nom}.json`); fs.writeFileSync(f, JSON.stringify(d));
+      const s = path.join(tmpAn, `sortie-${nom}`);
+      const r = lanceVerbe(["--masquage", f, "--source", SOURCE, "--sortie", s, "--graine", GRAINE]);
+      ok(r.code === code && (r.j.motifs || []).some(x => motif.test(x)) && !fs.existsSync(s),
+        `anonymiser · REFUS du verbe (${nom}) : exit ${code}, motif dit, aucun fichier écrit (obtenu exit ${r.code} — ${(r.j.motifs || [""])[0].slice(0, 90)})`);
+    };
+    const client = (d) => d.tables.find(t => t.nom === "client").colonnes;
+    refus("colonne-non-classee", d => { d.tables.find(t => t.nom === "client").colonnes = client(d).filter(c => c.nom !== "cree_le"); }, 2, /cree_le : colonne de la source NON CLASSÉE/);
+    refus("hachage", d => { const c = client(d).find(x => x.nom === "nom"); c.strategie = "hacher"; delete c.synthetique; }, 2, /pseudonymisation/);
+    refus("identifiant-conserve", d => { const c = client(d).find(x => x.nom === "email"); c.strategie = "conserver"; c.motif = "gardé pour les tests de messages"; }, 2, /identifiant direct se supprime ou se remplace/);
+    refus("k-sous-plancher", d => { d.seuils.k = 3; }, 2, /seuils\.k = 3/);
+    refus("domaine-non-reserve", d => { client(d).find(x => x.nom === "email").domaine = "exemple-reel.fr"; }, 2, /domaine « exemple-reel\.fr » non réservé/);
+    refus("k-inatteignable", d => { client(d).find(x => x.nom === "date_naissance").niveau = "jour"; }, 1, /au-delà de suppression_max/);
+    // 5 bis. Toutes les stratégies que la verte n'exerce pas, sur un petit jeu synthétique construit
+    //   ici : tranche, regroupement, préfixe, bruit de dates, micro-agrégation, constante, clés UUID et
+    //   textuelles, table exclue. Né d'un défaut trouvé à la sonde le 29/10/2026 : la micro-agrégation
+    //   était calculée AVANT les retraits, des groupes tombaient sous k, et l'oracle l'a refusé (AN6).
+    {
+      const base = path.join(tmpAn, "strategies"), srcS = path.join(base, "source"); fs.mkdirSync(srcS, { recursive: true });
+      const metiers = ["infirmier", "medecin", "comptable", "juriste", "boulanger"];
+      const lignesS = ["id,badge,matricule,age,metier,bureau,arrivee,salaire,note,service_id"];
+      for (let i = 0; i < 60; i++) lignesS.push([`0f${String(i).padStart(6, "0")}-1111-4222-8333-${String(100000000000 + i * 7919).slice(0, 12)}`, `BADGE-${String(i).padStart(3, "0")}`,
+        `AB${String(1000 + i * 37).padStart(5, "0")}`, 20 + (i * 7) % 45, metiers[i % 5], `B${i % 4}-${100 + i}`, `2024-${String(1 + (i % 12)).padStart(2, "0")}-${String(1 + (i * 3) % 27).padStart(2, "0")}`,
+        (2000 + i * 13.37).toFixed(2), i % 3 ? `note privée ${i}` : "", 1 + (i % 2)].join(","));
+      fs.writeFileSync(path.join(srcS, "agent.csv"), lignesS.join("\n") + "\n");
+      fs.writeFileSync(path.join(srcS, "service.csv"), "id,libelle\n1,Accueil\n2,Archives\n");
+      fs.writeFileSync(path.join(srcS, "journal.csv"), "id,ligne\n1,connexion\n");
+      const motif = "référentiel interne sans aucune personne";
+      fs.writeFileSync(path.join(base, "masquage.json"), JSON.stringify({ format: "forge-data/masquage@1", id: "strategies", date: "2026-10-29", auteur: "self-test TF-2011",
+        seuils: { k: 5, l: 2, suppression_max: 0.5 }, tables: [
+          { nom: "service", colonnes: [{ nom: "id", classe: "non_personnelle", strategie: "conserver", motif }, { nom: "libelle", classe: "non_personnelle", strategie: "conserver", motif }] },
+          { nom: "agent", personne: "id", colonnes: [
+            { nom: "id", classe: "identifiant_direct", strategie: "remplacer", synthetique: "cle" },
+            { nom: "badge", classe: "identifiant_direct", strategie: "remplacer", synthetique: "cle" },
+            { nom: "matricule", classe: "identifiant_direct", strategie: "remplacer", synthetique: "constante", valeur: "MASQUE" },
+            { nom: "age", classe: "quasi_identifiant", strategie: "generaliser", methode: "tranche", pas: 20, forme: "libelle" },
+            { nom: "metier", classe: "quasi_identifiant", strategie: "generaliser", methode: "regroupement", groupes: { sante: ["infirmier", "medecin"], gestion: ["comptable", "juriste"] }, defaut: "autre" },
+            { nom: "bureau", classe: "technique", strategie: "generaliser", methode: "prefixe", longueur: 2 },
+            { nom: "arrivee", classe: "technique", strategie: "bruiter", amplitude_jours: 10 },
+            { nom: "salaire", classe: "attribut_sensible", strategie: "agreger", methode: "micro_agregation", taille_groupe: 5 },
+            { nom: "note", classe: "texte_libre", strategie: "remplacer", synthetique: "constante", valeur: "[texte retiré]" },
+            { nom: "service_id", classe: "non_personnelle", strategie: "conserver", reference: "service.id", motif }] },
+          { nom: "journal", exclue: true, motif: "journal technique inutile aux tests de recette" }] }));
+      const masqueS = path.join(base, "masque");
+      const gs = lanceVerbe(["--masquage", path.join(base, "masquage.json"), "--source", srcS, "--sortie", masqueS, "--graine", GRAINE]);
+      const t = gs.code === 0 ? verbe.lireTable(path.join(masqueS, "agent.csv"), "csv") : { colonnes: [], lignes: [] };
+      const colS = (c) => t.lignes.map(r => r[t.colonnes.indexOf(c)]);
+      const sourceIds = new Set(lignesS.slice(1).map(l => l.split(",")[0]));
+      const groupes = [...colS("salaire").reduce((m, v) => m.set(v, (m.get(v) || 0) + 1), new Map()).values()];
+      const preuves = {
+        uuid: colS("id").every(v => /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(v) && !sourceIds.has(v)),
+        cle_textuelle: colS("badge").every(v => /^k[0-9a-z]{12}$/.test(v)),
+        constante: colS("matricule").every(v => v === "MASQUE") && colS("note").every(v => v === null || v === "[texte retiré]"),
+        tranche: colS("age").every(v => ["20-39", "40-59", "60-79"].includes(v)),
+        regroupement: colS("metier").every(v => ["sante", "gestion", "autre"].includes(v)),
+        prefixe: colS("bureau").every(v => /^B[0-3]0000$/.test(v)),
+        bruit_dates: colS("arrivee").every(v => /^20(23|24|25)-\d{2}-\d{2}$/.test(v)),
+        micro_agregation: groupes.length > 0 && groupes.every(n => n >= 5),
+        table_exclue: gs.code === 0 && !fs.existsSync(path.join(masqueS, "journal.csv")),
+      };
+      const os_ = gs.code === 0 ? juger(masqueS) : { code: null, j: {} };
+      ok(gs.code === 0 && Object.values(preuves).every(Boolean) && os_.code === 0,
+        `anonymiser · TOUTES les stratégies exercées et jugées PASS — ${Object.entries(preuves).map(([k, v]) => `${k} ${v ? "ok" : "KO"}`).join(", ")} ; oracle ${os_.j.verdict}`);
+    }
+    const occupee = path.join(tmpAn, "occupee"); fs.mkdirSync(occupee); fs.writeFileSync(path.join(occupee, "deja.txt"), "x");
+    const ro = lanceVerbe(["--masquage", path.join(VERTE, "masquage.json"), "--source", SOURCE, "--sortie", occupee]);
+    ok(ro.code === 2 && /n'est pas vide/.test((ro.j.motifs || []).join(" ")), "anonymiser · REFUS du verbe : une sortie non vide n'est jamais complétée — un extrait masqué s'écrit dans un dossier neuf");
+
+    // 6. Une rouge GÉNÉRÉE par règle que les fixtures committées ne portent pas : copie de la verte,
+    //    un défaut, l'oracle joué avec --source. Chacune échoue sur SA règle seule.
+    let n = 0;
+    const rougeGeneree = (nom, regle, muter, attendu) => {
+      const dir = path.join(tmpAn, `rouge-${++n}`); fs.mkdirSync(dir);
+      for (const f of fs.readdirSync(VERTE)) fs.copyFileSync(path.join(VERTE, f), path.join(dir, f));
+      const lireJ = (f) => JSON.parse(fs.readFileSync(path.join(dir, f), "utf8"));
+      const ecrireJ = (f, o) => fs.writeFileSync(path.join(dir, f), JSON.stringify(o, null, 2));
+      const lireT = (t) => verbe.lireTable(path.join(dir, `${t}.csv`), "csv");
+      const ecrireT = (t, tab) => fs.writeFileSync(path.join(dir, `${t}.csv`), verbe.ecrireCsv(tab.colonnes, tab.lignes));
+      muter({ dir, lireJ, ecrireJ, lireT, ecrireT });
+      const r = juger(dir, "--source", SOURCE); surveiller(nom, r.j);
+      const b = bloquantes(r.j);
+      ok(r.code === 1 && JSON.stringify(b) === JSON.stringify([regle]) && (r.j.findings || []).some(f => f.regle === regle && attendu.test(f.msg)),
+        `${regle} · ROUGE générée (${nom}) : FAIL sur ${regle} seule (obtenu ${b.join(",") || "rien"})`);
+    };
+    const sansMesures = (ctx) => { const r = ctx.lireJ("anonymisation.json"); delete r.mesures; ctx.ecrireJ("anonymisation.json", r); };
+    const remettreSource = (ctx, table, colonne) => {
+      const t = ctx.lireT(table), s = verbe.lireTable(path.join(SOURCE, `${table}.csv`), "csv");
+      const j = t.colonnes.indexOf(colonne), js = s.colonnes.indexOf(colonne);
+      t.lignes.forEach((r, i) => { r[j] = s.lignes[i][js]; }); ctx.ecrireT(table, t);
+    };
+    rougeGeneree("fichier égaré dans le dossier masqué", "AN1", ({ dir }) => fs.writeFileSync(path.join(dir, "client_source.csv"), "id\n1\n"), /client_source\.csv/);
+    rougeGeneree("colonne de la source non classée", "AN2", (ctx) => {
+      const d = ctx.lireJ("masquage.json"); const t = d.tables.find(x => x.nom === "client"); t.colonnes = t.colonnes.filter(c => c.nom !== "cree_le"); ctx.ecrireJ("masquage.json", d);
+      const tab = ctx.lireT("client"); const j = tab.colonnes.indexOf("cree_le"); tab.colonnes.splice(j, 1); tab.lignes.forEach(r => r.splice(j, 1)); ctx.ecrireT("client", tab);
+    }, /client\.cree_le : colonne de la source NON CLASSÉE/);
+    rougeGeneree("courriel hors domaine réservé", "AN3", (ctx) => {
+      const tab = ctx.lireT("client"); const j = tab.colonnes.indexOf("email"); tab.lignes.forEach((r, i) => { r[j] = `u${i}@exemple-reel.fr`; }); ctx.ecrireT("client", tab);
+    }, /hors domaine réservé/);
+    rougeGeneree("graine écrite au rapport", "AN4", (ctx) => { const r = ctx.lireJ("anonymisation.json"); r.graine = GRAINE; ctx.ecrireJ("anonymisation.json", r); }, /graine « valeur écrite »/);
+    rougeGeneree("k déclaré sous le plancher", "AN5", (ctx) => { const d = ctx.lireJ("masquage.json"); d.seuils.k = 3; ctx.ecrireJ("masquage.json", d); }, /seuils\.k = 3/);
+    rougeGeneree("montant conservé tel quel", "AN6", (ctx) => {
+      sansMesures(ctx);
+      const d = ctx.lireJ("masquage.json"); const c = d.tables.find(x => x.nom === "commande").colonnes.find(x => x.nom === "montant");
+      for (const k of Object.keys(c)) if (!["nom", "classe"].includes(k)) delete c[k];
+      Object.assign(c, { strategie: "conserver", motif: "montant exact utile aux tests de facturation" }); ctx.ecrireJ("masquage.json", d);
+      remettreSource(ctx, "commande", "montant");
+    }, /commande\.montant : \d+ ligne\(s\) masquée\(s\) sur 231/);
+    rougeGeneree("date de naissance « généralisée » au jour, classée technique", "AN6", (ctx) => {
+      sansMesures(ctx);
+      const d = ctx.lireJ("masquage.json"); const c = d.tables.find(x => x.nom === "client").colonnes.find(x => x.nom === "date_naissance");
+      c.classe = "technique"; c.niveau = "jour"; ctx.ecrireJ("masquage.json", d);
+      remettreSource(ctx, "client", "date_naissance");
+    }, /client\.date_naissance : \d+ ligne\(s\) masquée\(s\) sur 151/);
+    rougeGeneree("l déclaré sous le plancher", "AN7", (ctx) => { const d = ctx.lireJ("masquage.json"); d.seuils.l = 1; ctx.ecrireJ("masquage.json", d); }, /seuils\.l = 1/);
+    rougeGeneree("t déclaré à 0,05", "AN7", (ctx) => { sansMesures(ctx); const d = ctx.lireJ("masquage.json"); d.seuils.t = 0.05; ctx.ecrireJ("masquage.json", d); }, /plus de t = 0\.05/);
+    rougeGeneree("texte libre conservé", "AN8", (ctx) => {
+      const d = ctx.lireJ("masquage.json"); const c = d.tables.find(x => x.nom === "commande").colonnes.find(x => x.nom === "note_livraison");
+      delete c.synthetique; Object.assign(c, { strategie: "conserver", motif: "consignes de livraison utiles au support" }); ctx.ecrireJ("masquage.json", d);
+      remettreSource(ctx, "commande", "note_livraison");
+    }, /texte\(s\) libre\(s\) masqué\(s\) identique\(s\)/);
+    rougeGeneree("clé étrangère vers une ligne absente", "AN9", (ctx) => {
+      const tab = ctx.lireT("commande"); tab.lignes[0][tab.colonnes.indexOf("client_id")] = "999999999"; ctx.ecrireT("commande", tab);
+    }, /1 référence\(s\) vers une ligne ABSENTE de client\.id/);
+    rougeGeneree("compte annoncé faux", "AN10", (ctx) => { const r = ctx.lireJ("anonymisation.json"); r.tables.client.lignes_masque = 150; ctx.ecrireJ("anonymisation.json", r); }, /annonce 150 ligne\(s\) masquée\(s\), l'extrait en compte 151/);
+    const absente = juger(path.join(tmpAn, "nulle-part"));
+    ok(absente.code === 2 && absente.j.verdict === "SKIP", `anonymiser · cible absente : SKIP, exit 2 (obtenu ${absente.code})`);
+    const orpheline = path.join(tmpAn, "sans-source"); fs.mkdirSync(orpheline);
+    for (const f of fs.readdirSync(VERTE)) fs.copyFileSync(path.join(VERTE, f), path.join(orpheline, f));
+    const so = juger(orpheline);
+    ok(so.code === 1 && bloquantes(so.j).includes("AN1") && (so.j.findings || []).some(f => /extrait SOURCE introuvable/.test(f.msg)),
+      "AN1 · ROUGE — sans l'extrait source, l'oracle REFUSE : l'identité et la corrélation ne se mesurent pas, il ne rend jamais PASS faute de preuve");
+    ok(!fuites.length, `anonymiser · aucun constat ne recopie une valeur de la source (courriel, nom, prénom, texte libre) sur ${4 + n} rouges${fuites.length ? " — FUITE : " + fuites.join(" · ") : ""}`);
+  } finally {
+    fs.rmSync(tmpAn, { recursive: true, force: true });
   }
 }
 

@@ -9,6 +9,12 @@ vérifie la **forme de la discipline** ; le profiling lui-même est composé
 un **générateur** (pas un oracle) : il dérive un brouillon d'assertions@1/contrat@1 depuis
 un schéma exporté (DDL Postgres en v0).
 
+Le verbe **anonymiser** (TF-2011, 29/10/2026) masque un extrait de production avant qu'il
+alimente une base de développement ou de qualification. Il s'applique chez le produit, jamais
+sur une donnée dans la forge. Son oracle, `oracle-anonymiser`, mesure l'extrait masqué contre sa
+source selon les trois critères de l'avis 05/2014 du groupe de l'article 29 (WP216) :
+individualisation, corrélation, inférence. Il refuse toute pseudonymisation, par clé ou par hachage.
+
 ## Catalogue de services
 
 > Section proposée par la campagne « catalogues » du pilot (2026-08-13) — générée depuis
@@ -58,6 +64,10 @@ node oracles/oracle-rapprocher.mjs fixtures/rapprochement-verte.json        # RA
 node oracles/oracle-reconstruire.mjs fixtures/reconstruction-verte.json      # RS1-RS7, mise en page d'un rapport fourni en entrée CONSERVÉE (TF-1176) ; RS7 : les en-têtes comptés à l'OCCURRENCE (TF-1188)
 node oracles/oracle-rendre.mjs fixtures/rendu-verte.json                     # RN1-RN6, liaisons et visuels vides ; le geste de vérification du rendu est déclaré (TF-1175) et sa mesure d'export jugée (RN6, TF-1188)
 node scripts/isoler-lignes-non-donnees.mjs fixtures/extrait-pied-verte.csv   # TF-0976 : pied « Filtres appliqués » isolé, deux sorties
+node scripts/anonymiser.mjs --masquage fixtures/anonymisation-verte/masquage.json \
+     --source fixtures/anonymisation-source --sortie <dossier-neuf>   # TF-2011 : extrait masqué + rapport anonymisation.json
+node oracles/oracle-anonymiser.mjs fixtures/anonymisation-verte      # AN1-AN10 : k, l, t, corrélation, pseudonymisation refusée (TF-2011)
+node scripts/exercer-anonymiser-postgres.mjs                          # TF-2011 : extraire, masquer, juger, recharger sur un PostgreSQL éphémère (Docker)
 node oracles/self-test.mjs   # double sens : vertes PASS, rouges FAIL localisants + round-trips importer/traducteur
 python scripts/verifier_unites_parquet.py --self-test   # TF-1065 : type parquet écrit, refuse la nanoseconde (fixtures à la volée)
 ```
@@ -72,12 +82,16 @@ python scripts/verifier_unites_parquet.py --self-test   # TF-1065 : type parquet
   chaque contrôle prouve et ne prouve pas ; déclaration machine jugée par `oracle-enchainer`.
 - `references/profils-moteur/` — référentiels versionnés par moteur de base de données
   (Postgres, Oracle, Azure SQL, Databricks) : dialecte de contraintes, mapping de types,
-  vues catalogue, commande d'export — alimentent le verbe `importer` (voir `LISEZMOI.md`).
-- Barres de niveau (registre la-barre) : OpenLineage · Great Expectations · dbt-core · ODCS v3.1.0.
+  vues catalogue, commande d'export — alimentent le verbe `importer` (voir `LISEZMOI.md`) ; pour
+  PostgreSQL et Supabase, aussi l'extraction et le rechargement du verbe `anonymiser` (§6).
+- Barres de niveau (registre la-barre) : OpenLineage · Great Expectations · dbt-core · ODCS v3.1.0
+  · avis WP216 du groupe de l'article 29 (verbe anonymiser).
 
 ## Prérequis
 
 Node.js ≥ 18 pour les oracles — aucune dépendance externe. Le contrôle Python
 `scripts/verifier_unites_parquet.py` (TF-1065) requiert, au choix, pyarrow ou fastparquet —
 déjà présents chez le produit visé, jamais installés par la forge ; sans l'un des deux,
-il rend `SKIP` et le dit. Fixtures synthétiques uniquement.
+il rend `SKIP` et le dit. La recette réelle du verbe anonymiser
+(`scripts/exercer-anonymiser-postgres.mjs`) requiert Docker et une image `postgres` locale ; sans
+elles, elle rend `SKIP` avec la commande à jouer. Fixtures synthétiques uniquement.

@@ -1,0 +1,241 @@
+id,client_id,date_commande,montant,statut,note_livraison
+1,8,2025-05-18,156.15,annulee,Laisser le colis chez le gardien
+2,119,2025-10-21,96.99,en_cours,
+3,160,2025-06-04,431.86,livree,
+4,35,2025-11-02,384.23,livree,"Appeler avant de passer, merci"
+5,94,2025-01-20,90.16,annulee,
+6,77,2025-09-15,377.63,en_cours,
+7,125,2025-05-04,139.40,en_cours,"Appeler avant de passer, merci"
+8,129,2025-05-25,361.56,en_cours,"Appeler avant de passer, merci"
+9,136,2025-01-02,283.52,livree,"Digicode 4B12, deuxième étage"
+10,87,2025-02-03,268.64,annulee,
+11,76,2025-05-16,343.38,livree,
+12,56,2025-03-14,319.95,en_cours,
+13,93,2025-07-19,442.16,livree,
+14,112,2025-11-28,182.44,en_cours,"Appeler avant de passer, merci"
+15,73,2025-07-12,70.60,livree,
+16,69,2025-04-18,463.11,livree,Laisser le colis chez le gardien
+17,71,2025-01-19,373.98,livree,Laisser le colis chez le gardien
+18,89,2025-05-28,284.75,livree,
+19,160,2025-04-02,450.28,annulee,
+20,145,2025-06-20,403.99,livree,"Appeler avant de passer, merci"
+21,121,2025-04-10,61.40,remboursee,
+22,150,2025-02-17,207.62,en_cours,
+23,102,2025-03-05,31.87,livree,
+24,146,2025-09-28,448.35,livree,Laisser le colis chez le gardien
+25,108,2025-02-08,23.26,livree,
+26,18,2025-12-24,30.75,livree,
+27,81,2025-06-27,178.59,livree,
+28,109,2025-09-18,120.98,en_cours,
+29,65,2025-12-20,219.43,livree,Laisser le colis chez le gardien
+30,114,2025-01-28,152.80,livree,
+31,70,2025-07-21,386.61,remboursee,Laisser le colis chez le gardien
+32,128,2025-02-11,131.24,livree,Laisser le colis chez le gardien
+33,47,2025-05-15,34.26,en_cours,"Digicode 4B12, deuxième étage"
+34,55,2025-07-06,215.03,livree,
+35,156,2025-01-27,159.96,livree,"Digicode 4B12, deuxième étage"
+36,52,2025-11-19,201.20,livree,"Appeler avant de passer, merci"
+37,66,2025-03-21,223.62,livree,
+38,3,2025-10-02,162.65,livree,"Digicode 4B12, deuxième étage"
+39,90,2025-04-18,79.31,livree,Laisser le colis chez le gardien
+40,76,2025-07-26,165.86,remboursee,"Appeler avant de passer, merci"
+41,60,2025-06-06,443.09,livree,
+42,102,2025-04-28,446.04,livree,
+43,38,2025-07-05,346.46,remboursee,"Appeler avant de passer, merci"
+44,63,2025-11-25,137.81,livree,"Appeler avant de passer, merci"
+45,108,2025-05-07,270.56,remboursee,"Digicode 4B12, deuxième étage"
+46,71,2025-09-05,76.87,livree,"Appeler avant de passer, merci"
+47,108,2025-07-20,180.99,remboursee,Laisser le colis chez le gardien
+48,145,2025-06-11,175.08,annulee,"Digicode 4B12, deuxième étage"
+49,61,2025-02-14,283.31,remboursee,"Digicode 4B12, deuxième étage"
+50,143,2025-05-26,262.09,livree,
+51,62,2025-05-27,137.74,en_cours,"Digicode 4B12, deuxième étage"
+52,78,2025-12-15,103.64,livree,Laisser le colis chez le gardien
+53,75,2025-04-24,493.65,annulee,Laisser le colis chez le gardien
+54,105,2025-06-27,23.37,livree,
+55,82,2025-09-28,246.37,livree,
+56,122,2025-10-06,113.16,livree,
+57,32,2025-05-10,486.45,livree,"Appeler avant de passer, merci"
+58,93,2025-10-07,65.15,livree,"Appeler avant de passer, merci"
+59,113,2025-10-28,206.35,remboursee,"Digicode 4B12, deuxième étage"
+60,96,2025-04-07,102.49,livree,
+61,116,2025-10-02,263.89,livree,
+62,12,2025-05-10,354.05,en_cours,"Appeler avant de passer, merci"
+63,82,2025-10-28,476.77,livree,"Appeler avant de passer, merci"
+64,136,2025-02-07,214.03,annulee,"Digicode 4B12, deuxième étage"
+65,152,2025-04-08,180.81,livree,Laisser le colis chez le gardien
+66,98,2025-09-17,157.82,en_cours,Laisser le colis chez le gardien
+67,61,2025-01-19,66.76,annulee,"Appeler avant de passer, merci"
+68,101,2025-04-09,373.31,livree,Laisser le colis chez le gardien
+69,3,2025-03-13,429.31,livree,"Digicode 4B12, deuxième étage"
+70,75,2025-10-08,339.92,livree,
+71,51,2025-07-09,159.71,remboursee,
+72,61,2025-11-04,328.88,livree,"Digicode 4B12, deuxième étage"
+73,74,2025-02-26,270.60,annulee,"Appeler avant de passer, merci"
+74,72,2025-05-01,299.43,annulee,
+75,32,2025-06-22,184.71,livree,
+76,25,2025-04-01,179.49,livree,Laisser le colis chez le gardien
+77,9,2025-10-28,124.65,livree,
+78,48,2025-09-08,499.33,livree,Laisser le colis chez le gardien
+79,92,2025-06-26,246.49,livree,Laisser le colis chez le gardien
+80,67,2025-09-23,167.47,en_cours,
+81,154,2025-10-27,317.65,remboursee,
+82,95,2025-12-06,84.40,en_cours,
+83,148,2025-12-17,464.52,livree,
+84,136,2025-08-01,50.92,annulee,
+85,15,2025-10-05,367.72,en_cours,
+86,46,2025-05-20,217.19,livree,
+87,99,2025-04-19,459.37,livree,
+88,149,2025-01-16,346.09,livree,"Appeler avant de passer, merci"
+89,92,2025-08-27,99.95,livree,
+90,125,2025-09-26,99.41,livree,
+91,38,2025-04-19,483.97,livree,
+92,25,2025-12-17,171.69,livree,
+93,156,2025-04-10,364.95,livree,"Appeler avant de passer, merci"
+94,49,2025-02-20,449.32,livree,"Appeler avant de passer, merci"
+95,72,2025-03-24,108.77,en_cours,
+96,115,2025-03-21,30.15,remboursee,
+97,108,2025-05-23,498.63,livree,
+98,88,2025-12-03,298.27,annulee,
+99,136,2025-05-14,485.43,livree,
+100,103,2025-01-08,150.85,livree,Laisser le colis chez le gardien
+101,108,2025-11-17,425.92,livree,
+102,63,2025-11-21,68.98,remboursee,
+103,72,2025-11-15,388.67,annulee,Laisser le colis chez le gardien
+104,150,2025-04-08,75.63,en_cours,
+105,155,2025-09-02,37.62,livree,"Digicode 4B12, deuxième étage"
+106,91,2025-02-08,203.50,livree,
+107,136,2025-11-21,326.93,livree,"Digicode 4B12, deuxième étage"
+108,153,2025-03-09,481.78,remboursee,
+109,39,2025-10-10,125.03,livree,
+110,130,2025-02-24,205.82,livree,
+111,111,2025-01-08,112.08,livree,"Appeler avant de passer, merci"
+112,74,2025-10-15,467.32,livree,
+113,123,2025-10-25,236.69,livree,Laisser le colis chez le gardien
+114,3,2025-09-10,109.19,livree,
+115,13,2025-07-28,236.43,livree,
+116,146,2025-04-06,79.73,livree,
+117,144,2025-10-03,156.24,livree,"Appeler avant de passer, merci"
+118,71,2025-01-12,406.18,livree,
+119,85,2025-04-10,47.15,livree,
+120,83,2025-04-18,21.01,en_cours,"Appeler avant de passer, merci"
+121,28,2025-07-14,90.96,livree,Laisser le colis chez le gardien
+122,22,2025-07-15,488.02,en_cours,"Appeler avant de passer, merci"
+123,54,2025-01-22,241.84,livree,
+124,1,2025-01-23,99.57,livree,"Appeler avant de passer, merci"
+125,58,2025-03-26,437.73,livree,
+126,129,2025-04-28,117.68,livree,Laisser le colis chez le gardien
+127,26,2025-07-18,354.84,en_cours,
+128,17,2025-03-24,264.99,livree,"Appeler avant de passer, merci"
+129,114,2025-06-09,57.40,livree,Laisser le colis chez le gardien
+130,44,2025-10-25,150.26,annulee,
+131,61,2025-12-09,40.11,livree,"Digicode 4B12, deuxième étage"
+132,31,2025-11-25,175.96,livree,Laisser le colis chez le gardien
+133,19,2025-01-18,19.76,livree,
+134,90,2025-06-26,17.99,en_cours,
+135,136,2025-10-06,438.22,remboursee,"Appeler avant de passer, merci"
+136,56,2025-04-03,132.42,livree,"Appeler avant de passer, merci"
+137,60,2025-12-10,454.22,livree,
+138,81,2025-12-01,454.53,annulee,"Digicode 4B12, deuxième étage"
+139,25,2025-07-07,209.60,annulee,Laisser le colis chez le gardien
+140,103,2025-02-25,464.53,en_cours,"Digicode 4B12, deuxième étage"
+141,106,2025-09-04,152.01,en_cours,Laisser le colis chez le gardien
+142,65,2025-02-27,445.10,en_cours,
+143,46,2025-06-05,159.13,livree,
+144,14,2025-11-27,427.40,annulee,
+145,116,2025-07-23,342.28,remboursee,
+146,61,2025-07-11,498.80,en_cours,
+147,3,2025-10-24,21.41,annulee,
+148,86,2025-10-12,100.42,livree,
+149,15,2025-06-19,388.01,livree,"Appeler avant de passer, merci"
+150,100,2025-09-28,495.68,livree,"Digicode 4B12, deuxième étage"
+151,80,2025-03-20,486.34,remboursee,
+152,7,2025-02-23,272.09,livree,"Appeler avant de passer, merci"
+153,63,2025-12-19,350.95,livree,"Appeler avant de passer, merci"
+154,74,2025-08-17,158.75,en_cours,
+155,87,2025-01-23,235.98,annulee,"Appeler avant de passer, merci"
+156,141,2025-12-26,478.52,livree,
+157,36,2025-02-03,296.75,livree,
+158,51,2025-06-17,77.55,livree,"Appeler avant de passer, merci"
+159,117,2025-03-03,435.07,annulee,Laisser le colis chez le gardien
+160,7,2025-06-18,333.17,livree,Laisser le colis chez le gardien
+161,88,2025-10-22,226.64,livree,
+162,26,2025-05-19,389.66,livree,
+163,77,2025-12-01,19.16,livree,
+164,128,2025-12-03,146.44,livree,
+165,75,2025-05-02,143.75,livree,"Digicode 4B12, deuxième étage"
+166,132,2025-07-01,361.70,livree,
+167,56,2025-12-19,251.91,livree,"Digicode 4B12, deuxième étage"
+168,145,2025-05-27,137.56,livree,Laisser le colis chez le gardien
+169,110,2025-12-12,471.85,livree,"Digicode 4B12, deuxième étage"
+170,155,2025-01-10,493.89,livree,Laisser le colis chez le gardien
+171,135,2025-06-17,426.86,livree,
+172,4,2025-09-23,101.14,livree,
+173,110,2025-06-01,415.07,livree,
+174,25,2025-04-07,75.10,livree,
+175,127,2025-07-06,485.64,livree,
+176,108,2025-12-14,477.51,livree,
+177,53,2025-06-03,240.71,livree,
+178,136,2025-03-11,479.64,livree,Laisser le colis chez le gardien
+179,158,2025-06-09,371.51,en_cours,"Appeler avant de passer, merci"
+180,144,2025-03-21,128.39,annulee,
+181,121,2025-12-01,213.48,annulee,Laisser le colis chez le gardien
+182,144,2025-05-08,110.28,livree,"Digicode 4B12, deuxième étage"
+183,125,2025-11-26,44.29,livree,
+184,66,2025-09-25,249.87,en_cours,
+185,157,2025-12-10,372.53,annulee,"Appeler avant de passer, merci"
+186,60,2025-11-01,389.84,livree,
+187,97,2025-12-12,419.59,en_cours,
+188,67,2025-05-03,217.50,livree,
+189,131,2025-09-02,87.50,livree,Laisser le colis chez le gardien
+190,124,2025-03-20,303.01,livree,"Appeler avant de passer, merci"
+191,146,2025-10-08,76.07,en_cours,
+192,54,2025-04-18,290.71,livree,"Digicode 4B12, deuxième étage"
+193,25,2025-11-06,326.95,annulee,
+194,62,2025-04-19,41.19,remboursee,"Digicode 4B12, deuxième étage"
+195,95,2025-09-12,200.27,annulee,
+196,101,2025-10-02,41.83,livree,"Digicode 4B12, deuxième étage"
+197,8,2025-04-04,106.16,livree,Laisser le colis chez le gardien
+198,22,2025-01-10,94.77,livree,
+199,126,2025-07-15,460.09,livree,Laisser le colis chez le gardien
+200,18,2025-01-25,440.10,livree,
+201,82,2025-06-17,468.77,en_cours,
+202,59,2025-10-17,152.35,remboursee,Laisser le colis chez le gardien
+203,60,2025-05-09,351.82,livree,
+204,72,2025-06-13,267.99,livree,
+205,39,2025-04-04,46.06,remboursee,
+206,7,2025-07-15,293.58,en_cours,
+207,121,2025-10-21,95.91,livree,
+208,37,2025-04-21,422.49,livree,
+209,61,2025-05-02,116.78,en_cours,Laisser le colis chez le gardien
+210,21,2025-09-03,437.18,livree,
+211,62,2025-08-23,11.48,en_cours,
+212,15,2025-09-11,149.82,remboursee,Laisser le colis chez le gardien
+213,67,2025-09-03,115.12,annulee,
+214,65,2025-10-09,84.87,livree,
+215,114,2025-07-26,363.72,annulee,"Appeler avant de passer, merci"
+216,114,2025-03-12,205.18,livree,
+217,43,2025-08-12,252.93,livree,Laisser le colis chez le gardien
+218,14,2025-03-11,415.45,remboursee,"Appeler avant de passer, merci"
+219,53,2025-04-12,45.83,livree,"Digicode 4B12, deuxième étage"
+220,94,2025-04-21,207.03,en_cours,"Digicode 4B12, deuxième étage"
+221,16,2025-02-01,136.54,remboursee,
+222,149,2025-05-01,140.15,livree,
+223,136,2025-02-06,231.82,livree,
+224,124,2025-07-01,376.74,livree,
+225,11,2025-08-08,193.34,en_cours,
+226,67,2025-10-08,130.26,livree,"Appeler avant de passer, merci"
+227,30,2025-03-11,162.95,livree,
+228,46,2025-12-15,441.82,annulee,"Appeler avant de passer, merci"
+229,19,2025-12-28,320.48,livree,"Digicode 4B12, deuxième étage"
+230,149,2025-11-22,85.95,livree,
+231,12,2025-07-15,315.38,livree,
+232,26,2025-05-13,59.72,livree,
+233,68,2025-04-09,229.98,livree,
+234,79,2025-10-19,444.63,livree,Laisser le colis chez le gardien
+235,122,2025-08-10,179.77,livree,"Appeler avant de passer, merci"
+236,15,2025-09-03,295.68,livree,"Digicode 4B12, deuxième étage"
+237,134,2025-05-09,177.91,livree,
+238,80,2025-10-28,396.62,en_cours,"Appeler avant de passer, merci"
+239,80,2025-12-06,108.19,remboursee,Laisser le colis chez le gardien
+240,56,2025-10-09,302.58,livree,"Appeler avant de passer, merci"
