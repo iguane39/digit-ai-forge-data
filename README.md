@@ -29,7 +29,7 @@ individualisation, corrélation, inférence. Il refuse toute pseudonymisation, p
 | **Fonds de savoir data** | réutiliser les patterns éprouvés de rétro-ingénierie et de lineage | `references\ du dépôt data (lecture)` | déclaré (experimental) |
 | **Contractualiser (data contract)** | sceller l'accord producteur↔consommateur en contrat vérifiable machine | `node oracles\oracle-contractualiser.mjs <contrat.json>` | prouvé (experimental) |
 | **Importer un schéma exporté** | dériver un brouillon d'assertions et de contrat depuis le schéma exporté de ma base | `node scripts\importer.mjs <schema.sql>` | prouvé (experimental) |
-| **Traduire un lineage Unity Catalog** | convertir le lineage colonne natif de Databricks en lineage exigible par la forge | `node scripts	raduire-unity-catalog.mjs <export.json>` | prouvé (experimental) |
+| **Traduire un lineage Unity Catalog** | convertir le lineage colonne natif de Databricks en lineage exigible par la forge | `node scripts\traduire-unity-catalog.mjs <export.json>` | prouvé (experimental) |
 
 Le catalogue consolidé des dix forges vit chez le pilot :
 [digit-ai-factory/catalogues/CATALOGUES.md](https://github.com/iguane39/digit-ai-factory/blob/main/catalogues/CATALOGUES.md).
@@ -81,7 +81,7 @@ python scripts/verifier_unites_parquet.py --self-test   # TF-1065 : type parquet
   nouveau modèle : 11 étapes et le contrôle de chacune, 14 règles, arbre de diagnostic, ce que
   chaque contrôle prouve et ne prouve pas ; déclaration machine jugée par `oracle-enchainer`.
 - `references/profils-moteur/` — référentiels versionnés par moteur de base de données
-  (Postgres, Oracle, Azure SQL, Databricks) : dialecte de contraintes, mapping de types,
+  (Postgres, Supabase, Oracle, Azure SQL, Databricks) : dialecte de contraintes, mapping de types,
   vues catalogue, commande d'export — alimentent le verbe `importer` (voir `LISEZMOI.md`) ; pour
   PostgreSQL et Supabase, aussi l'extraction et le rechargement du verbe `anonymiser` (§6). Le
   `LISEZMOI.md` tient aussi les services sans profil, décision datée et sourcée : Cloudflare D1 en

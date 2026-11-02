@@ -2093,5 +2093,20 @@ const jugerProfilsMoteur = (dir) => {
   }
 }
 
+// TF-2036 (02/11/2026) : un antislash suivi de t, écrit par une commande, avait mis une tabulation au milieu d'un
+// chemin du README (« scripts<TAB>raduire-unity-catalog.mjs ») : la commande prescrite ne se copiait plus. Les
+// profils listés au README sont ceux du disque.
+{
+  const readme = fs.readFileSync(path.join(ici, "..", "README.md"), "utf8");
+  const avecTab = readme.split(/\r?\n/).filter(l => l.includes("\t"));
+  ok(avecTab.length === 0, `README · aucune tabulation dans le texte (${avecTab.length} ligne(s))`);
+  ok(!"node scripts\traduire.mjs".split(/\r?\n/).every(l => !l.includes("\t")), "README · témoin rouge : un chemin à tabulation est vu");
+  const noms = { "postgres.md": "Postgres", "supabase.md": "Supabase", "oracle.md": "Oracle", "azure-sql.md": "Azure SQL", "databricks.md": "Databricks" };
+  const profils = fs.readdirSync(path.join(ici, "..", "references", "profils-moteur")).filter(f => f.endsWith(".md") && f !== "LISEZMOI.md");
+  const liste = (readme.match(/\(Postgres[^)]*\)/) || [""])[0];
+  const absents = profils.filter(f => !noms[f] || !liste.includes(noms[f]));
+  ok(absents.length === 0, `README · la liste des profils-moteur porte ceux du disque (absents : ${absents.join(", ") || "aucun"})`);
+}
+
 console.log(`\nSelf-test forge-data : ${pass} PASS, ${echec} FAIL`);
 process.exit(echec ? 1 : 0);
