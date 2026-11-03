@@ -1,0 +1,318 @@
+{
+  "format": "forge-data/jeu-fictif@1",
+  "id": "jeu-fictif-chantier-coquille",
+  "releve": {
+    "par": "campagne TF-2085 (relevé des écrans, types et cycles d'un produit inventé)",
+    "date": "2026-11-03",
+    "source": "le produit inventé « Suivi de chantier » : routes, formulaires et cycles de vie, relevés AVANT la génération"
+  },
+  "produit": {
+    "nom": "Suivi de chantier (produit inventé pour la fixture)",
+    "types": [
+      {
+        "id": "chantier",
+        "libelle": "Chantier"
+      },
+      {
+        "id": "lot",
+        "libelle": "Lot de travaux"
+      },
+      {
+        "id": "budget",
+        "libelle": "Budget par lot"
+      },
+      {
+        "id": "facture",
+        "libelle": "Facture"
+      }
+    ],
+    "ecrans": [
+      {
+        "id": "tableau_de_bord",
+        "libelle": "Tableau de bord",
+        "lit": [
+          {
+            "type": "chantier"
+          },
+          {
+            "type": "lot"
+          },
+          {
+            "type": "budget"
+          },
+          {
+            "type": "facture"
+          }
+        ]
+      },
+      {
+        "id": "liste_lots",
+        "libelle": "Liste des lots",
+        "lit": [
+          {
+            "type": "lot"
+          }
+        ]
+      },
+      {
+        "id": "budget_par_lot",
+        "libelle": "Budget par lot",
+        "lit": [
+          {
+            "type": "budget"
+          }
+        ]
+      },
+      {
+        "id": "factures_a_regler",
+        "libelle": "Factures à régler",
+        "lit": [
+          {
+            "type": "facture",
+            "filtre": {
+              "statut": [
+                "emise"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "lots_soldes",
+        "libelle": "Lots soldés",
+        "lit": [
+          {
+            "type": "lot",
+            "filtre": {
+              "stade": [
+                "solde"
+              ]
+            }
+          }
+        ]
+      }
+    ],
+    "cycles": [
+      {
+        "type": "lot",
+        "champ": "stade",
+        "stades": [
+          {
+            "id": "consulte"
+          },
+          {
+            "id": "engage",
+            "exige": [
+              {
+                "type": "budget",
+                "cle": "lot_id",
+                "minimum": 1
+              }
+            ]
+          },
+          {
+            "id": "en_cours"
+          },
+          {
+            "id": "facture",
+            "exige": [
+              {
+                "type": "facture",
+                "cle": "lot_id",
+                "minimum": 1
+              }
+            ]
+          },
+          {
+            "id": "solde"
+          }
+        ]
+      },
+      {
+        "type": "facture",
+        "champ": "statut",
+        "stades": [
+          {
+            "id": "emise"
+          },
+          {
+            "id": "reglee"
+          }
+        ]
+      }
+    ],
+    "coherences": [
+      {
+        "id": "lot-dans-un-chantier",
+        "enfant": {
+          "type": "lot",
+          "cle": "chantier_id"
+        },
+        "parent": {
+          "type": "chantier",
+          "cle": "id"
+        }
+      },
+      {
+        "id": "budget-apres-consultation",
+        "enfant": {
+          "type": "budget",
+          "cle": "lot_id",
+          "date": "date"
+        },
+        "parent": {
+          "type": "lot",
+          "cle": "id",
+          "date": "etape:consulte"
+        },
+        "date": ">="
+      },
+      {
+        "id": "budget-avant-engagement",
+        "enfant": {
+          "type": "budget",
+          "cle": "lot_id",
+          "date": "date"
+        },
+        "parent": {
+          "type": "lot",
+          "cle": "id",
+          "date": "etape:engage"
+        },
+        "date": "<="
+      },
+      {
+        "id": "factures-dans-le-budget",
+        "enfant": {
+          "type": "facture",
+          "cle": "lot_id",
+          "montant": "montant",
+          "date": "etape:emise"
+        },
+        "parent": {
+          "type": "budget",
+          "cle": "lot_id",
+          "montant": "montant",
+          "date": "date"
+        },
+        "montant": "somme<=",
+        "date": ">="
+      },
+      {
+        "id": "facture-apres-demarrage",
+        "enfant": {
+          "type": "facture",
+          "cle": "lot_id",
+          "date": "etape:emise"
+        },
+        "parent": {
+          "type": "lot",
+          "cle": "id",
+          "date": "etape:en_cours"
+        },
+        "date": ">="
+      }
+    ]
+  },
+  "generateur": {
+    "nom": "generer-jeu-chantier",
+    "version": "1.0.0",
+    "origine": "synthetique",
+    "graine": 20261103,
+    "totaux": [
+      {
+        "id": "chantiers",
+        "mesure": "compte",
+        "type": "chantier",
+        "valeur": 2
+      },
+      {
+        "id": "lots",
+        "mesure": "compte",
+        "type": "lot",
+        "valeur": 5
+      },
+      {
+        "id": "lots_soldes",
+        "mesure": "compte",
+        "type": "lot",
+        "filtre": {
+          "stade": [
+            "solde"
+          ]
+        },
+        "valeur": 1
+      },
+      {
+        "id": "budget_total",
+        "mesure": "somme",
+        "type": "budget",
+        "champ": "montant",
+        "valeur": 405500
+      },
+      {
+        "id": "factures_total",
+        "mesure": "somme",
+        "type": "facture",
+        "champ": "montant",
+        "valeur": 250000
+      },
+      {
+        "id": "factures_a_regler",
+        "mesure": "compte",
+        "type": "facture",
+        "filtre": {
+          "statut": [
+            "emise"
+          ]
+        },
+        "valeur": 3
+      }
+    ]
+  },
+  "affichage": {
+    "par": "lecture de chaque écran du produit inventé",
+    "date": "2026-11-03",
+    "source": "les écrans du produit, ouverts un par un après chargement du jeu",
+    "totaux": [
+      {
+        "ecran": "tableau_de_bord",
+        "total": "lots",
+        "valeur": 0
+      },
+      {
+        "ecran": "tableau_de_bord",
+        "total": "factures_total",
+        "valeur": 0
+      },
+      {
+        "ecran": "budget_par_lot",
+        "total": "budget_total",
+        "valeur": 0
+      },
+      {
+        "ecran": "factures_a_regler",
+        "total": "factures_a_regler",
+        "valeur": 0
+      },
+      {
+        "ecran": "lots_soldes",
+        "total": "lots_soldes",
+        "valeur": 0
+      }
+    ]
+  },
+  "jeu": {
+    "chantier": [
+      {
+        "id": "ch-1",
+        "libelle": "Résidence des Tilleuls (inventée)"
+      },
+      {
+        "id": "ch-2",
+        "libelle": "Atelier du Port (inventé)"
+      }
+    ],
+    "lot": []
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "format": "forge-data/definition-jeu-fictif@1",
+  "version": "1.0.0",
+  "date": "2026-11-03",
+  "source": "TF-2085, retour RT-40. Un jeu de données dit « fictif » a été livré en deux coquilles vides, sans lot, sans budget et sans facture. Le porteur l'a rejeté, mot pour mot : « un jeu fictif qui n'a rien n'est pas un jeu fictif ». Aucune définition ni aucun contrôle n'existait avant la remise : le jeu était conforme à ce que personne n'avait écrit.",
+  "doctrine": "Un jeu fictif est une donnée de la forge : cette définition est éditable, datée et sourcée (loi n° 4), et `oracles/oracle-jeu-fictif.mjs` la lit pour ses planchers au lieu de les porter en dur. Un jeu fictif n'est pas un schéma rempli de lignes vides. Il tient trois promesses, chacune jugée par une règle exécutée : chaque écran du produit affiche quelque chose (JF3), chaque type d'enregistrement du produit existe dans le jeu (JF4), et chaque enregistrement qui progresse a l'histoire de son parcours, avec des étapes, des montants et des dates qui se tiennent d'un stade à l'autre (JF5, JF6). Le générateur déclare ce qu'il a produit et les écrans déclarent ce qu'ils affichent : ces totaux se recalculent sur le contenu (JF7) et se confrontent à l'affichage (JF8). Ce que le jeu n'a pas, il le déclare en exclusion motivée, jamais par omission.",
+  "planchers": {
+    "minimum_enregistrements_par_type": 1,
+    "minimum_lignes_par_ecran": 1,
+    "mots_motif_exclusion": 4,
+    "tolerance_compte": 0,
+    "tolerance_somme": 0.005,
+    "origines_admises": ["synthetique"],
+    "motif_planchers": "Un seul enregistrement par type et par écran est le plus bas niveau qui distingue un jeu fictif d'une coquille : c'est le plancher du défaut rejeté, pas une cible. Un produit le relève par type (`minimum`) ou par écran (`minimum`), jamais en dessous. Les comptes se comparent à l'unité, les sommes au demi-centime près (arrondi d'un montant à deux décimales). L'origine ne souffre qu'une valeur : `synthetique`, car aucune donnée de production n'entre dans la forge (CLAUDE.md, frontières) ; un extrait réel se traite par le verbe anonymiser."
+  },
+  "criteres": [
+    {
+      "id": "JF1",
+      "regle": "JF1",
+      "enonce": "La déclaration est une pièce complète : produit (types, écrans, cycles, cohérences), générateur avec ses totaux, jeu présent, exclusions qui résolvent.",
+      "defaut_vu": "Un jeu remis sans la liste de ce qu'il devait couvrir ne peut être jugé contre rien."
+    },
+    {
+      "id": "JF2",
+      "regle": "JF2",
+      "enonce": "La surface du produit est relevée par quelqu'un, à une date, sur un objet nommé, et l'origine du jeu est synthétique.",
+      "defaut_vu": "Une liste d'écrans écrite de mémoire ne prouve pas que chaque écran est couvert ; une origine non déclarée ne prouve pas qu'aucune donnée réelle n'est entrée."
+    },
+    {
+      "id": "JF3",
+      "regle": "JF3",
+      "enonce": "Chaque écran du produit est alimenté : pour chaque type qu'il lit, avec son filtre, le jeu porte au moins le plancher de lignes.",
+      "defaut_vu": "Le tableau de bord, la liste des lots, le budget par lot et les factures à régler s'ouvraient sur un état vide."
+    },
+    {
+      "id": "JF4",
+      "regle": "JF4",
+      "enonce": "Chaque type d'enregistrement du produit est présent dans le jeu, avec des identifiants non vides et uniques.",
+      "defaut_vu": "Aucun lot, aucun budget, aucune facture : seuls les chantiers existaient, deux coquilles vides."
+    },
+    {
+      "id": "JF5",
+      "regle": "JF5",
+      "enonce": "Un enregistrement qui progresse porte l'histoire de son parcours : une étape par stade franchi, dans l'ordre du cycle, sans trou, aux dates croissantes ; chaque stade du cycle est occupé par au moins un enregistrement ; un stade qui exige des enregistrements liés les a.",
+      "defaut_vu": "Un lot soldé sans étape d'exécution, ou engagé avant d'avoir été consulté, raconte une histoire que personne n'a vécue."
+    },
+    {
+      "id": "JF6",
+      "regle": "JF6",
+      "enonce": "Les enregistrements liés se tiennent : chaque référence résout à un parent, les sommes enfants respectent la borne du parent, et les dates enfants suivent ou précèdent celles du parent selon la règle déclarée.",
+      "defaut_vu": "Des factures dont le total dépasse le budget du lot, ou datées avant le démarrage du lot, ou rattachées à un lot qui n'existe pas."
+    },
+    {
+      "id": "JF7",
+      "regle": "JF7",
+      "enonce": "Chaque total que le générateur déclare est recalculé sur le contenu du jeu et lui est égal.",
+      "defaut_vu": "Un générateur qui annonce cinq lots et en livre zéro."
+    },
+    {
+      "id": "JF8",
+      "regle": "JF8",
+      "enonce": "Chaque total lu sur un écran est égal au total que le générateur déclare pour lui.",
+      "defaut_vu": "Les écrans affichaient 0 lot et 0,00 de budget là où le générateur en déclarait cinq et 405 500."
+    }
+  ]
+}

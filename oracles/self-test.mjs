@@ -137,6 +137,17 @@ const CAS = [
   { oracle: "oracle-anonymiser.mjs", verte: "anonymisation-verte", rouge: "anonymisation-hachage-rouge", regles: ["AN4"] },
   { oracle: "oracle-anonymiser.mjs", verte: "anonymisation-verte", rouge: "anonymisation-k-rouge", regles: ["AN5"] },
   { oracle: "oracle-anonymiser.mjs", verte: "anonymisation-verte", rouge: "anonymisation-inference-rouge", regles: ["AN7"] },
+  // jeu fictif (TF-2085, 03/11/2026, retour RT-40) : la première rouge EST le défaut rejeté par le
+  // porteur — deux chantiers et rien d'autre, ni lot, ni budget, ni facture, quand le générateur en
+  // déclare cinq lots et 405 500 de budget : des écrans non alimentés (JF3), trois types absents
+  // (JF4), cinq lots et deux cycles sans aucun stade occupé (JF5), des totaux de générateur que le
+  // contenu ne porte pas (JF7), des écrans qui affichent zéro (JF8). La seconde rouge a un jeu plein
+  // et une histoire fausse : un lot soldé sans étape d'exécution, un lot engagé avant d'être consulté
+  // (JF5), des factures qui dépassent le budget de leur lot, une facture datée avant le démarrage
+  // du lot, une facture rattachée à un lot qui n'existe pas (JF6). Le bloc « jeu fictif (TF-2085) »
+  // plus bas prouve que chaque règle échoue SEULE sur une mutation de la verte.
+  { oracle: "oracle-jeu-fictif.mjs", verte: "jeu-fictif-verte.json", rouge: "jeu-fictif-coquille-rouge.json", regles: ["JF3", "JF4", "JF5", "JF7", "JF8"] },
+  { oracle: "oracle-jeu-fictif.mjs", verte: "jeu-fictif-verte.json", rouge: "jeu-fictif-histoire-rouge.json", regles: ["JF5", "JF6"] },
 ];
 
 console.log("SELF-TEST forge-data — discipline aux niveaux des 4 barres (fixtures synthétiques)\n");
@@ -2106,6 +2117,292 @@ const jugerProfilsMoteur = (dir) => {
   const liste = (readme.match(/\(Postgres[^)]*\)/) || [""])[0];
   const absents = profils.filter(f => !noms[f] || !liste.includes(noms[f]));
   ok(absents.length === 0, `README · la liste des profils-moteur porte ceux du disque (absents : ${absents.join(", ") || "aucun"})`);
+}
+
+// ---- jeu fictif (TF-2085, 03/11/2026, retour RT-40) : un jeu fictif qui n'a rien n'est pas un jeu fictif ----
+// La boucle CAS prouve que les deux rouges committées échouent et déclenchent leurs règles. Elle ne
+// prouve pas que chaque règle échoue SEULE, ni que le remède que les messages proposent (peupler,
+// ou déclarer une exclusion motivée) fasse bien repasser le jeu. Ce bloc muta la verte une règle à la
+// fois : la mutation doit échouer sur la règle visée et sur elle seule. Les totaux d'une mutation de
+// données sont recalculés ICI, par un chemin indépendant de l'oracle, pour qu'une mutation de
+// montant ne déclenche pas JF7 par ricochet.
+console.log(String.fromCharCode(10) + "jeu fictif (TF-2085) — chaque règle échoue seule sur une mutation de la verte, le remède fait repasser" + String.fromCharCode(10));
+{
+  const ORACLE = path.join(ici, "oracle-jeu-fictif.mjs");
+  const verte = JSON.parse(fs.readFileSync(fx("jeu-fictif-verte.json"), "utf8"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "forge-data-jeu-fictif-"));
+  const clone = o => JSON.parse(JSON.stringify(o));
+  const joue = (doc, nom, ...flags) => {
+    const p = path.join(dir, nom + ".json");
+    fs.writeFileSync(p, JSON.stringify(doc));
+    const r = spawnSync(process.execPath, [ORACLE, p, "--json-only", ...flags], { encoding: "utf8" });
+    let j = {};
+    try { j = JSON.parse(r.stdout || "{}"); } catch { /* sortie illisible : j reste vide, les assertions échouent */ }
+    return { code: r.status, j };
+  };
+  const bloquantes = j => [...new Set((j.findings || []).filter(f => f.sev === "bloquant").map(f => f.regle))].sort();
+  const dits = (j, regle, motif) => (j.findings || []).filter(f => f.regle === regle && f.sev === "bloquant" && motif.test(f.msg));
+  // Recalcul des totaux du générateur ET de l'affichage depuis le contenu du jeu (second chemin).
+  const retotal = doc => {
+    const jeu = doc.jeu;
+    for (const t of doc.generateur.totaux) {
+      const lignes = (jeu[t.type] || []).filter(r => !t.filtre || Object.entries(t.filtre).every(([k, v]) => v.includes(r[k])));
+      t.valeur = t.mesure === "compte" ? lignes.length : Math.round(lignes.reduce((s, r) => s + r[t.champ], 0) * 100) / 100;
+    }
+    for (const a of doc.affichage.totaux) a.valeur = doc.generateur.totaux.find(t => t.id === a.total).valeur;
+    return doc;
+  };
+  const exclusion = (portee, motif) => ({ portee, motif });
+  const ecranVide = { id: "ecran_annulations", libelle: "Factures annulées", lit: [{ type: "facture", filtre: { statut: ["annulee"] } }] };
+  try {
+    // ---- la verte : PASS, et les MESURES sont celles qu'on recompte à la main -----------------
+    const v = joue(verte, "verte");
+    ok(v.code === 0 && v.j.verdict === "PASS", `jeu fictif · verte PASS (exit ${v.code})`);
+    const m = v.j.mesures || {};
+    ok(m.ecrans && m.ecrans.declares === 5 && m.ecrans.alimentes === 5 && m.types && m.types.declares === 4 && m.types.presents === 4 && m.enregistrements === 18,
+      `jeu fictif · verte : 5 écrans sur 5 alimentés, 4 types sur 4 présents, 18 enregistrements — obtenu ${JSON.stringify({ e: m.ecrans, t: m.types, n: m.enregistrements })}`);
+    ok(m.cycles && m.cycles.stades === 7 && m.cycles.occupes === 7 && m.coherences === 5 && m.totaux && m.totaux.declares === 6 && m.totaux.recalcules_justes === 6 && m.totaux.affiches_confrontes === 5,
+      `jeu fictif · verte : 7 stades occupés sur 7, 5 cohérences, 6 totaux recalculés justes, 5 totaux affichés confrontés — obtenu ${JSON.stringify({ c: m.cycles, k: m.coherences, t: m.totaux })}`);
+
+    // ---- JF1 forme : chaque défaut de pièce échoue sur JF1 seule ------------------------------
+    const jf1 = [
+      ["format", d => { d.format = "forge-data/jeu-fictif@0"; }],
+      ["écran qui lit un type inconnu", d => { d.produit.ecrans[1].lit[0].type = "devis"; }],
+      ["jeu absent", d => { delete d.jeu; }],
+      ["générateur sans nom", d => { d.generateur.nom = ""; }],
+      ["générateur sans totaux", d => { d.generateur.totaux = []; }],
+      ["total de mesure inconnue", d => { d.generateur.totaux[0].mesure = "moyenne"; }],
+      ["cycle sur un type inconnu", d => { d.produit.cycles[0].type = "devis"; }],
+      ["cohérence sur un type inconnu", d => { d.produit.coherences[0].parent.type = "devis"; }],
+      ["exclusion sur une cible inconnue", d => { d.exclusions = [exclusion("ecran:fantome", "cet écran n'existe plus au produit")]; }],
+    ];
+    for (const [nom, mut] of jf1) {
+      const d = clone(verte); mut(d);
+      const r = joue(d, "jf1");
+      ok(r.code === 1 && JSON.stringify(bloquantes(r.j)) === JSON.stringify(["JF1"]), `jeu fictif · JF1 seule · ${nom} (obtenu ${bloquantes(r.j).join(",") || "rien"})`);
+    }
+
+    // ---- JF2 le relevé s'identifie, l'origine est synthétique ---------------------------------
+    const jf2 = [
+      ["relevé absent", d => { delete d.releve; }],
+      ["relevé sans date ISO", d => { d.releve.date = "hier"; }],
+      ["relevé sans source", d => { d.releve.source = ""; }],
+      ["origine hors du jeu admis (extrait de production)", d => { d.generateur.origine = "extrait_production"; }],
+      ["origine absente", d => { delete d.generateur.origine; }],
+    ];
+    for (const [nom, mut] of jf2) {
+      const d = clone(verte); mut(d);
+      const r = joue(d, "jf2");
+      ok(r.code === 1 && JSON.stringify(bloquantes(r.j)) === JSON.stringify(["JF2"]), `jeu fictif · JF2 seule · ${nom} (obtenu ${bloquantes(r.j).join(",") || "rien"})`);
+    }
+
+    // ---- JF3 un écran non alimenté, et le remède -----------------------------------------------
+    {
+      const d = clone(verte); d.produit.ecrans.push(ecranVide);
+      const r = joue(d, "jf3");
+      ok(r.code === 1 && JSON.stringify(bloquantes(r.j)) === JSON.stringify(["JF3"]) && dits(r.j, "JF3", /ecran_annulations/).length === 1,
+        `jeu fictif · JF3 seule · un écran dont le filtre ne retient aucune ligne est NOMMÉ (obtenu ${bloquantes(r.j).join(",") || "rien"})`);
+      const motivee = clone(d); motivee.exclusions = [exclusion("ecran:ecran_annulations", "aucune annulation n'existe dans ce produit à ce stade")];
+      const rm = joue(motivee, "jf3-remede");
+      ok(rm.code === 0 && rm.j.verdict === "PASS", `jeu fictif · REMÈDE JF3 : l'exclusion motivée (≥ 4 mots) fait repasser le jeu (obtenu ${rm.j.verdict} exit ${rm.code})`);
+      const muette = clone(d); muette.exclusions = [exclusion("ecran:ecran_annulations", "pas utile")];
+      const rn = joue(muette, "jf3-sans-motif");
+      ok(rn.code === 1 && bloquantes(rn.j).includes("JF3") && dits(rn.j, "JF3", /motif/).length >= 1,
+        `jeu fictif · une exclusion en 2 mots ne vaut pas motif : l'écran reste refusé (obtenu ${bloquantes(rn.j).join(",") || "rien"})`);
+      const haut = clone(verte); haut.produit.ecrans[1].lit[0].minimum = 99;
+      const rh = joue(haut, "jf3-minimum");
+      ok(rh.code === 1 && JSON.stringify(bloquantes(rh.j)) === JSON.stringify(["JF3"]),
+        "jeu fictif · JF3 seule · un écran qui exige 99 lignes de lots et n'en trouve que 5 est non alimenté");
+      const mort = clone(verte); mort.exclusions = [exclusion("ecran:liste_lots", "cet écran est déjà alimenté par le jeu")];
+      const rd = joue(mort, "jf3-morte");
+      ok(rd.code === 0 && (rd.j.findings || []).some(f => f.regle === "JF3" && f.sev === "avertissement" && /alimenté/.test(f.msg)),
+        "jeu fictif · une exclusion qui retire un écran DÉJÀ alimenté est avertie, jamais silencieuse (règle morte)");
+    }
+
+    // ---- JF4 un type absent, un doublon, un plancher abaissé -----------------------------------
+    {
+      const d = clone(verte); d.produit.types.push({ id: "avenant", libelle: "Avenant" });
+      const r = joue(d, "jf4-absent");
+      ok(r.code === 1 && JSON.stringify(bloquantes(r.j)) === JSON.stringify(["JF4"]) && dits(r.j, "JF4", /avenant/).length === 1,
+        `jeu fictif · JF4 seule · un type déclaré sans aucun enregistrement est NOMMÉ (obtenu ${bloquantes(r.j).join(",") || "rien"})`);
+      const motive = clone(d); motive.exclusions = [exclusion("type:avenant", "aucun avenant n'a été signé dans ce jeu")];
+      const rm = joue(motive, "jf4-remede");
+      ok(rm.code === 0 && rm.j.verdict === "PASS", `jeu fictif · REMÈDE JF4 : l'exclusion motivée du type fait repasser le jeu (obtenu ${rm.j.verdict})`);
+      const dup = clone(verte); dup.jeu.budget[4].id = "b-1";
+      const rd = joue(dup, "jf4-doublon");
+      ok(rd.code === 1 && JSON.stringify(bloquantes(rd.j)) === JSON.stringify(["JF4"]) && dits(rd.j, "JF4", /b-1/).length === 1,
+        "jeu fictif · JF4 seule · un identifiant en double dans un type est refusé et nommé");
+      const vide = clone(verte); vide.jeu.facture[5].id = "";
+      const rv = joue(vide, "jf4-id-vide");
+      ok(rv.code === 1 && JSON.stringify(bloquantes(rv.j)) === JSON.stringify(["JF4"]), "jeu fictif · JF4 seule · un enregistrement sans identifiant est refusé");
+      const bas = clone(verte); bas.produit.types[3].minimum = 0;
+      const rb = joue(bas, "jf4-plancher");
+      ok(rb.code === 1 && JSON.stringify(bloquantes(rb.j)) === JSON.stringify(["JF4"]), "jeu fictif · JF4 seule · un produit ne peut pas abaisser le plancher du référentiel (minimum 0 refusé)");
+    }
+
+    // ---- JF5 l'histoire d'un stade à l'autre ----------------------------------------------------
+    {
+      const sans = clone(verte); sans.jeu.lot[1].etapes.pop();
+      const r1 = joue(sans, "jf5-courant");
+      ok(r1.code === 1 && JSON.stringify(bloquantes(r1.j)) === JSON.stringify(["JF5"]) && dits(r1.j, "JF5", /lot-2/).length >= 1,
+        `jeu fictif · JF5 seule · un lot au stade « facture » sans l'étape « facture » est NOMMÉ (obtenu ${bloquantes(r1.j).join(",") || "rien"})`);
+      const rebours = clone(verte); rebours.jeu.lot[2].etapes[2].date = "2026-04-01";
+      const r2 = joue(rebours, "jf5-rebours");
+      ok(r2.code === 1 && JSON.stringify(bloquantes(r2.j)) === JSON.stringify(["JF5"]) && dits(r2.j, "JF5", /lot-3/).length >= 1,
+        `jeu fictif · JF5 seule · une étape datée avant la précédente (en_cours le 01/04, engage le 06/04) est refusée (obtenu ${bloquantes(r2.j).join(",") || "rien"})`);
+      const hors = clone(verte); hors.jeu.lot[3].stade = "archive";
+      const r3 = joue(hors, "jf5-hors-cycle");
+      ok(r3.code === 1 && JSON.stringify(bloquantes(r3.j)) === JSON.stringify(["JF5"]) && dits(r3.j, "JF5", /archive/).length >= 1,
+        "jeu fictif · JF5 seule · un stade hors du cycle déclaré est refusé et cité");
+      const trou = clone(verte); trou.jeu.lot[4].stade = "engage"; trou.jeu.lot[4].etapes.push({ stade: "engage", date: "2026-06-29" });
+      const r4 = joue(trou, "jf5-stade-vide");
+      ok(r4.code === 1 && JSON.stringify(bloquantes(r4.j)) === JSON.stringify(["JF5"]) && dits(r4.j, "JF5", /consulte/).length >= 1,
+        `jeu fictif · JF5 seule · le stade « consulte » n'est plus occupé par aucun lot : le cycle n'a pas son histoire entière (obtenu ${bloquantes(r4.j).join(",") || "rien"})`);
+      const motive = clone(trou); motive.exclusions = [exclusion("stade:lot.consulte", "aucun lot n'est plus au stade de consultation ici")];
+      const rm = joue(motive, "jf5-remede");
+      ok(rm.code === 0 && rm.j.verdict === "PASS", `jeu fictif · REMÈDE JF5 : l'exclusion motivée du stade fait repasser le jeu (obtenu ${rm.j.verdict})`);
+      const exige = clone(verte);
+      exige.jeu.lot[3].stade = "facture";
+      exige.jeu.lot[3].etapes.push({ stade: "en_cours", date: "2026-05-25" }, { stade: "facture", date: "2026-06-05" });
+      const r5 = joue(exige, "jf5-exige");
+      ok(r5.code === 1 && JSON.stringify(bloquantes(r5.j)) === JSON.stringify(["JF5"]) && dits(r5.j, "JF5", /lot-4.*facture/).length >= 1,
+        `jeu fictif · JF5 seule · un lot au stade « facture » sans aucune facture liée est refusé (obtenu ${bloquantes(r5.j).join(",") || "rien"})`);
+      const montant = clone(verte); montant.jeu.lot[0].etapes[1].montant = -3;
+      const r6 = joue(montant, "jf5-montant");
+      ok(r6.code === 1 && JSON.stringify(bloquantes(r6.j)) === JSON.stringify(["JF5"]), "jeu fictif · JF5 seule · un montant d'étape négatif est refusé");
+    }
+
+    // ---- JF6 les montants et les dates entre enregistrements liés --------------------------------
+    {
+      const somme = clone(verte); somme.jeu.facture[3].montant = 60000; retotal(somme);
+      const r1 = joue(somme, "jf6-somme");
+      ok(r1.code === 1 && JSON.stringify(bloquantes(r1.j)) === JSON.stringify(["JF6"]) && dits(r1.j, "JF6", /lot-2/).length >= 1,
+        `jeu fictif · JF6 seule · des factures à 90 000 sur un budget de 64 000 sont refusées et le lot est NOMMÉ (obtenu ${bloquantes(r1.j).join(",") || "rien"})`);
+      const date = clone(verte); date.jeu.facture[5].etapes[0].date = "2026-04-02";
+      const r2 = joue(date, "jf6-date");
+      ok(r2.code === 1 && JSON.stringify(bloquantes(r2.j)) === JSON.stringify(["JF6"]) && dits(r2.j, "JF6", /f-6/).length >= 1,
+        `jeu fictif · JF6 seule · une facture émise le 02/04 avant le démarrage du lot (27/04) est refusée (obtenu ${bloquantes(r2.j).join(",") || "rien"})`);
+      const orph = clone(verte); orph.jeu.facture[4].lot_id = "lot-9";
+      const r3 = joue(orph, "jf6-orphelin");
+      ok(r3.code === 1 && JSON.stringify(bloquantes(r3.j)) === JSON.stringify(["JF6"]) && dits(r3.j, "JF6", /lot-9/).length >= 1,
+        `jeu fictif · JF6 seule · une facture rattachée à un lot qui n'existe pas est refusée (obtenu ${bloquantes(r3.j).join(",") || "rien"})`);
+      const neg = clone(verte); neg.jeu.budget[0].montant = -5; retotal(neg);
+      const r4 = joue(neg, "jf6-negatif");
+      ok(r4.code === 1 && bloquantes(r4.j).includes("JF6") && !bloquantes(r4.j).includes("JF7"), "jeu fictif · JF6 · un montant négatif est refusé");
+      // Le parent n'a pas atteint l'événement que l'enfant suppose : une facture sur un lot jamais démarré.
+      const pas = clone(verte);
+      pas.jeu.facture.push({ id: "f-7", lot_id: "lot-5", montant: 1000, statut: "emise", etapes: [{ stade: "emise", date: "2026-06-30" }] });
+      retotal(pas);
+      const r5 = joue(pas, "jf6-parent-pas-arrive");
+      ok(r5.code === 1 && JSON.stringify(bloquantes(r5.j)) === JSON.stringify(["JF6"]) && dits(r5.j, "JF6", /f-7/).length >= 1,
+        `jeu fictif · JF6 seule · une facture sur un lot qui n'a jamais démarré (aucune étape en_cours) est refusée (obtenu ${bloquantes(r5.j).join(",") || "rien"})`);
+    }
+
+    // ---- JF7 le générateur déclare ce que le contenu ne porte pas -----------------------------------
+    {
+      const d = clone(verte);
+      d.generateur.totaux.find(t => t.id === "lots").valeur = 6;
+      d.affichage.totaux.find(t => t.total === "lots").valeur = 6;
+      const r = joue(d, "jf7");
+      ok(r.code === 1 && JSON.stringify(bloquantes(r.j)) === JSON.stringify(["JF7"]) && dits(r.j, "JF7", /lots/).length === 1,
+        `jeu fictif · JF7 seule · le générateur annonce 6 lots, le jeu en porte 5 : l'écart est NOMMÉ (obtenu ${bloquantes(r.j).join(",") || "rien"})`);
+      const s = clone(verte);
+      s.generateur.totaux.find(t => t.id === "budget_total").valeur = 400000;
+      s.affichage.totaux.find(t => t.total === "budget_total").valeur = 400000;
+      const rs = joue(s, "jf7-somme");
+      ok(rs.code === 1 && JSON.stringify(bloquantes(rs.j)) === JSON.stringify(["JF7"]), "jeu fictif · JF7 seule · une somme déclarée à 400 000 contre 405 500 recalculés est refusée");
+    }
+
+    // ---- JF8 l'affichage contre le générateur ----------------------------------------------------------
+    {
+      const zero = clone(verte); zero.affichage.totaux.find(t => t.total === "lots").valeur = 0;
+      const r1 = joue(zero, "jf8-zero");
+      ok(r1.code === 1 && JSON.stringify(bloquantes(r1.j)) === JSON.stringify(["JF8"]) && dits(r1.j, "JF8", /lots/).length === 1,
+        `jeu fictif · JF8 seule · un écran qui affiche 0 lot là où le générateur en déclare 5 est refusé et nommé (obtenu ${bloquantes(r1.j).join(",") || "rien"})`);
+      const tol = clone(verte); tol.affichage.totaux.find(t => t.total === "factures_total").valeur = 250000.004;
+      const r2 = joue(tol, "jf8-tolerance");
+      ok(r2.code === 0 && r2.j.verdict === "PASS", `jeu fictif · JF8 : 0,004 d'écart sur une somme tient dans la tolérance du référentiel (0,005) — obtenu ${r2.j.verdict}`);
+      const hors = clone(verte); hors.affichage.totaux.find(t => t.total === "factures_total").valeur = 250000.01;
+      const r3 = joue(hors, "jf8-hors-tolerance");
+      ok(r3.code === 1 && JSON.stringify(bloquantes(r3.j)) === JSON.stringify(["JF8"]), "jeu fictif · JF8 seule · 0,01 d'écart sur une somme dépasse la tolérance");
+      const compte = clone(verte); compte.affichage.totaux.find(t => t.total === "factures_a_regler").valeur = 3.1;
+      const r4 = joue(compte, "jf8-compte");
+      ok(r4.code === 1 && JSON.stringify(bloquantes(r4.j)) === JSON.stringify(["JF8"]), "jeu fictif · JF8 seule · un compte se compare à l'unité : 3,1 contre 3 est refusé");
+      const inconnu = clone(verte); inconnu.affichage.totaux[0].total = "fantome";
+      const r5 = joue(inconnu, "jf8-total-inconnu");
+      ok(r5.code === 1 && JSON.stringify(bloquantes(r5.j)) === JSON.stringify(["JF8"]), "jeu fictif · JF8 seule · un total affiché que le générateur ne déclare pas est refusé");
+      const ecran = clone(verte); ecran.affichage.totaux[0].ecran = "ecran_fantome";
+      const r6 = joue(ecran, "jf8-ecran-inconnu");
+      ok(r6.code === 1 && JSON.stringify(bloquantes(r6.j)) === JSON.stringify(["JF8"]), "jeu fictif · JF8 seule · un total lu sur un écran que le produit ne déclare pas est refusé");
+      const sansLecteur = clone(verte); delete sansLecteur.affichage.par;
+      const r7 = joue(sansLecteur, "jf8-sans-lecteur");
+      ok(r7.code === 1 && JSON.stringify(bloquantes(r7.j)) === JSON.stringify(["JF8"]), "jeu fictif · JF8 seule · une lecture d'écran sans auteur ne se rejoue pas : refusée");
+      // Sans lecture d'écran déclarée, le rendu n'est pas jugé : PASS, et la lacune est DITE.
+      const nu = clone(verte); delete nu.affichage;
+      const r8 = joue(nu, "jf8-absent");
+      ok(r8.code === 0 && r8.j.verdict === "PASS" && (r8.j.findings || []).some(f => f.regle === "JF8" && f.sev === "avertissement" && /affich/.test(f.msg)),
+        "jeu fictif · JF8 · sans lecture d'écran, le verdict reste PASS mais l'oracle DIT que l'affichage n'est pas jugé (avertissement)");
+    }
+
+    // ---- le jeu peut vivre dans un fichier voisin (jeu_ref), et son absence est refusée -----------------
+    {
+      const d = clone(verte); const jeu = d.jeu; delete d.jeu; d.jeu_ref = "jeu-voisin.json";
+      fs.writeFileSync(path.join(dir, "jeu-voisin.json"), JSON.stringify(jeu));
+      const r = joue(d, "jeu-ref");
+      ok(r.code === 0 && r.j.verdict === "PASS", `jeu fictif · jeu_ref : le jeu lu dans un fichier voisin passe comme le jeu en ligne (obtenu ${r.j.verdict})`);
+      const x = clone(d); x.jeu_ref = "n-existe-pas.json";
+      const rx = joue(x, "jeu-ref-absent");
+      ok(rx.code === 1 && JSON.stringify(bloquantes(rx.j)) === JSON.stringify(["JF1"]), "jeu fictif · jeu_ref vers un fichier absent : refusé sur JF1");
+    }
+
+    // ---- la coquille rejetée par le porteur : ce que l'oracle en DIT -------------------------------------
+    {
+      const r = joue(JSON.parse(fs.readFileSync(fx("jeu-fictif-coquille-rouge.json"), "utf8")), "coquille");
+      const mm = r.j.mesures || {};
+      ok(r.code === 1 && mm.ecrans && mm.ecrans.alimentes === 0 && mm.ecrans.declares === 5 && mm.types && mm.types.presents === 1 && mm.types.declares === 4 && mm.enregistrements === 2,
+        `jeu fictif · coquille : 0 écran alimenté sur 5, 1 type présent sur 4, 2 enregistrements — obtenu ${JSON.stringify({ e: mm.ecrans, t: mm.types, n: mm.enregistrements })}`);
+      ok(dits(r.j, "JF4", /lot/).length >= 1 && dits(r.j, "JF4", /budget/).length >= 1 && dits(r.j, "JF4", /facture/).length >= 1,
+        "jeu fictif · coquille : les trois types absents (lot, budget, facture) sont NOMMÉS, pas seulement comptés");
+      ok(dits(r.j, "JF7", /lots.*5.*0|5.*lots.*0/).length >= 1, "jeu fictif · coquille : le générateur qui annonce 5 lots pour 0 trouvé est confronté (JF7)");
+      ok(dits(r.j, "JF8", /lots/).length >= 1, "jeu fictif · coquille : l'écran qui affiche 0 lot face aux 5 déclarés est confronté (JF8)");
+      ok((r.j.findings || []).length <= 40, `jeu fictif · coquille : les constats sont GROUPÉS, pas un par ligne manquante (${(r.j.findings || []).length} constats)`);
+    }
+
+    // ---- les sorties du contrat : introuvable, JSON invalide, référentiel absent -----------------------
+    {
+      const nul = spawnSync(process.execPath, [ORACLE, path.join(dir, "inexistant.json"), "--json-only"], { encoding: "utf8" });
+      let jn = {}; try { jn = JSON.parse(nul.stdout || "{}"); } catch { /* vide */ }
+      ok(nul.status === 2 && jn.verdict === "SKIP", `jeu fictif · fichier introuvable : SKIP exit 2 (obtenu ${jn.verdict} exit ${nul.status})`);
+      const mauvais = path.join(dir, "mauvais.json"); fs.writeFileSync(mauvais, "{ pas du json");
+      const inv = spawnSync(process.execPath, [ORACLE, mauvais, "--json-only"], { encoding: "utf8" });
+      let ji = {}; try { ji = JSON.parse(inv.stdout || "{}"); } catch { /* vide */ }
+      ok(inv.status === 1 && ji.verdict === "FAIL", `jeu fictif · JSON invalide : FAIL exit 1 (obtenu ${ji.verdict} exit ${inv.status})`);
+      const p = path.join(dir, "verte-sans-def.json"); fs.writeFileSync(p, JSON.stringify(verte));
+      const sd = spawnSync(process.execPath, [ORACLE, p, "--json-only", "--definition", path.join(dir, "definition-absente.json")], { encoding: "utf8" });
+      let js = {}; try { js = JSON.parse(sd.stdout || "{}"); } catch { /* vide */ }
+      ok(sd.status === 2 && js.verdict === "SKIP" && (js.findings || []).some(f => /définition|referentiel|référentiel/i.test(f.msg)),
+        `jeu fictif · référentiel de définition absent : SKIP exit 2 avec le motif DIT — l'oracle ne juge pas contre une définition qu'il n'a pas (obtenu ${js.verdict} exit ${sd.status})`);
+    }
+
+    // ---- le référentiel est une donnée datée et sourcée, dont chaque critère retrouve sa règle ----------
+    {
+      const def = JSON.parse(fs.readFileSync(path.join(ici, "..", "references", "definition-jeu-fictif.json"), "utf8"));
+      const src = fs.readFileSync(ORACLE, "utf8");
+      ok(def.format === "forge-data/definition-jeu-fictif@1" && /^\d{4}-\d{2}-\d{2}$/.test(def.date) && /RT-40/.test(def.source) && /TF-2085/.test(def.source),
+        "jeu fictif · le référentiel est une donnée éditable, DATÉE et SOURCÉE (loi n° 4, retour RT-40)");
+      const ids = (def.criteres || []).map(c => c.id).sort();
+      ok(JSON.stringify(ids) === JSON.stringify(["JF1", "JF2", "JF3", "JF4", "JF5", "JF6", "JF7", "JF8"]),
+        `jeu fictif · le référentiel porte un critère par règle JF1 à JF8 — obtenu ${ids.join(",")}`);
+      const orphelines = (def.criteres || []).filter(c => !new RegExp(`"${c.regle}"`).test(src));
+      ok(!orphelines.length, `jeu fictif · chaque critère du référentiel se retrouve dans le fichier de l'oracle (convention CH4)${orphelines.length ? " — absents : " + orphelines.map(c => c.id).join(",") : ""}`);
+      ok(def.criteres.every(c => c.enonce && c.defaut_vu), "jeu fictif · chaque critère porte son énoncé ET le défaut vu qui l'a motivé");
+      const pl = def.planchers || {};
+      ok(pl.minimum_enregistrements_par_type >= 1 && pl.minimum_lignes_par_ecran >= 1 && pl.mots_motif_exclusion >= 4 && pl.tolerance_somme > 0 && Array.isArray(pl.origines_admises) && pl.motif_planchers,
+        "jeu fictif · les planchers sont portés par le référentiel, avec leur motif");
+    }
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 }
 
 console.log(`\nSelf-test forge-data : ${pass} PASS, ${echec} FAIL`);

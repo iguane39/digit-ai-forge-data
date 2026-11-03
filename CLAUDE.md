@@ -69,6 +69,9 @@ node oracles/oracle-evoluer.mjs <evolutions.json>         # EV1-EV7 : projection
 node oracles/oracle-anonymiser.mjs <dossier masqué>       # AN1-AN10 : un extrait de production anonymisé, MESURÉ contre sa
                                                           # source — individualisation (k), corrélation, inférence (l, t),
                                                           # pseudonymisation refusée (TF-2011, avis WP216)
+node oracles/oracle-jeu-fictif.mjs <jeu-fictif.json>      # JF1-JF8 : un jeu fictif alimente chaque écran, porte chaque type
+                                                          # d'enregistrement, raconte une histoire cohérente d'un stade à
+                                                          # l'autre, et ses totaux se recalculent (TF-2085, RT-40)
 node oracles/self-test.mjs                                 # double sens — à rejouer après toute modification
 node oracles/decouvrir-oracles.mjs                         # liste des oracles LUE SUR LE DISQUE (TF-1319, contrat du pilot)
 ```
@@ -759,6 +762,19 @@ rechargement vivent au §6 des profils `postgres.md` et `supabase.md`. Fixtures 
 (boutique inventée, canonisée par PostgreSQL), `anonymisation-verte/` produite par le verbe, et quatre
 rouges, un défaut chacune : identifiant gardé (AN3), noms hachés (AN4), classe de 2 personnes (AN5),
 classe homogène (AN7). Le self-test génère une rouge pour chacune des autres règles.
+
+## Le jeu de données fictif (TF-2085, 03/11/2026, retour RT-40) — un jeu fictif qui n'a rien n'est pas un jeu fictif
+
+Un jeu « fictif » a été livré en deux coquilles vides, sans lot, sans budget, sans facture. Le porteur
+l'a rejeté, et rien ne définissait ce qu'il devait couvrir. La définition vit en donnée datée et
+sourcée, `references/definition-jeu-fictif.json`, et en doctrine, `references/JEU-FICTIF.md`.
+`oracle-jeu-fictif.mjs <jeu-fictif.json>` (format `forge-data/jeu-fictif@1`) juge le jeu AVANT la
+remise : JF3 chaque écran alimenté, JF4 chaque type présent, JF5 l'histoire d'un stade à l'autre,
+JF6 les montants et les dates entre enregistrements liés, JF7 les totaux du générateur recalculés
+sur le contenu, JF8 les totaux lus sur les écrans égaux à ceux que le générateur déclare. Une
+exclusion motivée (≥ 4 mots) est la seule porte de sortie. Fixtures : `jeu-fictif-verte.json`
+(PASS), `jeu-fictif-coquille-rouge.json` (le défaut rejeté), `jeu-fictif-histoire-rouge.json`.
+Le câblage chez forge-tests (porte avant remise, relevé des routes) est sa décision.
 
 ## Profils-moteur (TF-0140, `references\profils-moteur\`)
 

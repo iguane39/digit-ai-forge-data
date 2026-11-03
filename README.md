@@ -68,6 +68,7 @@ node scripts/anonymiser.mjs --masquage fixtures/anonymisation-verte/masquage.jso
      --source fixtures/anonymisation-source --sortie <dossier-neuf>   # TF-2011 : extrait masqué + rapport anonymisation.json
 node oracles/oracle-anonymiser.mjs fixtures/anonymisation-verte      # AN1-AN10 : k, l, t, corrélation, pseudonymisation refusée (TF-2011)
 node scripts/exercer-anonymiser-postgres.mjs                          # TF-2011 : extraire, masquer, juger, recharger sur un PostgreSQL éphémère (Docker)
+node oracles/oracle-jeu-fictif.mjs fixtures/jeu-fictif-verte.json      # JF1-JF8 : un jeu fictif alimente chaque écran, porte chaque type, raconte une histoire cohérente (TF-2085)
 node oracles/self-test.mjs   # double sens : vertes PASS, rouges FAIL localisants + round-trips importer/traducteur
 python scripts/verifier_unites_parquet.py --self-test   # TF-1065 : type parquet écrit, refuse la nanoseconde (fixtures à la volée)
 ```
