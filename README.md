@@ -15,6 +15,19 @@ sur une donnée dans la forge. Son oracle, `oracle-anonymiser`, mesure l'extrait
 source selon les trois critères de l'avis 05/2014 du groupe de l'article 29 (WP216) :
 individualisation, corrélation, inférence. Il refuse toute pseudonymisation, par clé ou par hachage.
 
+## Utilisation
+
+Cette forge ne se lance pas seule : la Factory la mobilise quand votre demande en a besoin.
+Ouvrez une session Claude Code dans le dossier de votre projet et collez cette phrase, la même
+pour tous les cas d'usage :
+
+```
+Utilise https://github.com/iguane39/digit-ai-factory pour ce projet
+```
+
+La Factory installe ce qui manque, cette forge comprise, puis vous demande ce que vous voulez
+obtenir. Détail : [README de la Factory](https://github.com/iguane39/digit-ai-factory#utiliser-la-factory--une-seule-phrase).
+
 ## Catalogue de services
 
 > Section proposée par la campagne « catalogues » du pilot (2026-08-13) — générée depuis
